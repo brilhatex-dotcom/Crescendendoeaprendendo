@@ -101,9 +101,18 @@ Objetivo: **um responsável cria conta, verifica e-mail, cria o perfil da crian�
 área infantil.** É o critério de aceite da Etapa 0 em `docs/12-roadmap.md`.
 
 ### Pré-requisito bloqueante
-Não existe banco de dados provisionado. Alguém precisa criar um projeto no **Neon**
-e preencher `DATABASE_URL` (string *pooled*) e `DIRECT_DATABASE_URL` (direta) no `.env`.
-Depois: `npx prisma migrate dev --name init`.
+Não existe banco de dados provisionado.
+
+O caminho escolhido é provisionar pela **Vercel** (Storage → Neon), não criando conta no
+Neon separadamente. As variáveis entram sozinhas no projeto e o deploy aplica a migration:
+o script `vercel-build` roda `prisma migrate deploy` antes do build.
+
+A migration inicial **já existe e já foi validada** contra PostgreSQL 16
+(`prisma/migrations/20260803200611_init/` — 53 tabelas, 139 índices, 12 enums).
+Não gere outra: aplique a que existe.
+
+Para desenvolver localmente, basta `DATABASE_URL` no `.env`.
+`scripts/with-direct-db.mjs` resolve a conexão direta sozinho.
 
 ### Ordem sugerida
 1. `src/server/db.ts` — singleton do `PrismaClient` sobre a string pooled
