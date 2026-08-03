@@ -27,9 +27,17 @@ const config = [
       // ── Sem código provisório (Bíblia Cap. 0 §6) ──────────────────────────
       // Funcionalidade não pronta fica atrás de feature flag desligada,
       // nunca como comentário de promessa.
+      //
+      // `location: "start"` e não "anywhere": este código é comentado em
+      // português, e "todo/toda" é palavra corrente ("toda escrita econômica",
+      // "todo Json tem schema Zod"). Com "anywhere" a regra proibia prosa
+      // legítima e empurrava para comentários piores — o oposto do que ela
+      // existe para conseguir. Marcador de trabalho pendente é escrito no
+      // início do comentário por convenção universal (`// TODO: ...`), que é
+      // exatamente o que continua barrado.
       "no-warning-comments": [
         "error",
-        { terms: ["todo", "fixme", "xxx", "hack"], location: "anywhere" },
+        { terms: ["todo", "fixme", "xxx", "hack"], location: "start" },
       ],
 
       // ── Segurança (docs/09 §5) ────────────────────────────────────────────

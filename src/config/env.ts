@@ -26,6 +26,23 @@ const serverSchema = z.object({
   TUTOR_MODEL: z.string().default("claude-sonnet-5"),
   TUTOR_DAILY_BUDGET_CENTS: z.coerce.number().int().positive().default(50),
 
+  // E-mail transacional — verificação de conta e recuperação de senha.
+  // Ausente, o mailer cai no adaptador de console (útil em dev). Em produção
+  // isso não derruba o build: falha alto no envio, com erro UNAVAILABLE.
+  RESEND_API_KEY: z.string().startsWith("re_").optional(),
+  /**
+   * Remetente. Aceita `endereco@dominio` ou `Nome Visível <endereco@dominio>`
+   * — o segundo formato é o que faz a caixa de entrada mostrar "Crescendo e
+   * Aprendendo" em vez de um endereço cru, e é o que os provedores esperam.
+   */
+  EMAIL_FROM: z
+    .string()
+    .regex(
+      /^(?:[^<>]+\s)?<?[^\s@<>]+@[^\s@<>.]+(?:\.[^\s@<>.]+)+>?$/,
+      "EMAIL_FROM deve ser 'endereco@dominio' ou 'Nome <endereco@dominio>'",
+    )
+    .default("Crescendo e Aprendendo <ola@crescendoeaprendendo.com.br>"),
+
   // Infra opcional em desenvolvimento
   REDIS_URL: z.string().url().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
