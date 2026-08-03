@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Valores de fachada: nenhum passo do CI conecta em banco real.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+  DIRECT_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+  AUTH_SECRET: ci-secret-com-mais-de-trinta-e-dois-caracteres-para-passar
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+jobs:
+  verify:
+    name: Tipos, lint, fronteiras e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Gerar Prisma Client
+        run: npx prisma generate
+
+      - name: Validar schema do banco
+        run: npx prisma validate
+
+      # ── As quatro barreiras que sustentam a Constituição ──────────────────
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Violação de fronteira quebra o build. É o que impede a erosão da
+      # arquitetura ao longo dos anos (docs/01 §1).
+      - name: Fronteiras de arquitetura
+        run: npm run boundaries
+
+      # Inclui os testes de política: as proibições da Bíblia Cap. 1 §1.6.
+      - name: Testes
+        run: npm run test
+
+  build:
+    name: Build de produção
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build

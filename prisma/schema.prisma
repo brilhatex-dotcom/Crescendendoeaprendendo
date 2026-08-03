@@ -1,0 +1,1044 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  CRESCENDO E APRENDENDO — Modelo de dados
+//
+//  Contrato: docs/04-modelagem-de-dados.md
+//  Constituição: docs/biblia/volume-1/
+//
+//  Regras transversais (docs/04 §1):
+//   · ids de domínio = cuid2 (opaco, não vaza volume nem ordem)
+//   · tabelas de evento = BigInt autoincrement (escrita sequencial)
+//   · dinheiro e moeda = Int (nunca Float)
+//   · domínio/probabilidade = Decimal (determinístico)
+//   · soft delete em dados de pessoa; hard delete no fluxo LGPD
+//   · todo Json tem schema Zod correspondente + schemaVersion
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  IDENTIDADE, RBAC E CONSENTIMENTO
+//  Criança NUNCA é Account (ADR 0003 · Bíblia Cap. 1 PSI1).
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum AccountRole {
+  GUARDIAN
+  TEACHER
+  SCHOOL_ADMIN
+  CONTENT_AUTHOR
+  MODERATOR
+  PLATFORM_ADMIN
+}
+
+enum AccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ConsentType {
+  PARENTAL_DATA
+  AI_TUTOR
+  ANALYTICS
+  MEDIA_UPLOAD
+  CLASSROOM_ENROLL
+}
+
+model Account {
+  id              String        @id @default(cuid(2))
+  email           String        @unique
+  emailVerifiedAt DateTime?
+  passwordHash    String? // null = apenas OAuth
+  name            String
+  locale          String        @default("pt-BR")
+  status          AccountStatus @default(PENDING_VERIFICATION)
+  parentPinHash   String? // step-up para área adulta e troca de perfil
+  mfaSecret       String? // TOTP — obrigatório para SCHOOL_ADMIN/PLATFORM_ADMIN
+  lastLoginAt     DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  roles            AccountRoleAssignment[]
+  guardianships    GuardianLink[]
+  sessions         Session[]
+  consents         Consent[]
+  oauthAccounts    OAuthAccount[]
+  classroomsTaught Classroom[]             @relation("ClassroomTeacher")
+  notifications    Notification[]
+
+  @@index([status, createdAt])
+  @@index([deletedAt])
+}
+
+/// RBAC: papel é sempre escopado (organização ou família). Sem permissão global implícita.
+model AccountRoleAssignment {
+  id             String      @id @default(cuid(2))
+  accountId      String
+  role           AccountRole
+  organizationId String? // null = escopo pessoal/familiar
+  grantedById    String?
+  createdAt      DateTime    @default(now())
+
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([accountId, role, organizationId])
+  @@index([organizationId, role])
+}
+
+/// Escola ou rede de ensino. organizationId nulo em Learner = conta familiar.
+model Organization {
+  id        String    @id @default(cuid(2))
+  name      String
+  slug      String    @unique
+  plan      String    @default("school_basic")
+  settings  Json // schemaVersion + políticas da escola
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  roleAssignments AccountRoleAssignment[]
+  learners        Learner[]
+  classrooms      Classroom[]
+
+  @@index([deletedAt])
+}
+
+/// Sessão adulta (estratégia de banco). A sub-sessão de criança deriva desta.
+model Session {
+  id              String    @id @default(cuid(2))
+  accountId       String
+  tokenHash       String    @unique // guardamos hash, nunca o token
+  ipHash          String? // pseudonimizado
+  userAgent       String?
+  activeLearnerId String? // sub-sessão de criança em vigor
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, expiresAt])
+  @@index([expiresAt]) // limpeza periódica
+}
+
+/// LGPD: prova de consentimento parental, item a item e revogável.
+model Consent {
+  id        String      @id @default(cuid(2))
+  accountId String
+  learnerId String?
+  type      ConsentType
+  version   String // versão do texto aceito
+  granted   Boolean
+  ipHash    String
+  createdAt DateTime    @default(now())
+
+  account Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  learner Learner? @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([learnerId, type, createdAt])
+  @@index([accountId, type, createdAt])
+}
+
+/// Tabela do Auth.js para provedores OAuth — renomeada para não colidir com Account de domínio.
+model OAuthAccount {
+  id                String  @id @default(cuid(2))
+  accountId         String
+  provider          String
+  providerAccountId String
+  refreshToken      String?
+  accessToken       String?
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([accountId])
+}
+
+model VerificationToken {
+  identifier String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+
+  @@id([identifier, tokenHash])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CRIANÇA (LEARNER)
+//  Minimização de dados: apelido e ANO de nascimento. Nada mais. (PSI4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum AgeBand {
+  SPROUT // 6–8  · A Semente
+  EXPLORER // 9–12 · O Explorador
+  PIONEER // 13–15 · O Pioneiro (fase futura)
+  VANGUARD // 16–17 · A Vanguarda (fase futura)
+}
+
+model Learner {
+  id             String    @id @default(cuid(2))
+  displayName    String // apelido — nunca nome completo obrigatório
+  birthYear      Int // ano apenas
+  ageBand        AgeBand
+  avatarConfig   Json // camadas do avatar (schemaVersion)
+  locale         String    @default("pt-BR")
+  organizationId String?
+  pseudonymId    String    @unique @default(cuid(2)) // id usado em telemetria e IA
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization    Organization?           @relation(fields: [organizationId], references: [id])
+  settings        LearnerSettings?
+  guardians       GuardianLink[]
+  progress        LearnerProgress?
+  wallet          Wallet?
+  companion       Companion?
+  talentProfile   TalentProfile?
+  screenTimeRule  ScreenTimeRule?
+  masteries       SkillMastery[]
+  reviewCards     ReviewCard[]
+  attempts        Attempt[]
+  questRuns       QuestRun[]
+  unlocks         Unlock[]
+  ledgerEntries   LedgerEntry[]
+  inventory       InventoryItem[]
+  achievements    LearnerAchievement[]
+  tutorSessions   TutorSession[]
+  recommendations Recommendation[]
+  enrollments     ClassroomEnrollment[]
+  submissions     Submission[]
+  consents        Consent[]
+  notifications   Notification[]
+  weeklySnapshots LearnerWeeklySnapshot[]
+
+  @@index([organizationId])
+  @@index([ageBand])
+  @@index([deletedAt])
+}
+
+/// Acessibilidade como padrão, não como recurso (Bíblia Cap. 1 V6).
+model LearnerSettings {
+  learnerId       String  @id
+  soundEnabled    Boolean @default(true)
+  musicEnabled    Boolean @default(true)
+  reducedMotion   Boolean @default(false)
+  dyslexiaFont    Boolean @default(false)
+  highContrast    Boolean @default(false)
+  textToSpeech    Boolean @default(true) // padrão true em SPROUT
+  aiTutorEnabled  Boolean @default(true)
+  captionsEnabled Boolean @default(true)
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+}
+
+model GuardianLink {
+  id        String   @id @default(cuid(2))
+  accountId String
+  learnerId String
+  relation  String // mãe, pai, responsável…
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, learnerId])
+  @@index([learnerId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CURRÍCULO — grafo de competências (DAG)
+//  Currículo é DADO, não código (ADR 0002 · docs/01 §4).
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// As sete Academias do Arquipélago Crescente (Bíblia Cap. 4).
+model Academy {
+  id         String   @id @default(cuid(2))
+  slug       String   @unique
+  name       String // "Academia do Conhecimento"
+  islandName String // "Ilha das Mil Perguntas"
+  guardian   String // "ORLA"
+  theme      Json // tokens de tema do mundo (--academy-from/to/glow)
+  order      Int
+  minLevel   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  worlds   World[]
+  subjects Subject[]
+}
+
+model Subject {
+  id        String @id @default(cuid(2))
+  academyId String
+  code      String @unique // 'PT', 'MA', 'CI', 'FIN', 'PROG'
+  name      String
+  order     Int
+
+  academy Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  strands Strand[]
+
+  @@index([academyId, order])
+}
+
+/// Unidade temática da BNCC, ou eixo próprio nas academias não escolares.
+model Strand {
+  id        String @id @default(cuid(2))
+  subjectId String
+  code      String
+  name      String
+  order     Int
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  skills  Skill[]
+
+  @@unique([subjectId, code])
+}
+
+/// Nó do DAG de competências. bnccCode preenchido quando há correspondência oficial.
+model Skill {
+  id            String  @id @default(cuid(2))
+  strandId      String
+  bnccCode      String? // 'EF04MA05'
+  name          String
+  description   String
+  minAgeBand    AgeBand
+  maxAgeBand    AgeBand
+  difficultyRef Decimal @db.Decimal(6, 3) // dificuldade de referência (escala Elo)
+  order         Int
+
+  strand        Strand              @relation(fields: [strandId], references: [id], onDelete: Cascade)
+  objectives    Objective[]
+  prerequisites SkillPrerequisite[] @relation("dependent")
+  unlocks       SkillPrerequisite[] @relation("prerequisite")
+  masteries     SkillMastery[]
+  reviewCards   ReviewCard[]
+
+  @@unique([strandId, name])
+  @@index([bnccCode])
+  @@index([minAgeBand, maxAgeBand])
+}
+
+/// Aresta do DAG. Ciclos são barrados na validação de conteúdo (scripts/validate-content).
+model SkillPrerequisite {
+  skillId        String
+  prerequisiteId String
+  strength       Decimal @default(1.0) @db.Decimal(3, 2) // 1 = obrigatório, <1 = recomendado
+
+  skill        Skill @relation("dependent", fields: [skillId], references: [id], onDelete: Cascade)
+  prerequisite Skill @relation("prerequisite", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  @@id([skillId, prerequisiteId])
+  @@index([prerequisiteId])
+}
+
+model Objective {
+  id      String @id @default(cuid(2))
+  skillId String
+  name    String
+  order   Int
+
+  skill      Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@index([skillId, order])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONTEÚDO E ATIVIDADES
+//  Motor de plugins: novo minigame = nova pasta + conteúdo. Zero migration.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum ActivityType {
+  MULTIPLE_CHOICE
+  MULTI_SELECT
+  TRUE_FALSE
+  FILL_BLANK
+  WORD_BUILD
+  DRAG_MATCH
+  ORDER_SEQUENCE
+  NUMBER_LINE
+  GRID_PUZZLE
+  MEMORY_PAIRS
+  SPEED_TAP
+  STORY_BRANCH
+  CHESS_PUZZLE
+  CODE_BLOCKS
+  DRAWING_CANVAS
+  AUDIO_RECORD
+  FREE_TEXT
+  PHOTO_PROOF
+  SIMULATION
+  BUILD_3D
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentOrigin {
+  CURATED
+  AI_GENERATED
+  AI_ASSISTED
+  IMPORTED
+}
+
+/// Unidade de publicação e de invalidação de cache.
+model ContentPack {
+  id          String        @id @default(cuid(2))
+  slug        String        @unique
+  version     Int           @default(1)
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  activities Activity[]
+
+  @@index([status, publishedAt])
+}
+
+model Activity {
+  id            String        @id @default(cuid(2))
+  packId        String?
+  objectiveId   String
+  type          ActivityType
+  config        Json // validado pelo configSchema do plugin
+  schemaVersion Int           @default(1)
+  difficulty    Decimal       @db.Decimal(6, 3) // escala Elo, calibrada por telemetria
+  estimatedSec  Int
+  minAgeBand    AgeBand
+  maxAgeBand    AgeBand
+  origin        ContentOrigin @default(CURATED)
+  status        ContentStatus @default(DRAFT)
+  reviewedById  String?
+  locale        String        @default("pt-BR")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  objective  Objective       @relation(fields: [objectiveId], references: [id])
+  pack       ContentPack?    @relation(fields: [packId], references: [id])
+  stageLinks StageActivity[]
+  attempts   Attempt[]
+
+  @@index([objectiveId, status, difficulty])
+  @@index([type, status])
+  @@index([minAgeBand, maxAgeBand, status])
+  @@index([origin, status]) // auditoria de conteúdo gerado por IA
+}
+
+/// Mídia no Vercel Blob. altText obrigatório em imagem (acessibilidade).
+model Asset {
+  id        String   @id @default(cuid(2))
+  url       String
+  kind      String // image, audio, lottie, sprite
+  bytes     Int
+  checksum  String   @unique
+  altText   String?
+  createdAt DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MUNDO, MISSÕES E MAPA
+//  Missão = ato de restauração. Colosso = chefão que ACORDA, não morre.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum QuestKind {
+  STORY
+  PRACTICE
+  CHALLENGE
+  BOSS
+  REVIEW
+  PROJECT
+  FAMILY
+  DAILY
+}
+
+model World {
+  id        String   @id @default(cuid(2))
+  academyId String
+  slug      String
+  name      String
+  mapLayout Json // nós, arestas, coordenadas, decoração
+  minLevel  Int      @default(1)
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  academy  Academy   @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  chapters Chapter[]
+
+  @@unique([academyId, slug])
+}
+
+model Chapter {
+  id      String @id @default(cuid(2))
+  worldId String
+  name    String
+  story   Json // roteiro, personagens, diálogos
+  order   Int
+
+  world  World   @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  quests Quest[]
+
+  @@index([worldId, order])
+}
+
+model Quest {
+  id             String    @id @default(cuid(2))
+  chapterId      String
+  kind           QuestKind
+  name           String
+  narrative      Json
+  rewardXp       Int
+  rewardCoins    Int
+  rewardCrystals Int       @default(0)
+  requiredSkills String[] // ids de Skill que o Colosso cobra
+  unlockRule     Json // regra declarativa avaliada pelo motor
+  order          Int
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  chapter     Chapter      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  stages      Stage[]
+  runs        QuestRun[]
+  assignments Assignment[]
+
+  @@index([chapterId, order])
+  @@index([kind])
+}
+
+model Stage {
+  id      String @id @default(cuid(2))
+  questId String
+  order   Int
+  rule    Json // nº de atividades, critério de aprovação
+
+  quest      Quest           @relation(fields: [questId], references: [id], onDelete: Cascade)
+  activities StageActivity[]
+
+  @@unique([questId, order])
+}
+
+/// Atividade fixa OU slot dinâmico. O slot é o que permite a mesma missão
+/// ser diferente para cada criança sem duplicar conteúdo (docs/04 §6).
+model StageActivity {
+  stageId    String
+  activityId String? // null = slot preenchido por seleção adaptativa
+  slotRule   Json? // { objectiveId, difficultyDelta }
+  order      Int
+
+  stage    Stage     @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id])
+
+  @@id([stageId, order])
+  @@index([activityId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AVALIAÇÃO, DOMÍNIO E REVISÃO
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum AttemptOutcome {
+  CORRECT
+  PARTIAL
+  INCORRECT
+  SKIPPED
+  TIMEOUT
+}
+
+enum QuestRunStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+/// Uma "jogada" de missão. Retomável: fechar o app nunca custa progresso.
+model QuestRun {
+  id               String         @id @default(cuid(2))
+  learnerId        String
+  questId          String
+  status           QuestRunStatus @default(IN_PROGRESS)
+  stageIndex       Int            @default(0)
+  score            Int            @default(0)
+  startedAt        DateTime       @default(now())
+  completedAt      DateTime?
+  rewardsGrantedAt DateTime? // idempotência de recompensa (Bíblia Cap. 6 §6.5)
+
+  learner  Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  quest    Quest     @relation(fields: [questId], references: [id])
+  attempts Attempt[]
+
+  @@unique([learnerId, questId, startedAt])
+  @@index([learnerId, status, startedAt(sort: Desc)])
+}
+
+/// Particionada por RANGE(createdAt) mensal em produção (docs/04 §12).
+model Attempt {
+  id              BigInt         @id @default(autoincrement())
+  learnerId       String
+  activityId      String
+  questRunId      String?
+  answer          Json
+  outcome         AttemptOutcome
+  scoreRatio      Decimal        @db.Decimal(4, 3)
+  hintsUsed       Int            @default(0)
+  durationMs      Int
+  misconception   String? // código do equívoco diagnosticado
+  idempotencyKey  String         @unique // dedupe de sync offline
+  clientEvaluated Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+
+  learner  Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  activity Activity  @relation(fields: [activityId], references: [id])
+  questRun QuestRun? @relation(fields: [questRunId], references: [id])
+
+  @@index([learnerId, createdAt(sort: Desc)])
+  @@index([activityId, outcome]) // calibração de dificuldade
+  @@index([learnerId, activityId])
+  @@index([questRunId])
+}
+
+/// BKT (probabilidade de domínio) + Elo (habilidade). docs/08 §2.
+model SkillMastery {
+  learnerId     String
+  skillId       String
+  probability   Decimal   @default(0.15) @db.Decimal(5, 4)
+  ability       Decimal   @db.Decimal(6, 3)
+  attemptsCount Int       @default(0)
+  correctCount  Int       @default(0)
+  streak        Int       @default(0)
+  masteredAt    DateTime?
+  lastAttemptAt DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([learnerId, skillId])
+  @@index([learnerId, masteredAt])
+  @@index([skillId, probability])
+}
+
+/// Repetição espaçada (SM-2 adaptado). "Manter o mundo aceso."
+model ReviewCard {
+  id           String   @id @default(cuid(2))
+  learnerId    String
+  skillId      String
+  intervalDays Int      @default(1)
+  easeFactor   Decimal  @default(2.5) @db.Decimal(4, 2)
+  dueAt        DateTime
+  lapses       Int      @default(0)
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, skillId])
+  @@index([learnerId, dueAt]) // fila diária de revisão
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PROGRESSÃO, ECONOMIA E COLEÇÃO
+//  Fôlego jamais impede aprender. Nenhuma moeda se compra com dinheiro real.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum LevelTier {
+  APRENDIZ // Faísca
+  EXPLORADOR // Lanterna
+  INVENTOR // Chama
+  GUARDIAO // Brasa
+  MESTRE // Fogueira
+  GENIO // Aurora
+  SABIO // Constelação
+  LENDA // Farol
+}
+
+enum CurrencyKind {
+  COIN // Fagulhas
+  CRYSTAL // Prismas
+  DIAMOND // Estrelas-Guia
+}
+
+model LearnerProgress {
+  learnerId       String    @id
+  totalXp         Int       @default(0)
+  level           Int       @default(1)
+  tier            LevelTier @default(APRENDIZ)
+  energy          Int       @default(100) // Fôlego
+  energyUpdatedAt DateTime  @default(now()) // regeneração calculada, não agendada
+  streakDays      Int       @default(0) // Trilha de Luz
+  streakRecord    Int       @default(0) // recorde preservado, nunca perdido
+  streakShields   Int       @default(1) // Lanternas
+  lastActiveDate  DateTime? @db.Date
+  minutesToday    Int       @default(0)
+  version         Int       @default(0) // atualização condicional (docs/08 §11)
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([level])
+}
+
+model Unlock {
+  id        String   @id @default(cuid(2))
+  learnerId String
+  kind      String // WORLD, ACADEMY, POWER, COMPANION, VEHICLE
+  refId     String
+  createdAt DateTime @default(now())
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, kind, refId])
+  @@index([learnerId, kind])
+}
+
+/// Projeção do LedgerEntry. Saldo é derivável e auditável (docs/04 §8).
+model Wallet {
+  learnerId String   @id
+  coins     Int      @default(0)
+  crystals  Int      @default(0)
+  diamonds  Int      @default(0)
+  version   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+}
+
+/// Razão contábil: toda mutação econômica é rastreável e reconciliável.
+model LedgerEntry {
+  id             BigInt       @id @default(autoincrement())
+  learnerId      String
+  currency       CurrencyKind
+  amount         Int // positivo = crédito, negativo = débito
+  balanceAfter   Int
+  reason         String // QUEST_REWARD, SHOP_PURCHASE, OFFLINE_RECONCILE…
+  refType        String?
+  refId          String?
+  idempotencyKey String       @unique
+  createdAt      DateTime     @default(now())
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([learnerId, currency, createdAt(sort: Desc)])
+}
+
+model ShopOffer {
+  id         String       @id @default(cuid(2))
+  sku        String       @unique
+  name       String
+  currency   CurrencyKind
+  price      Int
+  itemKind   String
+  payload    Json
+  minLevel   Int          @default(1)
+  activeFrom DateTime?
+  activeTo   DateTime?
+
+  @@index([activeFrom, activeTo])
+}
+
+model InventoryItem {
+  id         String   @id @default(cuid(2))
+  learnerId  String
+  sku        String
+  quantity   Int      @default(1)
+  equipped   Boolean  @default(false)
+  acquiredAt DateTime @default(now())
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, sku])
+  @@index([learnerId, equipped])
+}
+
+/// O Fagulha: nasce da primeira pergunta, evolui com DOMÍNIO (não com tempo).
+/// Nunca adoece, nunca cobra volta (Bíblia Cap. 6 §6.11).
+model Companion {
+  id         String @id @default(cuid(2))
+  learnerId  String @unique
+  species    String
+  name       String
+  stage      Int    @default(1)
+  affinityXp Int    @default(0)
+  cosmetics  Json
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  id          String  @id @default(cuid(2))
+  code        String  @unique
+  name        String
+  description String
+  family      String // DOMINIO, PERSISTENCIA, DESCOBERTA, CRIACAO, CUIDADO
+  tier        String // BRONZE, PRATA, OURO, LENDARIA
+  criteria    Json // regra declarativa avaliada por evento
+  rewardXp    Int     @default(0)
+  hidden      Boolean @default(false)
+
+  learners LearnerAchievement[]
+}
+
+model LearnerAchievement {
+  learnerId     String
+  achievementId String
+  progress      Decimal   @default(0) @db.Decimal(5, 4)
+  unlockedAt    DateTime?
+
+  learner     Learner     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@id([learnerId, achievementId])
+  @@index([learnerId, unlockedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TUTOR IA E TALENTOS
+//  Nenhum dado identificável de criança vai ao provedor (Bíblia Cap. 1 PIA5).
+// ═══════════════════════════════════════════════════════════════════════════
+
+model TutorSession {
+  id        String    @id @default(cuid(2))
+  learnerId String
+  context   Json // skill, questRun, misconception
+  tokensIn  Int       @default(0)
+  tokensOut Int       @default(0)
+  costCents Int       @default(0) // controle de orçamento por criança/dia
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  learner Learner     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  turns   TutorTurn[]
+
+  @@index([learnerId, startedAt(sort: Desc)])
+}
+
+model TutorTurn {
+  id         BigInt   @id @default(autoincrement())
+  sessionId  String
+  role       String // LEARNER, TUTOR, SYSTEM
+  content    String
+  flagged    Boolean  @default(false)
+  flagReason String?
+  modelId    String?
+  latencyMs  Int?
+  createdAt  DateTime @default(now())
+
+  session TutorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@index([flagged, createdAt]) // revisão de segurança
+}
+
+/// O perfil SUGERE, jamais restringe. Nunca exibido como rótulo à criança.
+model TalentProfile {
+  learnerId  String   @id
+  scores     Json // { MATEMATICO: 0.72, ARTISTA: 0.51, ... }
+  dominant   String?
+  confidence Decimal  @db.Decimal(4, 3)
+  computedAt DateTime @default(now())
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+}
+
+model Recommendation {
+  id         String    @id @default(cuid(2))
+  learnerId  String
+  kind       String // QUEST, REVIEW, PROJECT, BREAK
+  refId      String?
+  reason     String // explicável ao responsável (PIA4)
+  score      Decimal   @db.Decimal(4, 3)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([learnerId, consumedAt, score(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ESCOLA, RESPONSÁVEL E NOTIFICAÇÃO
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Classroom {
+  id             String    @id @default(cuid(2))
+  organizationId String
+  teacherId      String
+  name           String
+  grade          String
+  joinCode       String    @unique // código curto, rotacionável
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teacher      Account               @relation("ClassroomTeacher", fields: [teacherId], references: [id])
+  enrollments  ClassroomEnrollment[]
+  assignments  Assignment[]
+
+  @@index([organizationId, archivedAt])
+  @@index([teacherId])
+}
+
+model ClassroomEnrollment {
+  classroomId String
+  learnerId   String
+  joinedAt    DateTime @default(now())
+
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  learner   Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@id([classroomId, learnerId])
+  @@index([learnerId])
+}
+
+model Assignment {
+  id          String    @id @default(cuid(2))
+  classroomId String
+  questId     String?
+  skillIds    String[]
+  title       String
+  dueAt       DateTime?
+  createdAt   DateTime  @default(now())
+
+  classroom   Classroom    @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  quest       Quest?       @relation(fields: [questId], references: [id])
+  submissions Submission[]
+
+  @@index([classroomId, dueAt])
+}
+
+model Submission {
+  assignmentId String
+  learnerId    String
+  status       String // PENDING, COMPLETED, LATE
+  score        Decimal?  @db.Decimal(5, 2)
+  completedAt  DateTime?
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  learner    Learner    @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, learnerId])
+  @@index([learnerId, status])
+}
+
+/// Limite de tempo nunca interrompe no meio de uma atividade (Bíblia Cap. 9 §9.4).
+model ScreenTimeRule {
+  id               String   @id @default(cuid(2))
+  learnerId        String   @unique
+  dailyMinutes     Int?
+  allowedWindows   Json // [{ dow:1, from:"15:00", to:"18:00" }]
+  freeDays         Int[] // dias da semana sem contagem de sequência
+  blockedAcademies String[]
+  updatedById      String
+  updatedAt        DateTime @updatedAt
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+}
+
+/// Push JAMAIS vai para uma criança (Bíblia Cap. 1 PSI3, testado em CI).
+model Notification {
+  id        BigInt    @id @default(autoincrement())
+  accountId String?
+  learnerId String?
+  kind      String
+  payload   Json
+  readAt    DateTime?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  account Account? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  learner Learner? @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, readAt, createdAt(sort: Desc)])
+  @@index([learnerId, createdAt(sort: Desc)])
+}
+
+/// Materializado por job noturno — relatórios nunca varrem Attempt (docs/10 §3).
+model LearnerWeeklySnapshot {
+  id             String   @id @default(cuid(2))
+  learnerId      String
+  weekStart      DateTime @db.Date
+  minutesTotal   Int      @default(0)
+  attemptsTotal  Int      @default(0)
+  correctRatio   Decimal  @db.Decimal(4, 3)
+  skillsMastered Int      @default(0)
+  highlights     Json // "Brilhou": virada, persistência, criação
+  struggles      Json // "Travou": equívocos recorrentes com evidência
+  generatedAt    DateTime @default(now())
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, weekStart])
+  @@index([weekStart])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PLATAFORMA — auditoria, eventos, outbox, flags
+// ═══════════════════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actorType  String // ACCOUNT, LEARNER, SYSTEM, AI
+  actorId    String?
+  action     String // learner.settings.update, wallet.adjust…
+  targetType String
+  targetId   String
+  diff       Json?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+}
+
+/// Telemetria pseudonimizada — usa pseudonymId, nunca learnerId (testado em CI).
+model LearningEvent {
+  id          BigInt   @id @default(autoincrement())
+  pseudonymId String
+  name        String
+  properties  Json
+  occurredAt  DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([name, occurredAt])
+  @@index([pseudonymId, occurredAt])
+}
+
+/// Entrega confiável de efeitos assíncronos, gravado na mesma transação.
+model OutboxMessage {
+  id          BigInt    @id @default(autoincrement())
+  topic       String
+  payload     Json
+  availableAt DateTime  @default(now())
+  attempts    Int       @default(0)
+  processedAt DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([processedAt, availableAt])
+}
+
+model FeatureFlag {
+  key        String   @id
+  enabled    Boolean  @default(false)
+  rollout    Int      @default(0) // 0-100 %
+  conditions Json?
+  updatedAt  DateTime @updatedAt
+}
