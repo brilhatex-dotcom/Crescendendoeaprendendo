@@ -4,6 +4,10 @@ Plataforma de desenvolvimento infantil gamificada — a criança vive uma aventu
 e, ao jogar, desenvolve competências escolares (BNCC), cognitivas, socioemocionais, tecnológicas e
 de vida. **6 a 12 anos na Fase 1, com arquitetura preparada para 17 anos sem reescrita.**
 
+> 🔀 **Vai continuar o trabalho em outra sessão? Comece por [`docs/HANDOFF.md`](docs/HANDOFF.md).**
+> Ele diz o que já existe, o que não existe, qual é a próxima tarefa e o que não deve ser
+> relitigado.
+
 > **Status atual: Etapa 0 (Fundação técnica) em construção.**
 > A Bíblia Pedagógica (Volume 1) e o planejamento técnico estão concluídos. O roadmap de produto
 > está no [Capítulo 12 da Bíblia](docs/biblia/volume-1/12-roadmap-5-anos.md) e o de execução
