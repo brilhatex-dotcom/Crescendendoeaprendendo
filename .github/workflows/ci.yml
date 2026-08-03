@@ -54,6 +54,48 @@ jobs:
       - name: Testes
         run: npm run test
 
+  integracao:
+    name: Integração com Postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Postgres de verdade. Os testes de `application/` provam a regra com
+    # dublês; estes provam o que dublê nenhum alcança — SQL, transações,
+    # enums e o filtro de guarda dentro do `where`.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      # Aplica a migration que existe. Nunca gerar outra aqui: divergência
+      # entre migration e schema tem que quebrar o CI, não ser corrigida por ele.
+      - name: Aplicar migrations
+        run: npx prisma migrate deploy
+
+      - name: Testes de integração
+        run: npm run test:integration
+
   build:
     name: Build de produção
     runs-on: ubuntu-latest

@@ -89,3 +89,15 @@ export const forbidden = (code: string, message: string) =>
 
 export const conflict = (code: string, message: string, details?: Record<string, unknown>) =>
   appError("CONFLICT", code, message, details);
+
+export const unauthenticated = (code: string, message: string) =>
+  appError("UNAUTHENTICATED", code, message);
+
+export const rateLimited = (code: string, message: string, details?: Record<string, unknown>) =>
+  appError("RATE_LIMITED", code, message, details);
+
+export const unavailable = (code: string, message: string) =>
+  appError("UNAVAILABLE", code, message);
+
+export const internalError = (code: string, message: string) =>
+  appError("INTERNAL", code, message);

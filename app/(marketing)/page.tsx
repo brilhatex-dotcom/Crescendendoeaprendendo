@@ -110,19 +110,26 @@ export default function LandingPage() {
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            href="/para-pais"
+            href="/criar-conta"
             className="font-display inline-flex min-h-[var(--touch-target-adult)] items-center justify-center rounded-[var(--radius-xl)] bg-[var(--color-aurora)] px-8 py-4 text-lg font-bold text-white shadow-[0_8px_24px_-6px_var(--academy-glow)] transition-transform duration-[var(--duration-quick)] ease-[var(--ease-aurora)] hover:scale-[1.03] active:scale-[0.98]"
+          >
+            Criar conta de responsável
+          </Link>
+
+          <Link
+            href="/para-pais"
+            className="inline-flex min-h-[var(--touch-target-adult)] items-center justify-center rounded-[var(--radius-xl)] border border-[var(--glass-border)] px-8 py-4 text-lg text-slate-200 transition-colors duration-[var(--duration-quick)] hover:bg-white/5"
           >
             Para pais e responsáveis
           </Link>
-
-          <a
-            href="#academias"
-            className="inline-flex min-h-[var(--touch-target-adult)] items-center justify-center rounded-[var(--radius-xl)] border border-[var(--glass-border)] px-8 py-4 text-lg text-slate-200 transition-colors duration-[var(--duration-quick)] hover:bg-white/5"
-          >
-            Ver as sete ilhas
-          </a>
         </div>
+
+        <p className="mt-6 text-sm text-slate-400">
+          Já tem conta?{" "}
+          <Link href="/entrar" className="underline underline-offset-4">
+            Entrar
+          </Link>
+        </p>
       </section>
 
       {/* ── As sete Academias ─────────────────────────────────────────────── */}
