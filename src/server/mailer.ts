@@ -53,21 +53,20 @@ class ResendMailer implements Mailer {
           html: message.html,
         }),
       });
-    } catch {
-      // Rede fora do ar. A mensagem não menciona o destinatário: log sem PII.
-      return err(
-        unavailable("mail.transport_unreachable", "Provedor de e-mail inacessível."),
-      );
+    } catch (causa) {
+      // O detalhe técnico vai para o log; o visitante recebe a mensagem neutra.
+      // Nunca registramos o destinatário: log sem PII (docs/09 §7).
+      console.error("[mailer] provedor inacessível", { causa });
+      return err(unavailable("mail.transport_unreachable", FALHA_DE_ENVIO));
     }
 
     if (!response.ok) {
       const detalhe = await response.text().catch(() => "");
-      return err(
-        unavailable(
-          "mail.send_failed",
-          `Provedor de e-mail recusou o envio (HTTP ${response.status}): ${detalhe.slice(0, 200)}`,
-        ),
-      );
+      console.error("[mailer] envio recusado", {
+        status: response.status,
+        detalhe: detalhe.slice(0, 500),
+      });
+      return err(unavailable("mail.send_failed", FALHA_DE_ENVIO));
     }
 
     return ok(undefined);
@@ -110,14 +109,23 @@ class ConsoleMailer implements Mailer {
  */
 class UnconfiguredMailer implements Mailer {
   async send(): Promise<Result<void>> {
-    return err(
-      unavailable(
-        "mail.not_configured",
-        "RESEND_API_KEY não está definida — nenhum e-mail pode ser enviado.",
-      ),
+    // "RESEND_API_KEY não está definida" é diagnóstico de operador, não recado
+    // para quem está tentando se cadastrar — e nomear variável de ambiente na
+    // tela entrega detalhe da infraestrutura a quem não deveria vê-lo.
+    console.error(
+      "[mailer] RESEND_API_KEY ausente em produção: nenhum e-mail será enviado.",
     );
+    return err(unavailable("mail.not_configured", FALHA_DE_ENVIO));
   }
 }
+
+/**
+ * Uma única mensagem para toda falha de envio. O visitante não pode agir sobre
+ * a diferença entre "chave ausente", "provedor fora do ar" e "envio recusado" —
+ * para ele, os três significam a mesma coisa: tentar de novo mais tarde.
+ */
+const FALHA_DE_ENVIO =
+  "Não conseguimos enviar o e-mail agora. Tente novamente em alguns minutos.";
 
 export function createMailer(): Mailer {
   const apiKey = serverEnv.RESEND_API_KEY;

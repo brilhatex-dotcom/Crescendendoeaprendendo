@@ -80,14 +80,10 @@ export async function registrarResponsavel(
     locale: input.locale ?? "pt-BR",
   });
 
-  const envio = await emitirVerificacao(deps, {
-    accountId: conta.id,
-    email: email.value,
-    nome: nome.value.firstName,
-    agora,
-  });
-  if (!envio.ok) return envio;
-
+  // A auditoria vem ANTES do envio, e não depois. A conta já existe neste
+  // ponto: se o provedor de e-mail estiver fora do ar, sair daqui sem registro
+  // deixaria uma conta no banco sem nenhum rastro de quando nasceu — e é
+  // justamente numa falha que a trilha precisa estar completa (docs/09 §7).
   await deps.audit.record({
     actorAccountId: conta.id,
     action: "identity.account_registered",
@@ -95,6 +91,14 @@ export async function registrarResponsavel(
     entityId: conta.id,
     metadata: { traceId: ctx.traceId },
   });
+
+  const envio = await emitirVerificacao(deps, {
+    accountId: conta.id,
+    email: email.value,
+    nome: nome.value.firstName,
+    agora,
+  });
+  if (!envio.ok) return envio;
 
   return saida;
 }

@@ -23,7 +23,8 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed/index.ts",
     "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run test",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "conta:verificar": "tsx scripts/verificar-conta.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed/index.ts"

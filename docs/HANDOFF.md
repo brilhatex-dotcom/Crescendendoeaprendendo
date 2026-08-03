@@ -188,7 +188,27 @@ npm run verify                # tipos + lint + fronteiras + testes — o que o C
 npm run test:integration      # testes com Postgres real (precisa de banco)
 npm run build                 # build de produção
 npx prisma migrate deploy     # aplica as migrations existentes
+
+# Verificação manual de e-mail — ação de operador, enquanto não há provedor.
+# Exige DATABASE_URL; não é acionável pela web; fica na auditoria como SYSTEM.
+npm run conta:verificar -- ola@exemplo.com --motivo "primeira conta"
 ```
+
+### Destravar a própria conta sem provedor de e-mail
+
+Enquanto `RESEND_API_KEY` não estiver configurada, o cadastro cria a conta mas o
+e-mail de verificação não sai — e sem verificação não se cria perfil de criança.
+Para a conta do dono do produto, use o comando acima:
+
+```bash
+npx vercel env pull .env.producao
+DATABASE_URL="$(grep '^DATABASE_URL=' .env.producao | cut -d= -f2- | tr -d '"')" \
+  npm run conta:verificar -- ola@exemplo.com
+```
+
+**Isto vale para a primeira família e mais nada.** A partir da segunda conta,
+configure o Resend: e-mail de verificação de verdade é a única prova de
+consentimento que vale para uma conta que não é a sua (docs/09 §6).
 
 **Postgres local para os testes de integração**, sem Docker:
 

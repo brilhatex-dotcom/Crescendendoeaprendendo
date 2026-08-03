@@ -441,6 +441,36 @@ describe("registrarResponsavel", () => {
       "auth.register_rate_limited",
     );
   });
+
+  it("audita a conta mesmo quando o e-mail não sai", async () => {
+    // Cenário real: produção sem provedor de e-mail configurado. A conta é
+    // criada e o envio falha — a trilha não pode ficar com um buraco no lugar
+    // do nascimento dela.
+    deps = {
+      ...deps,
+      mailer: {
+        async enviarVerificacao() {
+          return {
+            ok: false,
+            error: {
+              kind: "UNAVAILABLE",
+              code: "mail.not_configured",
+              message: "Não conseguimos enviar o e-mail agora.",
+            },
+          } as const;
+        },
+        async enviarAvisoDeContaExistente() {
+          return ok(undefined);
+        },
+      },
+    };
+
+    const resultado = await registrarResponsavel(deps, CADASTRO_VALIDO, CTX);
+
+    expect(codigo(resultado)).toBe("mail.not_configured");
+    expect(contas.linhas.size).toBe(1);
+    expect(auditoria.acoes()).toContain("identity.account_registered");
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
