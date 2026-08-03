@@ -4,10 +4,31 @@ Plataforma de desenvolvimento infantil gamificada — a criança vive uma aventu
 e, ao jogar, desenvolve competências escolares (BNCC), cognitivas, socioemocionais, tecnológicas e
 de vida. **6 a 12 anos na Fase 1, com arquitetura preparada para 17 anos sem reescrita.**
 
-> **Status atual: Bíblia Pedagógica (Volume 1) e planejamento técnico concluídos, aguardando aprovação.**
-> Nenhum código de aplicação foi escrito ainda — por decisão explícita, a implementação começa
-> após a aprovação. O roadmap de produto está no [Capítulo 12 da Bíblia](docs/biblia/volume-1/12-roadmap-5-anos.md)
-> e o de execução técnica em [`docs/12-roadmap.md`](docs/12-roadmap.md).
+> **Status atual: Etapa 0 (Fundação técnica) em construção.**
+> A Bíblia Pedagógica (Volume 1) e o planejamento técnico estão concluídos. O roadmap de produto
+> está no [Capítulo 12 da Bíblia](docs/biblia/volume-1/12-roadmap-5-anos.md) e o de execução
+> técnica em [`docs/12-roadmap.md`](docs/12-roadmap.md).
+
+## Rodando o projeto
+
+```bash
+npm install
+cp .env.example .env      # preencha DATABASE_URL e AUTH_SECRET
+npx prisma generate
+npm run dev               # http://localhost:3000
+```
+
+| Comando | O que faz |
+|---|---|
+| `npm run verify` | tipos + lint + fronteiras de arquitetura + testes (o que o CI roda) |
+| `npm run typecheck` | TypeScript `strict`, zero `any` |
+| `npm run boundaries` | verifica as fronteiras entre camadas — violação quebra o build |
+| `npm run test` | testes unitários e **testes de política** (as proibições da Bíblia) |
+| `npm run db:migrate` | aplica migrations no banco de desenvolvimento |
+| `npm run build` | build de produção |
+
+**Orçamento de performance:** o JS inicial da rota `/hub` não pode passar de 140 kB gzip
+([`docs/10 §5`](docs/10-escalabilidade-e-performance.md)).
 
 ---
 

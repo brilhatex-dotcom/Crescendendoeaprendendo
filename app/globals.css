@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Design System "Aurora" — camada de tokens
+   Fonte da verdade: src/design-system/tokens/*.ts
+   docs/05-design-system.md · Bíblia Vol. 1 Cap. 11
+
+   Uma definição, três consumidores (TS, CSS, Tailwind). Zero divergência.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Marca ── */
+  --color-aurora: #7c5cff;
+  --color-corrente: #22d3ee;
+  --color-fagulha: #ffb020;
+  --color-folha: #34d399;
+  /* "Quase" — coral, nunca vermelho. Decisão pedagógica (PP5). */
+  --color-quase: #fb7185;
+  --color-nevoa: #64748b;
+
+  /* ── Superfícies do modo play ── */
+  --color-vazio: #0b0620;
+  --color-play-raised: #160c33;
+
+  /* ── Tipografia ── */
+  --font-display: var(--font-baloo), "Trebuchet MS", system-ui, sans-serif;
+  --font-body: var(--font-nunito), system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ── Raio: cantos suaves são percebidos como amigáveis ── */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* ── Movimento (docs/05 §5) ── */
+  --ease-aurora: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-instant: 80ms;
+  --duration-quick: 160ms;
+  --duration-base: 260ms;
+  --duration-expressive: 420ms;
+  --duration-scene: 650ms;
+}
+
+:root {
+  /* Gradiente da academia ativa. Trocar de ilha troca só estas três. */
+  --academy-from: #4f46e5;
+  --academy-to: #22d3ee;
+  --academy-glow: rgba(79, 70, 229, 0.45);
+
+  /* Vidro: encapsulado aqui; ninguém escreve backdrop-filter solto. */
+  --glass-blur: 16px;
+  --glass-tint: rgba(22, 12, 51, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.12);
+
+  /* Alvo de toque: 56px em play (mão de criança), 44px em care/class. */
+  --touch-target-play: 56px;
+  --touch-target-adult: 44px;
+
+  color-scheme: dark;
+}
+
+/* ── Reset mínimo ─────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Evita zoom acidental em toque duplo no tablet. */
+  touch-action: manipulation;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  line-height: 1.6;
+  background: var(--color-vazio);
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Foco sempre visível. Componente sem isto não passa em review (docs/05 §6). */
+:focus-visible {
+  outline: 3px solid var(--color-corrente);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── Acessibilidade ───────────────────────────────────────────────────────── */
+
+/*
+  Movimento reduzido troca translação por fade — o FEEDBACK nunca desaparece,
+  só o deslocamento. Acessibilidade não pode custar informação.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 120ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-reduced-motion="true"] *,
+[data-reduced-motion="true"] *::before,
+[data-reduced-motion="true"] *::after {
+  animation-duration: 120ms !important;
+  transition-duration: 120ms !important;
+}
+
+/* Fonte para dislexia, ativável por criança (LearnerSettings.dyslexiaFont). */
+[data-dyslexia-font="true"] {
+  font-family: var(--font-accessible, var(--font-body));
+  letter-spacing: 0.02em;
+  word-spacing: 0.08em;
+}
+
+/* Escala tipográfica por faixa etária: 20px de corpo é requisito em SPROUT. */
+[data-age-band="SPROUT"] {
+  font-size: 20px;
+}
+
+[data-age-band="EXPLORER"] {
+  font-size: 17px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
