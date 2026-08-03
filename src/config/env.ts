@@ -61,9 +61,23 @@ function parseOrThrow<T extends z.ZodTypeAny>(
  * Só pode ser lido no servidor. Importar isto em um Client Component é erro
  * de fronteira e será apontado pelo lint de camadas.
  */
+/**
+ * A integração Neon↔Vercel injeta a conexão direta com outro nome, e ele varia
+ * conforme a versão da integração. Aceitamos os apelidos conhecidos para que
+ * ninguém precise duplicar variável na mão.
+ */
+function resolveDirectDatabaseUrl(): string | undefined {
+  return (
+    process.env.DIRECT_DATABASE_URL ??
+    process.env.DATABASE_URL_UNPOOLED ??
+    process.env.POSTGRES_URL_NON_POOLING ??
+    process.env.DATABASE_URL
+  );
+}
+
 export const serverEnv: ServerEnv = parseOrThrow(
   serverSchema,
-  process.env,
+  { ...process.env, DIRECT_DATABASE_URL: resolveDirectDatabaseUrl() },
   "servidor",
 );
 
