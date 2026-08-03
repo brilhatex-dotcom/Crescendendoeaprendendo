@@ -27,13 +27,16 @@ incentivo a farmar e alinha diversão com aprendizagem (P1).
 | Tier | Níveis | Desbloqueia |
 |---|---|---|
 | Aprendiz | 1–9 | Academia do Conhecimento, mascote |
-| Explorador | 10–19 | Academia da Inteligência, veículo 1, casa |
+| Explorador | 10–19 | Academia da Inteligência (10) e da Prosperidade (15), veículo 1, casa |
 | Inventor | 20–34 | Academia da Tecnologia, oficina |
 | Guardião | 35–49 | Academia da Vida, missões em família |
 | Mestre | 50–69 | Academia da Criatividade, ateliê |
 | Gênio | 70–89 | Academia das Descobertas, projetos |
 | Sábio | 90–119 | mentorias, desafios lendários |
-| Lenda | 120+ | conteúdo sazonal, cosméticos exclusivos |
+| Lenda | 120+ | Sua Ilha, conteúdo sazonal, cosméticos exclusivos |
+
+Conteúdo essencial de segurança digital, autocuidado e noções básicas de dinheiro aparece desde o
+nível 1, em missões curtas dentro da Academia do Conhecimento (Bíblia, Cap. 4 §4.9).
 
 **Nunca há perda de XP nem rebaixamento de tier.** Regressão é desmotivadora e pedagogicamente inútil.
 

@@ -1,7 +1,11 @@
 # 00 — Visão do Produto e Princípios de Design
 
-> Documento fundador. Todas as decisões técnicas dos documentos seguintes derivam daqui.
-> Qualquer conflito entre um requisito técnico e um princípio deste documento é resolvido **a favor do princípio**.
+> ⚠️ **Hierarquia normativa:** a [Bíblia Pedagógica](biblia/README.md) é soberana. Este documento e
+> os demais de `docs/` traduzem a Bíblia em arquitetura e cedem a ela em qualquer conflito.
+>
+> Documento fundador da camada técnica. Todas as decisões técnicas dos documentos seguintes derivam
+> daqui. Qualquer conflito entre um requisito técnico e um princípio deste documento é resolvido
+> **a favor do princípio**.
 
 ---
 
@@ -89,7 +93,7 @@ domínio real), Apple (contenção, tipografia, foco), Roblox/Minecraft (agênci
 | Fase | Nome | Conteúdo | Sistemas |
 |---|---|---|---|
 | **F1** | Fundação Jogável | Academia do Conhecimento (Português + Matemática, 6–10 anos) + Academia da Inteligência (5 jogos) | Auth, RPG core, motor de atividades, mapa, economia, painel dos pais, PWA |
-| **F2** | Tutor e Expansão | Ciências, História, Geografia, Inglês; Academia da Vida | Tutor IA, adaptatividade, perfil de talentos, relatórios avançados |
+| **F2** | Tutor e Expansão | Ciências, História, Geografia, Inglês; Academia da Prosperidade (Ciclos 1–2); Academia da Vida | Tutor IA, adaptatividade, perfil de talentos, relatórios avançados |
 | **F3** | Escolas | Todas as academias iniciais | Painel do professor, turmas, atribuições, multi-tenant escolar |
 | **F4** | Criação | Academia da Tecnologia, Criatividade, Descobertas | Editor de conteúdo (CMS), UGC moderado, projetos em família |
 | **F5** | Ampliação etária | Faixas 13–17 | Temas `PIONEER`/`VANGUARD`, trilhas de portfólio |

@@ -95,8 +95,9 @@ reprovado < 5%; custo por criança/mês dentro da meta de `10 §6`.
 
 ## Etapa 7 — Expansão curricular (4–6 semanas)
 
-Ciências, História, Geografia, Inglês; Academia da Vida (Educação Financeira, Segurança Digital,
-Hábitos, Comunicação como primeiros módulos). Conteúdo em ritmo contínuo a partir daqui.
+Ciências, História, Geografia, Inglês; **Academia da Prosperidade** (Ciclos 1 e 2: A Feira e A Casa
+de Contas — Bíblia, Cap. 5); Academia da Vida (Segurança Digital, Hábitos, Comunicação como
+primeiros módulos). Conteúdo em ritmo contínuo a partir daqui.
 
 ---
 
@@ -138,6 +139,6 @@ Sem alteração de arquitetura — apenas conteúdo, tema e copy (`10 §7`).
 |---|---|
 | Produção de conteúdo é o gargalo real (não o código) | pipeline de autoria desde a Etapa 2, CMS na Etapa 9, geração assistida por IA com revisão humana |
 | Custo de IA fugir do controle | orçamento por criança, cache semântico, roteamento de modelo, alerta desde o dia 1 |
-| Escopo das 6 academias diluir a qualidade | uma academia excelente vale mais que seis medianas — só abrir nova academia com a anterior no padrão de aceite |
+| Escopo das 7 academias diluir a qualidade | uma academia excelente vale mais que sete medianas — só abrir nova academia com a anterior no padrão de aceite (Bíblia, Cap. 12 §12.7) |
 | Gamificação virar mecânica predatória por pressão de métrica | testes de política em CI (`08 §12`) + métrica-norte de domínio, não de tempo de tela |
 | Adaptatividade errar e frustrar | limites de segurança (recuo após 3 erros), monitoramento da curva de acerto, sempre encerrar sessão com sucesso |

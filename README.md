@@ -4,14 +4,37 @@ Plataforma de desenvolvimento infantil gamificada — a criança vive uma aventu
 e, ao jogar, desenvolve competências escolares (BNCC), cognitivas, socioemocionais, tecnológicas e
 de vida. **6 a 12 anos na Fase 1, com arquitetura preparada para 17 anos sem reescrita.**
 
-> **Status atual: planejamento concluído, aguardando aprovação.**
+> **Status atual: Bíblia Pedagógica (Volume 1) e planejamento técnico concluídos, aguardando aprovação.**
 > Nenhum código de aplicação foi escrito ainda — por decisão explícita, a implementação começa
-> após a aprovação deste planejamento. O roadmap de execução está em
-> [`docs/12-roadmap.md`](docs/12-roadmap.md).
+> após a aprovação. O roadmap de produto está no [Capítulo 12 da Bíblia](docs/biblia/volume-1/12-roadmap-5-anos.md)
+> e o de execução técnica em [`docs/12-roadmap.md`](docs/12-roadmap.md).
 
 ---
 
-## Planejamento (leia nesta ordem)
+## 📖 Bíblia Pedagógica — a Constituição do projeto
+
+**[`docs/biblia/`](docs/biblia/README.md)** é o documento de maior autoridade deste repositório.
+Código, design, conteúdo, IA, banco de dados e marketing derivam dela, e **nada pode contradizê-la**.
+
+| Cap. | Volume 1 | |
+|---|---|---|
+| — | [Preâmbulo](docs/biblia/volume-1/00-preambulo.md) | estatuto e processo de emenda |
+| 1 | [Fundamentos](docs/biblia/volume-1/01-fundamentos.md) | missão, valores, princípios |
+| 2 | [Público](docs/biblia/volume-1/02-publico.md) | crianças, pais, escolas, professores |
+| 3 | [O Universo](docs/biblia/volume-1/03-universo.md) | **Crescente** |
+| 4 | [As Sete Academias](docs/biblia/volume-1/04-as-sete-academias.md) | o que ensinamos |
+| 5 | [Prosperidade](docs/biblia/volume-1/05-academia-da-prosperidade.md) | nosso maior diferencial |
+| 6 | [Sistema de Evolução](docs/biblia/volume-1/06-sistema-de-evolucao.md) | Luz, níveis, economia |
+| 7 | [Personagens](docs/biblia/volume-1/07-personagens.md) | o elenco |
+| 8 | [Inteligência Artificial](docs/biblia/volume-1/08-inteligencia-artificial.md) | o contrato do Tutor |
+| 9 | [Pais](docs/biblia/volume-1/09-pais.md) | o contrato com a família |
+| 10 | [Professores](docs/biblia/volume-1/10-professores.md) | o compromisso docente |
+| 11 | [Identidade Visual](docs/biblia/volume-1/11-identidade-visual.md) | como o mundo se parece e soa |
+| 12 | [Roadmap de 5 anos](docs/biblia/volume-1/12-roadmap-5-anos.md) | onde chegaremos |
+
+---
+
+## Planejamento técnico (leia nesta ordem)
 
 | # | Documento | O que responde |
 |---|---|---|
@@ -41,16 +64,20 @@ Server Actions + React Server Components · PWA (Serwist).
 
 ---
 
-## As seis Academias
+## As sete Academias
 
-| Academia | Foco |
-|---|---|
-| **Conhecimento** | conteúdo escolar alinhado à BNCC — Português, Matemática, Ciências, História, Geografia, Inglês, Espanhol |
-| **Inteligência** | memória, atenção, lógica, estratégia, velocidade cognitiva — sudoku, xadrez, tangram, labirintos |
-| **Vida** | finanças, comunicação, liderança, hábitos, saúde, segurança digital, uso responsável de IA |
-| **Tecnologia** | programação, pensamento computacional, robótica, IA, cibersegurança, criação de jogos |
-| **Criatividade** | desenho, música, escrita criativa, design, fotografia, invenções |
-| **Descobertas** | projetos, experimentos, caça ao tesouro, missões em família, sustentabilidade |
+Sete ilhas do arquipélago de **Crescente**, cada uma com seu Farol, seu guardião e sua forma de
+perguntar ([Bíblia, Cap. 4](docs/biblia/volume-1/04-as-sete-academias.md)).
+
+| Academia | Ilha · Guardião | Foco |
+|---|---|---|
+| **Conhecimento** | Mil Perguntas · ORLA | conteúdo escolar alinhado à BNCC — Português, Matemática, Ciências, História, Geografia, Inglês, Espanhol |
+| **Inteligência** | dos Nós · TRAMA | memória, atenção, lógica, estratégia, velocidade cognitiva — sudoku, xadrez, tangram, labirintos |
+| **Vida** | do Vilarejo · DONA JUÁ | socioemocional, hábitos, saúde, comunicação, segurança digital, uso responsável de IA |
+| **Tecnologia** | Engrena · PARAFUSA | programação, pensamento computacional, robótica, IA, cibersegurança, criação de jogos |
+| **Criatividade** | Aquarela · ÍRIS | desenho, música, escrita criativa, design, fotografia, invenções |
+| **Descobertas** | Errante · VENTANIA | projetos, experimentos, caça ao tesouro, missões em família, sustentabilidade |
+| **Prosperidade** | Pontal · DONA CASTANHA | educação financeira, empreendedorismo, planejamento, consumo consciente, gestão, ética — em ambiente 100% simulado ([Cap. 5](docs/biblia/volume-1/05-academia-da-prosperidade.md)) |
 
 ---
 
@@ -65,12 +92,15 @@ Server Actions + React Server Components · PWA (Serwist).
 5. **Privacidade infantil acima de conveniência** — criança não tem e-mail, chat livre, perfil
    público nem push. LGPD por construção.
 
-Detalhamento em [`docs/00-visao-e-principios.md`](docs/00-visao-e-principios.md).
+Detalhamento em [`docs/00-visao-e-principios.md`](docs/00-visao-e-principios.md) e, com força
+constitucional, no [Capítulo 1 da Bíblia](docs/biblia/volume-1/01-fundamentos.md).
 
 ---
 
 ## Próximo passo
 
-Revisar e aprovar o planejamento. Após a aprovação, a execução começa pela
-**Etapa 0 — Fundação técnica** ([`docs/12-roadmap.md`](docs/12-roadmap.md)): repositório executável,
-CI completo, autenticação de responsável e Design System base em produção.
+1. **Aprovar o Volume 1 da Bíblia Pedagógica** — é o que trava todo o resto.
+2. Aprovado o Volume 1, escrever o **Volume 2** (currículo BNCC detalhado, progressões e taxonomia
+   de equívocos), que é o insumo direto da produção de conteúdo.
+3. Iniciar a **Etapa 0 — Fundação técnica** ([`docs/12-roadmap.md`](docs/12-roadmap.md)):
+   repositório executável, CI completo, autenticação de responsável e Design System base em produção.

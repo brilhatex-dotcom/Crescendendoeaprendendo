@@ -59,6 +59,7 @@ puro com "X". Vermelho intenso ativa resposta de ameaça e prejudica retenção 
 | Tecnologia | Ciano-elétrico | `#06B6D4 → #3B82F6` |
 | Criatividade | Laranja-rosa | `#FB923C → #F472B6` |
 | Descobertas | Turquesa-dourado | `#14B8A6 → #FDE047` |
+| Prosperidade | Âmbar-terra | `#D97706 → #FBBF24` |
 
 Cada academia expõe `--academy-from`, `--academy-to`, `--academy-glow`. Trocar de mundo troca
 apenas estas variáveis — nenhum componente conhece nomes de academia (Open/Closed no visual).

@@ -309,7 +309,7 @@ model Asset {                                 // mídia no Vercel Blob
 ## 6. Mundo, missões e mapa
 
 ```prisma
-model Academy {                               // Conhecimento, Inteligência, Vida, Tecnologia, Criatividade, Descobertas
+model Academy {                               // Conhecimento, Inteligência, Vida, Tecnologia, Criatividade, Descobertas, Prosperidade
   id      String @id @default(cuid(2))
   slug    String @unique
   name    String
