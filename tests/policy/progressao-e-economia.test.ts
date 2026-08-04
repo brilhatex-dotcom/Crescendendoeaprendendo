@@ -161,6 +161,53 @@ describe("§11 — o que é atômico continua atômico", () => {
   });
 });
 
+describe("§4 e §6 — as regras da missão", () => {
+  it("o Fôlego é cobrado ao iniciar, e a cobrança nunca recusa", () => {
+    const fonte = ler("src/modules/progression/application/quest-handlers.ts");
+
+    /*
+     * A ausência é a garantia: não existe caminho que devolva erro por falta de
+     * Fôlego. Energia zerada não impede jogar (docs/08 §4) — bloquear
+     * aprendizagem violaria P1 e P2 da Bíblia.
+     */
+    expect(fonte).toContain("Math.max(0,");
+    expect(fonte).not.toMatch(/return err\(/);
+    expect(fonte).not.toMatch(/insufficient|sem_folego|folego_insuficiente/i);
+  });
+
+  it("a Trilha de Luz anda ao concluir a missão, não ao responder", () => {
+    const tentativa = ler("src/modules/progression/application/credit-attempt.ts");
+    const missao = ler("src/modules/progression/application/quest-handlers.ts");
+
+    // docs/08 §6 conta dias com missão concluída. Uma Trilha que anda com
+    // qualquer toque vale menos para a criança justamente porque custa menos.
+    expect(tentativa).toContain("dia: null");
+    expect(missao).toContain("diaCivil(agora, fuso)");
+  });
+
+  it("responder nunca gasta Fôlego — o custo mora só em quem inicia", () => {
+    const tentativa = ler("src/modules/progression/application/credit-attempt.ts");
+    expect(tentativa).not.toContain("custoDeFolego");
+  });
+
+  it("quem decide que a missão acabou é o servidor", () => {
+    const fonte = ler("src/modules/quest/application/play-quest.ts");
+
+    // Sem esta verificação, um toque forjado concederia `Quest.rewardXp` sem
+    // uma única resposta.
+    expect(fonte).toContain("missaoConcluida(missao, respondidas)");
+    expect(fonte).toContain("quest.not_finished");
+  });
+
+  it("a recompensa de missão é concedida uma vez só por jogada", () => {
+    const repositorio = ler("src/modules/quest/infrastructure/prisma-quest-repository.ts");
+
+    // docs/08 §5, invariante 3. A marca e o fechamento saem na mesma escrita
+    // condicional: quem chega depois atualiza zero linhas.
+    expect(repositorio).toContain("rewardsGrantedAt: null");
+  });
+});
+
 describe("§12 — a rota de despacho é fail-closed", () => {
   it("sem CRON_SECRET, ninguém despacha", () => {
     const fonte = ler("app/api/outbox/route.ts");

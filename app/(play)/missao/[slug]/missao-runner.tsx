@@ -19,7 +19,7 @@ import { obterRenderer } from "@/activities/renderers";
 import { FeedbackVisual } from "@/activities/renderers/feedback-visual";
 import { cn } from "@/design-system/utils/cn";
 
-import { responderAtividadeAction } from "./actions";
+import { abrirMissaoAction, concluirMissaoAction, responderAtividadeAction } from "./actions";
 
 /**
  * EXECUTOR DE MISSÃO.
@@ -30,6 +30,15 @@ import { responderAtividadeAction } from "./actions";
  * exigir uma linha aqui.
  */
 export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
+  /**
+   * A jogada em curso. `null` até a criança tocar em "Começar".
+   *
+   * É o que amarra cada tentativa a um `QuestRun` — e é por isso que a missão
+   * tem uma tela de abertura em vez de começar sozinha: abrir custa Fôlego, e o
+   * Next pré-carrega links. Sem o toque explícito, olhar o mapa cobraria por
+   * missões que ela nunca jogou.
+   */
+  const [jogada, setJogada] = useState<{ id: string; retomada: boolean } | null>(null);
   const [posicao, setPosicao] = useState<PosicaoNaMissao>(primeiraPosicao);
   const [resultado, setResultado] = useState<EvaluationResult | undefined>();
   const [premio, setPremio] = useState<Premio | null>(null);
@@ -42,6 +51,9 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   const [erro, setErro] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(1);
   const [terminou, setTerminou] = useState(false);
+  const [premioDaMissao, setPremioDaMissao] = useState<{ xp: number; moedas: number } | null>(
+    null,
+  );
   const [inicioMs, setInicioMs] = useState(() => Date.now());
   /*
    * Chave de idempotência da tentativa em curso.
@@ -73,18 +85,46 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   const total = totalDeAtividades(missao);
   const numero = indiceAbsoluto(missao, posicao) + 1;
 
-  if (terminou) {
-    return <TelaFinal missao={missao} />;
+  if (terminou || !atividade) {
+    return <TelaFinal missao={missao} premio={premioDaMissao} />;
   }
 
-  if (!atividade) {
-    return <TelaFinal missao={missao} />;
+  if (!jogada) {
+    return (
+      <TelaDeAbertura
+        missao={missao}
+        pendente={pendente}
+        erro={erro}
+        aoComecar={comecar}
+      />
+    );
   }
 
   const Renderer = obterRenderer(rendererDoTipo(atividade.tipo));
 
+  function comecar(): void {
+    setErro(null);
+    const dados = new FormData();
+    dados.set("missaoSlug", missao.slug);
+
+    iniciarTransicao(async () => {
+      const estado = await abrirMissaoAction({ status: "inicial" }, dados);
+
+      if (estado.status === "sucesso") {
+        setJogada({ id: estado.dados.questRunId, retomada: estado.dados.retomada });
+        // Retomar significa voltar exatamente onde parou. O índice vem do
+        // servidor, contado das tentativas gravadas — não de estado do cliente,
+        // que não sobrevive a fechar o app.
+        setPosicao(posicaoDoIndice(missao, estado.dados.retomarNoIndice));
+        setInicioMs(Date.now());
+      } else if (estado.status === "erro") {
+        setErro(estado.mensagem);
+      }
+    });
+  }
+
   function responder(resposta: unknown): void {
-    if (!atividade) return;
+    if (!atividade || !jogada) return;
     setErro(null);
 
     const dados = new FormData();
@@ -94,6 +134,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     dados.set("tentativa", String(tentativa));
     dados.set("duracaoMs", String(Date.now() - inicioMs));
     dados.set("chaveDeIdempotencia", chave);
+    dados.set("questRunId", jogada.id);
 
     iniciarTransicao(async () => {
       const estado = await responderAtividadeAction({ status: "inicial" }, dados);
@@ -117,8 +158,40 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     limparDevolutiva();
     setTentativa(1);
 
-    if (proxima) setPosicao(proxima);
-    else setTerminou(true);
+    if (proxima) {
+      setPosicao(proxima);
+      return;
+    }
+
+    /*
+     * Fim da missão. Quem confirma que ela acabou é o servidor, contando as
+     * tentativas gravadas — este toque é só o pedido. Se faltar atividade, a
+     * ação recusa e a criança vê a mensagem em vez de ganhar o prêmio.
+     */
+    const corrida = jogada;
+    if (!corrida) {
+      setTerminou(true);
+      return;
+    }
+
+    const dados = new FormData();
+    dados.set("missaoSlug", missao.slug);
+    dados.set("questRunId", corrida.id);
+
+    iniciarTransicao(async () => {
+      const estado = await concluirMissaoAction({ status: "inicial" }, dados);
+
+      if (estado.status === "sucesso" && estado.dados.concedidaAgora) {
+        setPremioDaMissao({
+          xp: estado.dados.premio.xp,
+          moedas: estado.dados.premio.moedas,
+        });
+      } else if (estado.status === "erro") {
+        setErro(estado.mensagem);
+      }
+
+      setTerminou(true);
+    });
   }
 
   function tentarDeNovo(): void {
@@ -310,7 +383,59 @@ function Devolutiva({
   );
 }
 
-function TelaFinal({ missao }: { missao: MissaoNaSessao }) {
+/**
+ * A abertura da missão.
+ *
+ * Existe por duas razões que se somam. A primeira é narrativa: a `introducao`
+ * é o que situa a criança no mundo antes de pedir qualquer coisa dela. A
+ * segunda é dura — abrir uma missão cobra Fôlego, e o Next pré-carrega links.
+ * Sem um toque explícito, olhar o mapa cobraria por missões nunca jogadas.
+ */
+function TelaDeAbertura({
+  missao,
+  pendente,
+  erro,
+  aoComecar,
+}: {
+  missao: MissaoNaSessao;
+  pendente: boolean;
+  erro: string | null;
+  aoComecar: () => void;
+}) {
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center gap-6 px-6 text-center">
+      <p className="font-display text-sm uppercase tracking-[0.2em] text-[var(--color-corrente)]">
+        Nova missão
+      </p>
+      <h1 className="font-display text-3xl font-extrabold text-balance md:text-4xl">
+        {missao.nome}
+      </h1>
+      <p className="max-w-lg text-lg text-slate-300 text-pretty">{missao.introducao}</p>
+
+      <BotaoGrande onClick={aoComecar} desabilitado={pendente}>
+        {pendente ? "Abrindo…" : "Começar"}
+      </BotaoGrande>
+
+      {erro ? (
+        <p role="alert" className="text-[var(--color-quase)]">
+          {erro}
+        </p>
+      ) : null}
+
+      <a href="/hub" className="text-sm text-slate-400 underline">
+        Voltar para a base
+      </a>
+    </div>
+  );
+}
+
+function TelaFinal({
+  missao,
+  premio,
+}: {
+  missao: MissaoNaSessao;
+  premio: { xp: number; moedas: number } | null;
+}) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center gap-6 px-6 text-center">
       <p className="font-display text-sm uppercase tracking-[0.2em] text-[var(--color-corrente)]">
@@ -320,6 +445,19 @@ function TelaFinal({ missao }: { missao: MissaoNaSessao }) {
         {missao.nome}
       </h1>
       <p className="max-w-lg text-lg text-slate-300 text-pretty">{missao.conclusao}</p>
+
+      {/*
+        O prêmio da missão só aparece quando foi concedido nesta jogada. Ao
+        rejogar, `concedidaAgora` vem falso e nada é mostrado — repetir a
+        celebração de algo que não aconteceu ensina que a celebração não vale.
+      */}
+      {premio && premio.xp > 0 ? (
+        <p className="font-display text-xl text-[var(--color-fagulha)]">
+          +{premio.xp} de Luz
+          {premio.moedas > 0 ? ` · +${premio.moedas} Fagulhas` : ""}
+        </p>
+      ) : null}
+
       <a
         href="/hub"
         className="font-display min-h-[var(--touch-target-play)] rounded-[var(--radius-xl)] bg-[var(--color-aurora)] px-8 py-4 text-lg font-bold text-white"
@@ -328,6 +466,26 @@ function TelaFinal({ missao }: { missao: MissaoNaSessao }) {
       </a>
     </div>
   );
+}
+
+/**
+ * Índice absoluto → posição (fase, atividade).
+ *
+ * O servidor conta atividades numa lista só, porque é assim que elas vivem em
+ * `StageActivity`; a tela navega por fase. A conversão precisa existir em algum
+ * lugar, e este é o lado que conhece as duas formas.
+ */
+function posicaoDoIndice(missao: MissaoNaSessao, indice: number): PosicaoNaMissao {
+  let restante = indice;
+
+  for (let fase = 0; fase < missao.fases.length; fase += 1) {
+    const quantas = missao.fases[fase]?.atividades.length ?? 0;
+    if (restante < quantas) return { fase, atividade: restante };
+    restante -= quantas;
+  }
+
+  // Passou do fim: a missão já estava toda respondida.
+  return primeiraPosicao();
 }
 
 function BotaoGrande({

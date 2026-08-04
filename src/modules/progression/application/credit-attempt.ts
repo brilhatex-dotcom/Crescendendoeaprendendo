@@ -5,7 +5,6 @@ import {
 import type { DomainEvent, EventHandler, Transacao } from "@/shared/kernel";
 
 import { aplicarGanho, progressoInicial } from "../domain/progress";
-import { diaCivil } from "../domain/streak";
 import type { ProgressionDeps } from "./ports";
 
 /**
@@ -39,13 +38,7 @@ export function criarCreditoDeTentativa(
     async tratar(evento, tx: Transacao) {
       const { learnerId, premio } = evento.payload;
 
-      /*
-       * Sem prêmio não há o que creditar — mas a Trilha de Luz **ainda assim**
-       * avança. Uma atividade sem regra de recompensa continua sendo um dia em
-       * que a criança apareceu, e a sequência mede presença, não pontuação.
-       */
       const agora = deps.clock.now();
-      const fuso = await deps.repositorio.fusoDoResponsavel(learnerId);
 
       /*
        * O `null` da leitura é o que distingue criar de atualizar — e não a
@@ -60,7 +53,12 @@ export function criarCreditoDeTentativa(
         luz: premio?.xp ?? 0,
         folego: premio?.folego ?? 0,
         agora,
-        dia: diaCivil(agora, fuso),
+        /*
+         * A Trilha de Luz **não** anda aqui. `docs/08 §6` conta dias com missão
+         * concluída, e responder uma atividade não é concluir nada — quem
+         * avança a sequência é o manipulador de `quest.completed`.
+         */
+        dia: null,
       });
 
       if (carregado === null) {

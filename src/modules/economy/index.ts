@@ -9,6 +9,7 @@
  */
 
 export { criarCreditoDeRecompensa } from "./application/credit-reward";
+export { criarCreditoDeMissao } from "./application/credit-quest";
 
 export {
   CarteiraMudouNoMeio,

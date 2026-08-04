@@ -129,6 +129,7 @@ async function limparConteudo(): Promise<void> {
 
 async function limparJogadas(): Promise<void> {
   await db.attempt.deleteMany();
+  await db.questRun.deleteMany();
   await db.skillMastery.deleteMany();
   await db.reviewCard.deleteMany();
   await db.outboxMessage.deleteMany();
@@ -371,8 +372,13 @@ describe("submitAttempt contra Postgres", () => {
     });
 
     expect(progressoGravado.totalXp).toBeGreaterThan(0);
-    expect(progressoGravado.streakDays).toBe(1);
     expect(progressoGravado.version).toBe(1);
+    /*
+     * A Trilha de Luz **não** anda por responder (docs/08 §6: dias com missão
+     * concluída). Quem a avança é o manipulador de `quest.completed` — ver
+     * `quest.integration.test.ts`.
+     */
+    expect(progressoGravado.streakDays).toBe(0);
   });
 
   it("as Fagulhas viram razão contábil e projeção, juntas", async () => {
@@ -419,8 +425,8 @@ describe("submitAttempt contra Postgres", () => {
 
     expect(progressoGravado.totalXp).toBeGreaterThan(0);
     expect(progressoGravado.version).toBe(5);
-    // Um dia só de jogo: a sequência conta dias, não tentativas.
-    expect(progressoGravado.streakDays).toBe(1);
+    // A sequência conta missões concluídas, não tentativas.
+    expect(progressoGravado.streakDays).toBe(0);
   });
 
   it("uma falha no crédito desfaz a tentativa inteira", async () => {
@@ -494,10 +500,11 @@ describe("submitAttempt contra Postgres", () => {
     expect(await db.reviewCard.count()).toBe(0);
     // O evento sai mesmo assim: pular é informação para o responsável.
     expect(await db.outboxMessage.count()).toBe(1);
-    // E a Trilha de Luz avança: ela apareceu hoje.
+    // A linha de progresso é criada mesmo sem prêmio: pular ainda é uma
+    // tentativa registrada, e o Fôlego regenerado precisa de onde morar.
     const progressoGravado = await db.learnerProgress.findUniqueOrThrow({
       where: { learnerId },
     });
-    expect(progressoGravado.streakDays).toBe(1);
+    expect(progressoGravado.streakDays).toBe(0);
   });
 });

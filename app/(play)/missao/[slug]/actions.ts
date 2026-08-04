@@ -17,6 +17,84 @@ import { createAction } from "@/server/action";
 import { err, internalError, notFound, ok } from "@/shared/kernel";
 
 /**
+ * AS TRÊS AÇÕES DE UMA JOGADA: abrir, responder e fechar.
+ *
+ * Todas passam por `createAction`, todas exigem sub-sessão de criança em vigor,
+ * e nenhuma aceita do cliente uma afirmação que valha dinheiro. É o servidor
+ * que corrige, que conta as respostas e que decide que a missão acabou.
+ */
+/**
+ * Abrir a missão — cria a jogada ou devolve a que estava em andamento.
+ *
+ * É uma ação, e não algo que a página faz ao renderizar, por um motivo
+ * concreto: o Next pré-carrega links. Iniciar a missão no render faria o
+ * simples fato de a criança olhar o mapa cobrar Fôlego de missões que ela nunca
+ * jogou.
+ */
+export const abrirMissaoAction = createAction({
+  nome: "quest.open",
+  escopo: "crianca",
+  entrada: z.object({
+    missaoSlug: z.string().min(1).max(80),
+  }),
+
+  executar: async ({ entrada, ator, ctx }) => {
+    if (!ator?.activeLearnerId) {
+      return err(internalError("quest.invalid_context", "Contexto de jogada incompleto."));
+    }
+
+    const missao = await carregarMissaoParaSessao(entrada.missaoSlug);
+    if (!missao) {
+      return err(notFound("quest.not_found", "Esta missão não existe."));
+    }
+
+    const { abrirJogada } = containerDeAvaliacao();
+
+    return abrirJogada({
+      learnerId: ator.activeLearnerId,
+      refDaMissao: missao.ref,
+      traceId: ctx.traceId,
+    });
+  },
+});
+
+/**
+ * Fechar a missão.
+ *
+ * Quem decide que a missão acabou é o servidor, contando as tentativas
+ * gravadas — nunca o cliente. Sem isso, um toque forjado concederia
+ * `Quest.rewardXp` sem uma única resposta.
+ */
+export const concluirMissaoAction = createAction({
+  nome: "quest.complete",
+  escopo: "crianca",
+  entrada: z.object({
+    missaoSlug: z.string().min(1).max(80),
+    questRunId: z.string().min(1).max(60),
+  }),
+
+  executar: async ({ entrada, ator, ctx }) => {
+    if (!ator?.activeLearnerId) {
+      return err(internalError("quest.invalid_context", "Contexto de jogada incompleto."));
+    }
+
+    const missao = await carregarMissaoParaSessao(entrada.missaoSlug);
+    if (!missao) {
+      return err(notFound("quest.not_found", "Esta missão não existe."));
+    }
+
+    const { concluirJogada } = containerDeAvaliacao();
+
+    return concluirJogada({
+      learnerId: ator.activeLearnerId,
+      questRunId: entrada.questRunId,
+      refDaMissao: missao.ref,
+      traceId: ctx.traceId,
+    });
+  },
+});
+
+/**
  * Correção de uma atividade — **no servidor, autoritativa**.
  *
  * A criança pode receber devolutiva instantânea rodando o mesmo `evaluate` no
@@ -40,6 +118,8 @@ export const responderAtividadeAction = createAction({
     atividadeSlug: z.string().min(1).max(80),
     /** JSON da resposta. Validado adiante pelo `answerSchema` do plugin. */
     resposta: z.string().max(20_000),
+    /** Jogada em curso. É o que liga a tentativa à missão (`QuestRun`). */
+    questRunId: z.string().max(60).optional(),
     dicasUsadas: z.coerce.number().int().min(0).max(10).default(0),
     tentativa: z.coerce.number().int().min(1).max(50).default(1),
     duracaoMs: z.coerce.number().int().min(0).max(3_600_000).default(0),
@@ -100,13 +180,12 @@ export const responderAtividadeAction = createAction({
       dicasUsadas: entrada.dicasUsadas,
       duracaoMs: entrada.duracaoMs,
       /*
-       * `QuestRun` ainda não é criado por ninguém — a jogada retomável é o
-       * passo seguinte da Etapa 2. A coluna é anulável por desenho, e uma
-       * tentativa sem corrida é exatamente o que acontece hoje: o histórico e o
-       * modelo de domínio ficam corretos; o que falta é o agrupamento por
-       * jogada, e ele entra sem alterar nada disto.
+       * A jogada em curso. Anulável de propósito: uma tentativa fora de missão
+       * — treino livre, revisão avulsa — continua sendo histórico e continua
+       * movendo o modelo de domínio. O que ela não faz é avançar corrida
+       * nenhuma, e o manipulador de `quest` simplesmente não age.
        */
-      questRunId: null,
+      questRunId: entrada.questRunId ?? null,
       idempotencyKey: ctx.idempotencyKey,
       // O cliente já mostrou a devolutiva antes desta resposta chegar.
       avaliadaNoCliente: true,

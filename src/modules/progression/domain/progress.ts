@@ -40,8 +40,16 @@ export interface GanhoDaTentativa {
   /** Fôlego devolvido pelo prêmio. Responder jamais gasta Fôlego. */
   readonly folego: number;
   readonly agora: Date;
-  /** Data civil no fuso do responsável, para a Trilha de Luz. */
-  readonly dia: string;
+  /**
+   * Data civil no fuso do responsável, para a Trilha de Luz.
+   *
+   * `null` significa **não mexa na Trilha**. Não é um detalhe de conveniência:
+   * `docs/08 §6` conta "dias com ≥ 1 missão concluída", e responder uma
+   * atividade ou gastar Fôlego ao começar não são isso. Deixar o campo
+   * obrigatório faria toda escrita de progresso empurrar a sequência, e a
+   * Trilha passaria a medir toques em vez de missões terminadas.
+   */
+  readonly dia: string | null;
 }
 
 export interface ProgressoAtualizado {
@@ -72,7 +80,7 @@ export function aplicarGanho(
   const nivel = nivelParaLuz(luzTotal);
   const tier = tierDoNivel(nivel);
 
-  const trilha = registrarDia(atual.trilha, ganho.dia);
+  const trilha = ganho.dia === null ? atual.trilha : registrarDia(atual.trilha, ganho.dia);
 
   const proximo: EstadoDeProgresso = {
     luzTotal,

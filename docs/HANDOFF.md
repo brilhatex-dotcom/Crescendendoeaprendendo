@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-04 · **Etapa 2 concluída — a criança vê a Luz subir**
+> Última atualização: 2026-08-04 · **Etapa 3 em curso — a missão como unidade**
 
 ---
 
@@ -202,6 +202,37 @@ compra com dinheiro real** (teste de política procura por `stripe`, `checkout`,
 o outbox só recebe mensagem de tópico que tem consumidor `outbox` — mensagem que ninguém lê
 destruiria a métrica de fila pendente.
 
+### Missão como unidade — concluída (Etapa 3, passo 1)
+Abrir, retomar e fechar uma jogada. **Fechar o app não custa mais progresso.**
+
+- `src/modules/quest/` nas quatro camadas
+  - `domain/quest-run.ts` — posição da retomada e conclusão, **derivadas das
+    tentativas gravadas**, não de uma coluna de posição que pode divergir
+  - `domain/energy-cost.ts` — tabela de `docs/08 §4` por `QuestKind`
+  - `domain/events.ts` — `quest.started` e `quest.completed`
+  - `application/play-quest.ts` — `abrirJogada` (cria **ou retoma**) e `concluirJogada`
+  - `application/advance-run.ts` — manipulador `inline` que faz a corrida acompanhar
+    as respostas, reagindo a `assessment.attempt_evaluated`
+- `src/modules/progression/application/quest-handlers.ts` — cobra o Fôlego ao iniciar,
+  credita a recompensa e **avança a Trilha de Luz** ao concluir
+- `src/modules/economy/application/credit-quest.ts` — moeda da missão
+- `app/(play)/missao/[slug]/` — tela de abertura, retomada e conclusão pelo servidor
+- `tests/integration/quest.integration.test.ts` — 10 testes contra Postgres real
+
+**Propriedades travadas (não relitigar):**
+**iniciar e retomar são a mesma operação** — pedir para jogar devolve a corrida em andamento
+se ela existir; separá-las jogaria a decisão para a tela, e um refresh cobraria Fôlego de novo ·
+**retomar não custa Fôlego**; cobrar de quem volta ensinaria a criança a não fechar o app ·
+a **posição da retomada vem das tentativas**, nunca de estado do cliente · **quem decide que a
+missão acabou é o servidor**, contando respostas — sem isso um toque forjado concederia
+`Quest.rewardXp` sem nenhuma resposta · **responder não é acertar**: "seguir em frente" é sempre
+possível, então exigir acerto tornaria a missão impossível de terminar para quem mais precisa ·
+a recompensa é concedida **uma vez por jogada** (`rewardsGrantedAt` em atualização condicional) ·
+a cobrança de Fôlego **nunca recusa** — piso em zero, e sem Fôlego a missão abre do mesmo jeito ·
+**a Trilha de Luz anda ao concluir a missão**, não ao responder (`docs/08 §6` — a divergência
+anterior foi corrigida) · abrir é uma **ação**, não efeito de render: o Next pré-carrega links, e
+iniciar no render cobraria Fôlego de missões nunca jogadas.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -223,22 +254,24 @@ destruiria a métrica de fila pendente.
 
 ## 4. O que NÃO existe ainda
 
-- **`src/modules/quest` não existe.** `QuestRun` não é criado por ninguém e
-  `Attempt.questRunId` fica nulo (coluna anulável por desenho). Consequências reais hoje:
-  fechar o app no meio da missão perde o lugar; a recompensa de missão (`Quest.rewardXp`,
-  `rewardsGrantedAt`) nunca é concedida; **o Fôlego nunca é gasto**, porque quem gasta é quem
-  inicia uma missão
-- **A Trilha de Luz conta "dia com ≥ 1 tentativa", não "dia com ≥ 1 missão concluída"**
-  como diz `docs/08 §6`. Divergência consciente: sem `QuestRun` nenhuma missão conclui, e uma
-  sequência que nunca anda seria pior que uma que mede prática real. **Apertar para o critério
-  do documento quando `quest` existir** — a função `registrarDia` já está pronta para isso, só
-  muda quem a chama
+- **Regra de desbloqueio (`unlockRule`) não é avaliada.** A coluna existe e o importador a
+  grava, mas nada a lê: **toda missão publicada é jogável**. `docs/08 §3` pede regra declarativa
+  (nível, missão concluída, domínio médio) e o mapa mostrando **o caminho**, nunca só um cadeado
+- **Slots dinâmicos são ignorados.** `StageActivity` com `activityId` nulo é descartado pelo
+  repositório de missões: uma missão só de slots não é jogável, e contar um slot como atividade
+  obrigatória tornaria a conclusão impossível. A seleção adaptativa (`docs/08 §7`) é quem os
+  preenche, e o `SeletorDeAtividades` já existe como porta em `src/activities/difficulty.ts`
+- **`Chapter`, `World` e `mapLayout`** — no banco, sem tela. A base lista missões em texto
 - **Desbloqueio por nível** (Academia da Inteligência no 10, Prosperidade no 15…) — a tabela de
   `docs/08 §1` não está implementada. O que funciona é o desbloqueio **declarado no conteúdo**
   (`premio.desbloqueios` → linhas em `Unlock`). O gate por nível precisa da declaração no lado do
   conteúdo primeiro; pôr os números no código violaria "balanceamento fica em `content/`"
-- `LearnerProgress.minutesToday` — fica em 0. Medir tempo de sessão exige marco de início e fim,
-  que é assunto de `quest`. Preferi zero honesto a um número inventado
+- `LearnerProgress.minutesToday` — fica em 0. `QuestRun` já dá o marco de início e fim; falta
+  decidir se "tempo de sessão" conta a jogada inteira ou só o tempo com atividade na tela.
+  Preferi zero honesto a um número inventado
+- **Missão abandonada** — `QuestRunStatus.ABANDONED` existe no enum e nada o usa. Uma corrida
+  aberta fica aberta para sempre, e retomá-la é sempre possível. É o comportamento gentil; se um
+  dia precisar de expiração, é aqui
 - Conquistas, talentos, notificações e relatórios — o outbox e o barramento já estão prontos;
   falta escrever os manipuladores
 - Calibração de dificuldade por telemetria (`docs/08 §2`, job noturno com ≥ 200 tentativas)
@@ -256,45 +289,51 @@ destruiria a métrica de fila pendente.
 
 ---
 
-## 5. PRÓXIMA TAREFA — Etapa 3: a missão como unidade
+## 5. PRÓXIMA TAREFA — Etapa 3, passo 2: o mundo visível
 
-A Etapa 2 fechou o ciclo da **resposta**: a criança responde, o modelo aprende, a Luz sobe e as
-Fagulhas entram. O que falta agora é o ciclo da **missão** — e a lista de coisas que hoje não
-funcionam tem todas a mesma causa: `QuestRun` não existe.
+A missão já é uma unidade: abre, retoma e fecha. O que falta é **onde ela mora**. Hoje a base
+lista missões em texto e todas são jogáveis, porque `unlockRule` está no banco e ninguém a lê.
 
 ### Ordem sugerida
-1. **`src/modules/quest/`** — iniciar, retomar e concluir uma jogada.
-   - `iniciarMissao` cria o `QuestRun`, **gasta o Fôlego** (5 campanha, 3 revisão, 0 em conteúdo
-     novo da trilha e em revisão pendente — `docs/08 §4`) e devolve o estado da jogada;
-   - `retomarMissao` devolve a corrida em andamento: fechar o app não pode custar progresso;
-   - `concluirMissao` credita `Quest.rewardXp` **uma vez só** (`rewardsGrantedAt`) e publica
-     `quest.completed`.
-   - `Attempt.questRunId` passa a ser preenchido. A ação de jogo já aceita o campo.
-2. **Apertar a Trilha de Luz** para "dia com missão concluída", como manda `docs/08 §6` —
-   ver §4. É trocar quem chama `registrarDia`, nada mais.
-3. **Regra de desbloqueio** (`docs/08 §3`): `unlockRule` declarativa, avaliada contra nível,
-   missões concluídas e domínio médio. O mapa mostra **o caminho**, nunca só um cadeado.
-4. **Mapa do mundo** — a base hoje lista missões em texto. `World`, `Chapter` e `Quest` já estão
-   no banco, com ordem e `sourceRef`.
-5. **Manipuladores que faltam** — conquistas (`Achievement.criteria` é regra declarativa avaliada
-   por evento) e perfil de talentos. O barramento e o outbox já estão prontos: é registrar no
-   composition root.
+1. **Avaliar `unlockRule`** (`docs/08 §3`). Regra declarativa, avaliada contra nível, missões
+   concluídas e domínio médio:
+   ```json
+   { "all": [ { "level": { "gte": 12 } },
+              { "questCompleted": "quest_xyz" },
+              { "masteryAvg": { "skills": ["s1","s2"], "gte": 0.6 } } ] }
+   ```
+   **O mapa mostra o caminho, nunca só um cadeado**: "Treine 2 missões em Frações para enfrentar
+   o Guardião". Um cadeado sem explicação é uma parede sem porta.
+   O avaliador é função pura — entra o estado da criança, sai jogável/não-jogável **e o motivo**.
+2. **Mapa do mundo** — `World.mapLayout` (nós, arestas, coordenadas) já está no schema e o
+   importador o grava. `Chapter` ordena os capítulos. É a primeira tela que faz o arquipélago
+   parecer um lugar em vez de uma lista.
+3. **Seleção adaptativa** (`docs/08 §7`) — preencher os slots dinâmicos de `StageActivity`. A
+   porta `SeletorDeAtividades` e a implementação determinística por proximidade **já existem**
+   em `src/activities/difficulty.ts`; falta ligá-las ao carregamento da missão.
+4. **Fila de revisão** — `ReviewCard.dueAt` já é escrito a cada tentativa e ninguém lê. Uma
+   missão de revisão (`QuestKind.REVIEW`, custo 3 de Fôlego) montada da fila vencida fecha o
+   ciclo do SM-2.
+5. **Conquistas** — `Achievement.criteria` é regra declarativa avaliada por evento. O barramento
+   e o outbox estão prontos: é escrever o manipulador e registrá-lo no composition root.
 
 ### Decisões em aberto — precisam do dono
 **1. A importação de conteúdo deve rodar no deploy?** Continua manual (`npm run content:import`).
 Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy — mas os deploys de *preview*
 compartilham o `DATABASE_URL` de produção, então uma branch em rascunho escreveria no banco real.
-**Jogar exige o acervo importado**: sem ele, `submeterTentativa` responde
-`assessment.activity_not_published`.
+**Jogar exige o acervo importado**: sem ele, abrir a missão responde `quest.not_published`.
 
 **2. `CRON_SECRET` precisa ser configurado na Vercel.** Sem ele, `/api/outbox` responde 503 e a
-**telemetria nunca é gravada** — a Luz e as Fagulhas continuam funcionando, porque são `inline`.
-Gerar um valor de 32+ caracteres, pôr nas variáveis de ambiente do projeto, e o cron de
-`vercel.json` (a cada 5 min) passa a rodar.
+**telemetria nunca é gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
+Gerar um valor de 32+ caracteres e pôr nas variáveis de ambiente do projeto.
 
 **3. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`. Para uma família só, está
 certo; para vender a uma escola, vira campo.
+
+**4. O acervo tem uma missão.** Todo o sistema está pronto e há **três atividades** para jogar.
+A partir daqui, o gargalo deixou de ser código e passou a ser conteúdo — e conteúdo é `content/`,
+que não exige deploy para crescer.
 
 ## 6. Decisões já tomadas — não relitigar
 
@@ -320,6 +359,8 @@ certo; para vender a uma escola, vira campo.
 | **XP e carteira são `inline`; telemetria é `outbox`** | `src/shared/kernel/domain-event.ts` |
 | **`assessment` mede; quem credita reage ao evento** | `src/modules/assessment/domain/events.ts` |
 | **Telemetria e evento interno são tópicos separados** | `src/modules/assessment/domain/events.ts` |
+| **Iniciar e retomar uma missão são a mesma operação** | `src/modules/quest/application/play-quest.ts` |
+| **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
 
 ---
 
@@ -418,6 +459,10 @@ npx prisma migrate deploy && npm run test:integration
 - **Mensagem de outbox parada é sintoma, não ruído.** `processedAt` nulo com `attempts` no teto
   significa que um manipulador falha sempre; `lastError` diz qual. A linha não é apagada de
   propósito: mensagem que some é um efeito que ninguém sabe que faltou.
+- **Abrir a missão é uma ação, nunca efeito de render.** O Next pré-carrega links; iniciar no
+  render cobraria Fôlego por missões que a criança nunca jogou. Se alguém mover `abrirJogada`
+  para dentro de um Server Component, é este o defeito que aparece — e ele aparece como "o
+  Fôlego dela some sozinho".
 - **`crypto.randomUUID()` exige contexto seguro.** O executor de missão gera a chave de
   idempotência no navegador. Em `http://` que não seja `localhost` a função não existe e o
   envio falha. Em produção é HTTPS; num túnel de teste por HTTP, não.

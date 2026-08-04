@@ -1,9 +1,24 @@
 import { criarSubmeterTentativa, type SubmeterTentativa } from "@/modules/assessment";
 import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
-import { criarCreditoDeRecompensa } from "@/modules/economy";
+import {
+  criarCreditoDeMissao as criarCreditoDeMissaoNaCarteira,
+  criarCreditoDeRecompensa,
+} from "@/modules/economy";
 import { criarRepositorioPrismaDeCarteira } from "@/modules/economy/infrastructure/prisma-wallet-repository";
-import { criarCreditoDeTentativa } from "@/modules/progression";
+import {
+  criarCobrancaDeFolego,
+  criarCreditoDeMissao as criarCreditoDeMissaoNaLuz,
+  criarCreditoDeTentativa,
+} from "@/modules/progression";
 import { criarRepositorioPrismaDeProgresso } from "@/modules/progression/infrastructure/prisma-progress-repository";
+import {
+  criarAbrirJogada,
+  criarAvancoDaCorrida,
+  criarConcluirJogada,
+  type AbrirJogada,
+  type ConcluirJogada,
+} from "@/modules/quest";
+import { criarRepositorioPrismaDeMissoes } from "@/modules/quest/infrastructure/prisma-quest-repository";
 import { db } from "@/server/db";
 import { criarBarramento } from "@/server/event-bus";
 import { criarDespachanteDoOutbox, type DespachanteDoOutbox } from "@/server/outbox";
@@ -15,38 +30,58 @@ import { systemClock } from "@/shared/kernel";
 /**
  * Composition root da jogada.
  *
- * **Este arquivo é o único lugar do sistema onde avaliação, progressão e
- * economia se encontram.** Nenhum dos três importa os outros: `assessment`
- * publica um evento, e a lista abaixo é quem decide quem escuta.
+ * **Este arquivo é o único lugar do sistema onde avaliação, missão, progressão
+ * e economia se encontram.** Nenhum dos quatro importa os outros: quem publica
+ * um evento não sabe quem escuta, e a tabela abaixo é a resposta inteira.
  *
- * É por isso que acrescentar um efeito — conquista ao dominar uma competência,
- * aviso ao responsável, sugestão de missão em família — é acrescentar uma linha
- * em `MANIPULADORES` e escrever o manipulador. Zero alteração em avaliação,
- * progressão ou economia (docs/01 §2).
+ * | evento                       | quem reage                                  |
+ * |------------------------------|---------------------------------------------|
+ * | `quest.started`              | progressão cobra o Fôlego                    |
+ * | `assessment.attempt_evaluated` | progressão credita Luz · economia credita Fagulha · missão avança a corrida |
+ * | `quest.completed`            | progressão credita a recompensa e avança a Trilha · economia credita a moeda |
+ * | `learning.attempt_recorded`  | telemetria (pelo outbox)                     |
  *
- * A ordem dentro do array importa pouco, mas não é aleatória: progressão antes
- * de economia porque a Luz é o que a criança olha primeiro, e num erro é o
- * primeiro registro que se quer ver no log.
+ * Acrescentar um efeito — conquista ao dominar uma competência, aviso ao
+ * responsável, sugestão de missão em família — é acrescentar uma linha em
+ * `MANIPULADORES`. Zero alteração nos módulos (docs/01 §2).
  */
 
 const repositorioDeProgresso = criarRepositorioPrismaDeProgresso(db);
 const repositorioDeCarteira = criarRepositorioPrismaDeCarteira(db);
+const repositorioDeMissoes = criarRepositorioPrismaDeMissoes();
+
+const unidadeDeTrabalho = criarUnidadeDeTrabalho(db);
 
 /**
  * Quem reage ao que acontece numa jogada.
  *
  * Cada manipulador declara o próprio modo. Os `inline` rodam dentro da
- * transação da tentativa — é o que faz a Luz aparecer no mesmo instante
+ * transação que os originou — é o que faz a Luz aparecer no mesmo instante
  * (docs/08 §11). Os `outbox` rodam depois, pelo despachante.
  */
 const MANIPULADORES: readonly EventHandler[] = [
+  // quest.started
+  criarCobrancaDeFolego({ repositorio: repositorioDeProgresso, clock: systemClock }),
+
+  // assessment.attempt_evaluated
   criarCreditoDeTentativa({ repositorio: repositorioDeProgresso, clock: systemClock }),
   criarCreditoDeRecompensa({ repositorio: repositorioDeCarteira }),
+  criarAvancoDaCorrida({ repositorio: repositorioDeMissoes }),
+
+  // quest.completed
+  criarCreditoDeMissaoNaLuz({ repositorio: repositorioDeProgresso, clock: systemClock }),
+  criarCreditoDeMissaoNaCarteira({ repositorio: repositorioDeCarteira }),
+
+  // learning.attempt_recorded
   criarTelemetriaDeTentativa(),
 ] as readonly EventHandler[];
 
+const barramento = criarBarramento(MANIPULADORES);
+
 interface ContainerDaJogada {
   readonly submeterTentativa: SubmeterTentativa;
+  readonly abrirJogada: AbrirJogada;
+  readonly concluirJogada: ConcluirJogada;
   readonly progresso: typeof repositorioDeProgresso;
   readonly carteira: typeof repositorioDeCarteira;
   readonly despachante: DespachanteDoOutbox;
@@ -58,10 +93,22 @@ export function containerDeAvaliacao(): ContainerDaJogada {
   cache ??= {
     submeterTentativa: criarSubmeterTentativa({
       repositorio: criarRepositorioPrismaDeAvaliacao(db),
-      unidadeDeTrabalho: criarUnidadeDeTrabalho(db),
-      barramento: criarBarramento(MANIPULADORES),
+      unidadeDeTrabalho,
+      barramento,
       clock: systemClock,
       dormir: (ms) => new Promise((resolver) => setTimeout(resolver, ms)),
+    }),
+    abrirJogada: criarAbrirJogada({
+      repositorio: repositorioDeMissoes,
+      unidadeDeTrabalho,
+      barramento,
+      clock: systemClock,
+    }),
+    concluirJogada: criarConcluirJogada({
+      repositorio: repositorioDeMissoes,
+      unidadeDeTrabalho,
+      barramento,
+      clock: systemClock,
     }),
     progresso: repositorioDeProgresso,
     carteira: repositorioDeCarteira,

@@ -42,6 +42,11 @@ export interface FaseNaSessao {
 
 export interface MissaoNaSessao {
   readonly slug: string;
+  /**
+   * Identidade estável da missão no acervo — o mesmo valor gravado em
+   * `Quest.sourceRef` pelo importador. Ver `AtividadeNaSessao.ref`.
+   */
+  readonly ref: string;
   readonly nome: string;
   readonly introducao: string;
   readonly conclusao: string;

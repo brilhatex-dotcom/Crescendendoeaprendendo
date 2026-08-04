@@ -8,6 +8,10 @@
  */
 
 export { criarCreditoDeTentativa } from "./application/credit-attempt";
+export {
+  criarCobrancaDeFolego,
+  criarCreditoDeMissao,
+} from "./application/quest-handlers";
 
 export {
   ProgressoMudouNoMeio,
