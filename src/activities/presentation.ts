@@ -24,6 +24,20 @@ export const animacaoSchema = z.enum([
   "BRILHO_SUAVE",
 ]);
 
+/**
+ * ⚠️ **`som` ainda não toca.** Declarado, não implementado — e de propósito.
+ *
+ * Faltam duas coisas, nenhuma delas código:
+ *  1. os arquivos de áudio (`public/sfx/`), que são identidade sonora do
+ *     produto e decisão de design, não improviso;
+ *  2. o respeito a `LearnerSettings.soundEnabled`, que exige as preferências da
+ *     criança chegarem até a sessão de missão.
+ *
+ * Som errado num produto infantil é pior que silêncio, e um `<audio>` apontando
+ * para arquivo inexistente seria o tipo de código provisório que este projeto
+ * proíbe. O vocabulário fica aqui para que o conteúdo já possa declarar a
+ * intenção; ligar é trabalho de uma etapa futura (ver `docs/13 §11`).
+ */
 export const somSchema = z.enum([
   "NENHUM",
   "ACERTO_CURTO",

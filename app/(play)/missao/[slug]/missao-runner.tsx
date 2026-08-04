@@ -1,19 +1,22 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import {
+  APRESENTACAO_PADRAO,
   atividadeEm,
   indiceAbsoluto,
   primeiraPosicao,
   proximaPosicao,
   totalDeAtividades,
+  type ApresentacaoDeFeedback,
   type EvaluationResult,
   type MissaoNaSessao,
   type PosicaoNaMissao,
   type Premio,
 } from "@/activities";
 import { obterRenderer } from "@/activities/renderers";
+import { FeedbackVisual } from "@/activities/renderers/feedback-visual";
 import { cn } from "@/design-system/utils/cn";
 
 import { responderAtividadeAction } from "./actions";
@@ -30,11 +33,30 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   const [posicao, setPosicao] = useState<PosicaoNaMissao>(primeiraPosicao);
   const [resultado, setResultado] = useState<EvaluationResult | undefined>();
   const [premio, setPremio] = useState<Premio | null>(null);
+  const [apresentacao, setApresentacao] = useState<ApresentacaoDeFeedback>(
+    APRESENTACAO_PADRAO.CELEBRA,
+  );
+  const [segurando, setSegurando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(1);
   const [terminou, setTerminou] = useState(false);
   const [inicioMs, setInicioMs] = useState(() => Date.now());
   const [pendente, iniciarTransicao] = useTransition();
+
+  /*
+   * `segurarSegundos` mantém os botões travados por alguns instantes depois de
+   * uma devolutiva que tem o que ensinar.
+   *
+   * Parece hostil e é o contrário: sem isso, a criança bate em "tentar de novo"
+   * no impulso e nunca lê a explicação — e a explicação é o motivo de a
+   * atividade existir. O texto fica visível o tempo todo; o que espera é só o
+   * botão.
+   */
+  useEffect(() => {
+    if (!segurando) return;
+    const espera = setTimeout(() => setSegurando(false), apresentacao.segurarSegundos * 1000);
+    return () => clearTimeout(espera);
+  }, [segurando, apresentacao.segurarSegundos]);
 
   const atividade = atividadeEm(missao, posicao);
   const total = totalDeAtividades(missao);
@@ -67,6 +89,8 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
       if (estado.status === "sucesso") {
         setResultado(estado.dados.resultado);
         setPremio(estado.dados.premio);
+        setApresentacao(estado.dados.apresentacao);
+        setSegurando(estado.dados.apresentacao.segurarSegundos > 0);
       } else if (estado.status === "erro") {
         setErro(estado.mensagem);
       }
@@ -75,19 +99,22 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
 
   function avancar(): void {
     const proxima = proximaPosicao(missao, posicao);
-    setResultado(undefined);
-    setPremio(null);
+    limparDevolutiva();
     setTentativa(1);
-    setInicioMs(Date.now());
 
     if (proxima) setPosicao(proxima);
     else setTerminou(true);
   }
 
   function tentarDeNovo(): void {
+    limparDevolutiva();
+    setTentativa((n) => n + 1);
+  }
+
+  function limparDevolutiva(): void {
     setResultado(undefined);
     setPremio(null);
-    setTentativa((n) => n + 1);
+    setSegurando(false);
     setInicioMs(Date.now());
   }
 
@@ -105,19 +132,21 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
         </div>
 
         {/* Progresso com valor acessível: barra sozinha não informa quem não a vê. */}
-        <div
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={total}
-          aria-valuenow={numero}
-          aria-label={`Atividade ${numero} de ${total}`}
-          className="h-2 w-full overflow-hidden rounded-full bg-white/10"
-        >
+        {apresentacao.mostrarProgresso ? (
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[var(--color-aurora)] to-[var(--color-corrente)] transition-[width] duration-[var(--duration-base)]"
-            style={{ width: `${(numero / total) * 100}%` }}
-          />
-        </div>
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-valuenow={numero}
+            aria-label={`Atividade ${numero} de ${total}`}
+            className="h-2 w-full overflow-hidden rounded-full bg-white/10"
+          >
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[var(--color-aurora)] to-[var(--color-corrente)] transition-[width] duration-[var(--duration-base)]"
+              style={{ width: `${(numero / total) * 100}%` }}
+            />
+          </div>
+        ) : null}
       </header>
 
       <main className="flex-1">
@@ -142,13 +171,16 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
       </main>
 
       {resultado ? (
-        <Devolutiva
-          resultado={resultado}
-          premio={premio}
-          podeAvancar={podeAvancar}
-          aoAvancar={avancar}
-          aoTentarDeNovo={tentarDeNovo}
-        />
+        <FeedbackVisual apresentacao={apresentacao}>
+          <Devolutiva
+            resultado={resultado}
+            premio={apresentacao.mostrarPremio ? premio : null}
+            podeAvancar={podeAvancar}
+            segurando={segurando}
+            aoAvancar={avancar}
+            aoTentarDeNovo={tentarDeNovo}
+          />
+        </FeedbackVisual>
       ) : null}
     </div>
   );
@@ -158,12 +190,14 @@ function Devolutiva({
   resultado,
   premio,
   podeAvancar,
+  segurando,
   aoAvancar,
   aoTentarDeNovo,
 }: {
   resultado: EvaluationResult;
   premio: Premio | null;
   podeAvancar: boolean;
+  segurando: boolean;
   aoAvancar: () => void;
   aoTentarDeNovo: () => void;
 }) {
@@ -214,18 +248,30 @@ function Devolutiva({
 
       <div className="mt-6 flex flex-wrap gap-3">
         {podeAvancar ? (
-          <BotaoGrande onClick={aoAvancar}>Continuar</BotaoGrande>
+          <BotaoGrande onClick={aoAvancar} desabilitado={segurando}>
+            Continuar
+          </BotaoGrande>
         ) : (
           <>
-            <BotaoGrande onClick={aoTentarDeNovo}>Tentar de novo</BotaoGrande>
+            <BotaoGrande onClick={aoTentarDeNovo} desabilitado={segurando}>
+              Tentar de novo
+            </BotaoGrande>
             {/* Seguir em frente é sempre possível: travar a criança numa
                 atividade que ela não consegue é o oposto de ensinar. */}
-            <BotaoGrande variante="discreto" onClick={aoAvancar}>
+            <BotaoGrande variante="discreto" onClick={aoAvancar} desabilitado={segurando}>
               Seguir em frente
             </BotaoGrande>
           </>
         )}
       </div>
+
+      {/*
+        Quem usa leitor de tela precisa saber por que o botão não responde.
+        Botão desabilitado sem explicação é uma parede sem porta.
+      */}
+      {segurando ? (
+        <p className="mt-3 text-sm text-slate-400">Leia com calma — já já você continua.</p>
+      ) : null}
     </section>
   );
 }
@@ -254,19 +300,23 @@ function BotaoGrande({
   children,
   onClick,
   variante = "principal",
+  desabilitado = false,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   variante?: "principal" | "discreto";
+  desabilitado?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={desabilitado}
       className={cn(
         "font-display min-h-[var(--touch-target-play)] rounded-[var(--radius-xl)] px-8 text-lg font-bold",
         "transition-transform duration-[var(--duration-quick)] hover:scale-[1.02] active:scale-[0.98]",
         "motion-reduce:hover:scale-100 motion-reduce:active:scale-100",
+        "disabled:pointer-events-none disabled:opacity-50",
         variante === "principal"
           ? "bg-[var(--color-aurora)] text-white"
           : "border border-[var(--glass-border)] text-slate-200",
