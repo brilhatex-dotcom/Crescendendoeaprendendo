@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-04 · **Etapa 1 — Motor de Atividades concluído**
+> Última atualização: 2026-08-04 · **Etapa 2 em curso — importador de conteúdo concluído**
 
 ---
 
@@ -54,8 +54,14 @@ se resolve a favor da Bíblia. Qualquer pessoa pode recusar uma decisão dizendo
 
 ### Banco de dados
 - **`prisma/schema.prisma` — 45 modelos.** Contrato completo de `docs/04`, 16 bounded contexts.
-- `prisma/migrations/20260803200611_init/` — **53 tabelas, 139 índices, 12 enums.**
-  Já aplicada em produção. Não gere outra sem necessidade real.
+- `prisma/migrations/` — 3 migrations, todas aplicadas:
+  - `..._init` — **53 tabelas, 139 índices, 12 enums**
+  - `..._chaves_naturais_de_conteudo` — `sourceRef` em `Activity`/`Chapter`/`Quest` e
+    `@@unique([skillId, name])` em `Objective`. Sem chave natural estável, reimportar
+    duplicaria atividade — e `Attempt` aponta para `Activity.id`
+  - `..._escala_elo_cabe_no_banco` — `Decimal(6,3)` → `(7,3)` em `Activity.difficulty`,
+    `Skill.difficultyRef` e `SkillMastery.ability`. A escala Elo do motor usa 800/1000/1200
+    e não cabia em 999,999; só apareceu ao rodar a primeira importação de verdade
 - Resolvido e **não reabrir sem ADR**: razão contábil (`LedgerEntry`), `idempotencyKey`,
   `pseudonymId` separado do `learnerId`, BKT+Elo, SM-2, `OutboxMessage`, `version`.
 
@@ -108,6 +114,29 @@ Next, Prisma nem `src/modules` (dependency-cruiser) · plugin não importa plugi
 puro · telemetria não tem campo para `learnerId` · sem Fôlego a criança perde moeda, nunca XP ·
 nenhuma informação existe só como movimento, som ou cor.
 
+### Importador de conteúdo — concluído (Etapa 2, passo 1)
+`content/` (git) → Postgres. É o que faz `Attempt` ter um `Activity.id` para referenciar.
+
+- `src/modules/content/` nas quatro camadas
+  - `domain/plan.ts` — **função pura**: acervo → plano de linhas. Todo o mapeamento é
+    testável sem banco, e é onde moram os erros sutis de importação
+  - `application/` — porta `EscritorDeConteudo` e caso de uso `importarConteudo`
+  - `infrastructure/prisma-content-writer.ts` — `upsert` por chave natural, uma transação
+- `src/composition/content.ts` — composition root
+- `scripts/import-content.ts` — `npm run content:import` (`-- --forcar` só para diagnóstico)
+- `tests/integration/content-import.integration.test.ts` — 6 testes contra Postgres real
+
+**Correspondência entre autoria e banco** (decidida, documentada em `domain/plan.ts`):
+competência → `Strand` · objetivo → `Skill` (é o objetivo que carrega código BNCC e
+pré-requisito) · `Objective` sintético 1:1 · nível → `World` · módulo → `Chapter` ·
+missão → `Quest` · fase → `Stage` · atividade → `Activity` + `StageActivity`.
+
+**Propriedades travadas (não relitigar):**
+importação é **tudo-ou-nada** — referência que não fecha não grava nada, porque acervo meio
+importado trava a criança numa tela sem saída · é **idempotente** — reimportar preserva
+`Activity.id`, e isso é o que protege o histórico de quem já jogou · nada é apagado —
+despublicar é decisão editorial separada.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -132,7 +161,6 @@ nenhuma informação existe só como movimento, som ou cor.
 - `src/modules/` além de `identity` — **`assessment`, `progression`, `economy`, `quest` não existem**
 - Persistência de tentativas — o contrato `RegistradorDeTentativas` existe; a gravação em
   `Attempt`/`LearningEvent` é do `assessment`
-- Importador de `content/` para o Postgres — o motor lê os arquivos direto hoje
 - BKT e Elo — fórmulas especificadas em `docs/08 §2`, cálculo ainda não implementado
 - 18 dos 20 tipos de atividade — por decisão explícita
 - **Som do feedback** — o vocabulário está no schema e o conteúdo já pode declarar, mas nada toca.
@@ -148,25 +176,28 @@ nenhuma informação existe só como movimento, som ou cor.
 
 ---
 
-## 5. PRÓXIMA TAREFA — Etapa 2: tentativa persistida e progressão
+## 5. PRÓXIMA TAREFA — Etapa 2, passo 2: tentativa persistida
 
-Objetivo: **o que a criança faz fica registrado, e o progresso dela é real.**
-
-Hoje a missão é jogável e a correção é autoritativa no servidor, mas nada é gravado: fechar o
-navegador apaga tudo. Fechar esse ciclo é o que transforma o motor em produto.
+O passo 1 (importador) está feito: o acervo já vive no Postgres e `Activity.id` existe.
+Falta fechar o ciclo — hoje a criança joga, o servidor corrige, e nada fica gravado.
 
 ### Ordem sugerida
-1. **Importador de conteúdo** — `content/` → Postgres (`Activity`, `Quest`, `Stage`,
-   `StageActivity`, `Objective`, `Skill`). É pré-requisito de tudo abaixo, porque `Attempt`
-   referencia `Activity.id`.
-2. **`src/modules/assessment/`** — caso de uso `submitAttempt`: grava `Attempt`, atualiza
-   `SkillMastery` (BKT + Elo de `docs/08 §2`), agenda `ReviewCard` (SM-2).
-3. **`src/modules/progression/`** — XP, nível, Fôlego, desbloqueios. Reage ao evento
-   `AttemptEvaluated`, não é chamado pelo `assessment` (`docs/01 §2`).
+1. **`src/modules/assessment/`** — caso de uso `submitAttempt`: grava `Attempt`, atualiza
+   `SkillMastery` (BKT + Elo de `docs/08 §2`), agenda `ReviewCard` (SM-2). Publica o evento
+   `AttemptEvaluated` no outbox, na mesma transação.
+2. **Idempotência no `createAction`** — o passo 5 de `docs/09 §4` ainda não existe.
+   `submitAttempt` é a primeira ação com efeito econômico: **implemente junto**.
+3. **`src/modules/progression/`** — XP, nível, Fôlego, desbloqueios. **Reage** ao evento,
+   não é chamado pelo `assessment` (`docs/01 §2`).
 4. **`src/modules/economy/`** — carteira com razão contábil e `idempotencyKey`.
-5. **Idempotência no `createAction`** — o passo 5 de `docs/09 §4` ainda não existe, de propósito:
-   não havia ação com efeito econômico. Agora vai haver. **Implemente junto com a primeira.**
-6. **`QuestRun` retomável** — fechar o app no meio da missão não pode custar progresso.
+5. **`QuestRun` retomável** — fechar o app no meio da missão não pode custar progresso.
+
+### Decisão em aberto — precisa do dono
+**A importação de conteúdo deve rodar no deploy?** Hoje é comando manual
+(`npm run content:import`). Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy,
+sem passo manual — mas os deploys de *preview* compartilham o `DATABASE_URL` de produção,
+então uma branch em rascunho escreveria no banco real. Enquanto não houver banco separado
+por ambiente, deixei fora do build de propósito.
 
 ### Depois
 Mapa visual do mundo, mais tipos de atividade conforme o conteúdo pedir, tutor IA.

@@ -17,9 +17,27 @@ export default defineConfig({
     testTimeout: 30_000,
   },
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@/content": fileURLToPath(new URL("./content", import.meta.url)),
-    },
+    /*
+     * Mesma ordem do `vitest.config.ts`, e pelo mesmo motivo: o Vite para no
+     * primeiro alias que casa. Com "@" na frente, "@/content/loader" viraria
+     * "src/content/loader", que não existe. O mais específico vem primeiro.
+     *
+     * A barra depois do `@` também não é detalhe: sem ela, `/^@/` capturaria
+     * `@prisma/client` e todo pacote com escopo.
+     */
+    alias: [
+      {
+        find: /^@\/content\//,
+        replacement: `${fileURLToPath(new URL("./content", import.meta.url))}/`,
+      },
+      {
+        find: /^@\/app\//,
+        replacement: `${fileURLToPath(new URL("./app", import.meta.url))}/`,
+      },
+      {
+        find: /^@\//,
+        replacement: `${fileURLToPath(new URL("./src", import.meta.url))}/`,
+      },
+    ],
   },
 });

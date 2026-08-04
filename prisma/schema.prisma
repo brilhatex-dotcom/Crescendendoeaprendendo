@@ -318,7 +318,7 @@ model Skill {
   description   String
   minAgeBand    AgeBand
   maxAgeBand    AgeBand
-  difficultyRef Decimal @db.Decimal(6, 3) // dificuldade de referência (escala Elo)
+  difficultyRef Decimal @db.Decimal(7, 3) // dificuldade de referência (escala Elo — ver nota abaixo)
   order         Int
 
   strand        Strand              @relation(fields: [strandId], references: [id], onDelete: Cascade)
@@ -355,6 +355,8 @@ model Objective {
   skill      Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
   activities Activity[]
 
+  // Chave natural: reimportar o mesmo objetivo tem que atualizar, não duplicar.
+  @@unique([skillId, name])
   @@index([skillId, order])
 }
 
@@ -423,7 +425,7 @@ model Activity {
   type          ActivityType
   config        Json // validado pelo configSchema do plugin
   schemaVersion Int           @default(1)
-  difficulty    Decimal       @db.Decimal(6, 3) // escala Elo, calibrada por telemetria
+  difficulty    Decimal       @db.Decimal(7, 3) // escala Elo, calibrada por telemetria
   estimatedSec  Int
   minAgeBand    AgeBand
   maxAgeBand    AgeBand
@@ -433,6 +435,16 @@ model Activity {
   locale        String        @default("pt-BR")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  /// Caminho de origem em `content/`, ex.:
+  /// `conhecimento/matematica/SPROUT/nivel-01/modulo-01/missao-01/fase-01/atividade-03`.
+  ///
+  /// Existe porque `content/` é a fonte da verdade e o importador roda muitas
+  /// vezes. Sem chave natural estável, cada execução criaria linhas novas — e
+  /// `Attempt` aponta para `Activity.id`, então duplicar atividade quebraria o
+  /// histórico de quem já jogou. Nulo em atividade gerada por IA, que não vem
+  /// de arquivo.
+  sourceRef String? @unique
 
   objective  Objective       @relation(fields: [objectiveId], references: [id])
   pack       ContentPack?    @relation(fields: [packId], references: [id])
@@ -496,6 +508,9 @@ model Chapter {
   story   Json // roteiro, personagens, diálogos
   order   Int
 
+  /// Caminho de origem em `content/`. Chave de reimportação — ver Activity.
+  sourceRef String? @unique
+
   world  World   @relation(fields: [worldId], references: [id], onDelete: Cascade)
   quests Quest[]
 
@@ -516,6 +531,9 @@ model Quest {
   order          Int
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  /// Caminho de origem em `content/`. Chave de reimportação — ver Activity.
+  sourceRef String? @unique
 
   chapter     Chapter      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   stages      Stage[]
@@ -622,7 +640,7 @@ model SkillMastery {
   learnerId     String
   skillId       String
   probability   Decimal   @default(0.15) @db.Decimal(5, 4)
-  ability       Decimal   @db.Decimal(6, 3)
+  ability       Decimal   @db.Decimal(7, 3)
   attemptsCount Int       @default(0)
   correctCount  Int       @default(0)
   streak        Int       @default(0)
