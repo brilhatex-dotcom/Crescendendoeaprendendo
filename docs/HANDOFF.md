@@ -372,7 +372,12 @@ compartilham o `DATABASE_URL` de produção, então uma branch em rascunho escre
 **Jogar exige o acervo importado**: sem ele, abrir a missão responde `quest.not_published`.
 
 **2. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
-gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
+gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline` — ou seja, a
+criança não perde nada; quem perde é quem for olhar os dados depois.
+
+**Já decidido, não pergunte de novo:** o provedor de e-mail (`RESEND_API_KEY`) **não** é
+pré-requisito. Uma família só terá acesso por enquanto, e a conta do dono se destrava pelo
+comando de operador da §8. Ver §9 para o que muda quando entrar a segunda família.
 
 **3. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
@@ -409,6 +414,7 @@ importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 | **Iniciar e retomar uma missão são a mesma operação** | `src/modules/quest/application/play-quest.ts` |
 | **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
 | **Desbloqueio devolve o caminho, não um cadeado** | `src/modules/quest/domain/unlock-rule.ts` |
+| **Uma família só, por enquanto — provedor de e-mail não é pré-requisito** | decisão do dono, 2026-08-04 |
 
 ---
 
@@ -484,12 +490,22 @@ npx prisma migrate deploy && npm run test:integration
 
 - **Rate limit é em memória, por instância.** `InMemoryRateLimiter` segura o caso comum (o mesmo
   navegador insistindo) e **não** segura ataque distribuído: com N instâncias quentes na Vercel, o
-  limite efetivo é até N × o configurado. A porta `RateLimiter` já está pronta para Redis — quando
-  `REDIS_URL` existir, troque a implementação em `src/composition/identity.ts` e mais nada.
-- **`RESEND_API_KEY` ainda não está na Vercel.** Sem ela, em produção o envio falha com
-  `mail.not_configured` e ninguém consegue verificar e-mail. Passos: criar chave em
-  resend.com/api-keys, **verificar o domínio do remetente** (SPF + DKIM) e ajustar `EMAIL_FROM`.
-  Sem domínio verificado, o Resend só entrega para o endereço da própria conta.
+  limite efetivo é até N × o configurado. Com uma família só, o caso comum é o único que existe.
+  A porta `RateLimiter` já está pronta para Redis — quando `REDIS_URL` existir, troque a
+  implementação em `src/composition/identity.ts` e mais nada.
+- **`RESEND_API_KEY` não está configurada — e está tudo bem por enquanto.** Decisão do dono
+  (2026-08-04): **uma família só terá acesso**. Sem a chave, o cadastro grava a conta e o e-mail
+  de verificação não sai; quem destrava é o comando de operador (§8). Duas consequências que
+  valem entender antes de mudar de ideia:
+  - **a porta da frente fica fechada sem querer.** Qualquer um que descubra a URL cria uma
+    conta, mas não passa dali: perfil de criança exige e-mail verificado, e verificar exige a
+    string de conexão do banco. Para uma implantação de família única, isto é adequado — não é
+    só tolerável;
+  - **na segunda família isso vira bloqueio de verdade**, e aí o Resend deixa de ser opcional:
+    criar chave em resend.com/api-keys, **verificar o domínio do remetente** (SPF + DKIM) e
+    ajustar `EMAIL_FROM`. Sem domínio verificado, o Resend só entrega para o endereço da
+    própria conta. Consentimento parental por e-mail é a única prova que vale para uma conta
+    que não é a sua (docs/09 §6).
 - **`NEXT_PUBLIC_APP_URL` precisa estar correta na Vercel** — é ela que monta o link de
   verificação. Errada, o e-mail sai com link para `localhost`.
 - **`no-warning-comments` usa `location: "start"`**, não `"anywhere"`. Foi mudado de propósito:
