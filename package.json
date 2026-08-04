@@ -25,7 +25,8 @@
     "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run test && npm run content:validate",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "conta:verificar": "tsx scripts/verificar-conta.ts",
-    "content:validate": "tsx scripts/validate-content.ts"
+    "content:validate": "tsx scripts/validate-content.ts",
+    "content:import": "tsx scripts/import-content.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed/index.ts"
