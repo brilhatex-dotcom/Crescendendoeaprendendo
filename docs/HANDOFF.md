@@ -91,15 +91,22 @@ e-mail existente responde igual e avisa o dono por e-mail · isolamento entre fa
 - `plugins/index.ts` e `renderers/index.tsx` — **os dois únicos manifestos** que ganham uma linha
   por tipo novo
 - `renderers/` — telas carregadas sob demanda (`next/dynamic`), fora do núcleo
+- `renderers/feedback-visual.tsx` — animação e efeito (confete, faíscas, onda de luz) em CSS,
+  suprimidos por `prefers-reduced-motion`
 - `content/` — acervo como dado: `schema/` (Zod de autoria), `loader.ts`, currículo BNCC de
   demonstração e a missão `missao-01-a-contagem-da-orla` (3 atividades)
 - `scripts/validate-content.ts` — `npm run content:validate`, roda no CI
 - Rota jogável: `(play)/missao/[slug]` com correção **no servidor**
 
+**Feedback sensorial ligado:** animação por tom, efeito de partícula, tempo de leitura
+(`segurarSegundos` trava só o botão, nunca o texto), `mostrarProgresso` e `mostrarPremio`.
+**Som não toca** — ver §4.
+
 **Propriedades travadas (não relitigar):**
 resultado incorreto sem `ensino` **não compila** (união discriminada) · núcleo não importa React,
 Next, Prisma nem `src/modules` (dependency-cruiser) · plugin não importa plugin · `evaluate` é
-puro · telemetria não tem campo para `learnerId` · sem Fôlego a criança perde moeda, nunca XP.
+puro · telemetria não tem campo para `learnerId` · sem Fôlego a criança perde moeda, nunca XP ·
+nenhuma informação existe só como movimento, som ou cor.
 
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
@@ -128,6 +135,11 @@ puro · telemetria não tem campo para `learnerId` · sem Fôlego a criança per
 - Importador de `content/` para o Postgres — o motor lê os arquivos direto hoje
 - BKT e Elo — fórmulas especificadas em `docs/08 §2`, cálculo ainda não implementado
 - 18 dos 20 tipos de atividade — por decisão explícita
+- **Som do feedback** — o vocabulário está no schema e o conteúdo já pode declarar, mas nada toca.
+  Faltam os arquivos em `public/sfx/` (identidade sonora, decisão de design) e o respeito a
+  `LearnerSettings.soundEnabled`, que exige as preferências da criança chegarem à sessão de missão.
+  Ver `docs/13 §10.1`. O resto do feedback sensorial (animação, efeito, tempo de leitura) **está
+  funcionando**.
 - `prisma/seed/` — sem seeds
 - `tests/e2e/` — sem Playwright
 - OAuth (Google/Apple) — `OAuthAccount` existe no schema, sem implementação

@@ -311,6 +311,29 @@ se ele existisse, um dia alguém o preencheria.
 
 ---
 
+## 10.1 Feedback sensorial — o que acontece hoje
+
+| Recurso | Estado |
+|---|---|
+| Barra de progresso | ✅ com `aria-valuenow` |
+| Mensagem positiva e ensino | ✅ vindos do conteúdo |
+| Recompensa na tela | ✅ respeita `mostrarPremio` |
+| Animação por tom (pulso, salto, balanço, brilho) | ✅ CSS |
+| Efeito (confete, faíscas, onda de luz) | ✅ CSS, some em `prefers-reduced-motion` |
+| Tempo de leitura (`segurarSegundos`) | ✅ trava só o botão, nunca o texto |
+| **Som** | ⚠️ **declarado, não toca** |
+
+**Sobre o som.** Faltam os arquivos de áudio (`public/sfx/`) e o respeito a
+`LearnerSettings.soundEnabled`. Nenhum dos dois é código de motor: o primeiro é identidade sonora
+do produto, o segundo depende das preferências da criança chegarem à sessão de missão. Um `<audio>`
+apontando para arquivo inexistente seria exatamente o código provisório que este projeto proíbe.
+
+**Regra que governa a camada sensorial:** nenhuma informação existe apenas como movimento, som ou
+cor. Por isso o efeito de partícula pode desaparecer inteiro sob `prefers-reduced-motion` sem custo
+de conteúdo — e há um teste de política que falha se essa regra de CSS sumir.
+
+---
+
 ## 11. O que ainda não existe
 
 Honestidade sobre a fronteira desta etapa:
@@ -324,3 +347,4 @@ Honestidade sobre a fronteira desta etapa:
   alimenta o modelo; o cálculo em si é do `assessment`.
 - **18 dos 20 tipos.** Por decisão explícita: um motor sólido com dois plugins vale mais que dez
   plugins acoplados.
+- **Som.** Ver §10.1 — precisa de assets de áudio e do wiring de `LearnerSettings.soundEnabled`.

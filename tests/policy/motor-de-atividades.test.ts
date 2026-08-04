@@ -209,6 +209,36 @@ describe("Integridade do motor", () => {
     }
   });
 
+  it("a apresentação declarada é de fato consumida pela tela", () => {
+    /*
+     * Regressão de um defeito real: a action calculava a apresentação e a
+     * enviava ao cliente, e o executor ignorava. Animação, efeito e tempo de
+     * leitura eram configuração morta trafegando na resposta.
+     *
+     * Configuração que ninguém lê é pior que configuração ausente: ela faz
+     * quem autora acreditar que ajustou algo.
+     */
+    const runner = readFileSync(
+      join(process.cwd(), "app/(play)/missao/[slug]/missao-runner.tsx"),
+      "utf8",
+    );
+
+    expect(runner).toContain("FeedbackVisual");
+    expect(runner).toContain("apresentacao.mostrarProgresso");
+    expect(runner).toContain("apresentacao.mostrarPremio");
+    expect(runner).toContain("segurarSegundos");
+  });
+
+  it("efeito de partícula desaparece com movimento reduzido", () => {
+    // O efeito é enfeite por definição. Se algum dia carregar informação, esta
+    // regra de CSS vira um defeito de acessibilidade — e o teste vira o alarme.
+    const css = readFileSync(join(process.cwd(), "app/globals.css"), "utf8");
+    const blocoReduzido = css.slice(css.indexOf("prefers-reduced-motion"));
+
+    expect(blocoReduzido).toContain(".ca-efeito");
+    expect(blocoReduzido).toContain("display: none");
+  });
+
   it("telemetria não tem campo para id real de criança (docs/08 §12.7)", () => {
     const fonte = readFileSync(join(process.cwd(), "src/activities/telemetry.ts"), "utf8");
 
