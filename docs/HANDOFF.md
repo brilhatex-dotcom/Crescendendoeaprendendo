@@ -260,6 +260,29 @@ precisa de todos · **Colosso exige domínio nas competências do capítulo mesm
 sem registro conta **zero** na média, nunca é ignorada · a gramática vive **num lugar só**, e a
 autoria a importa.
 
+### Teste de ponta a ponta — a jogada como a criança vive
+Três defeitos chegaram à tela sem que **um único teste falhasse**: a pergunta que apontava
+para conchas que não estavam lá, a resposta certa marcada com o coral de "tente de novo", e a
+resposta entregue no erro. Os três eram invisíveis para teste de unidade porque **cada peça
+estava correta isoladamente**.
+
+- `playwright.config.ts` — dois projetos (`desktop` e `celular`), servidor de **produção**,
+  `globalSetup` que importa o acervo
+- `tests/e2e/jogada-completa.spec.ts` — cadastro → verificação → perfil → PIN → área infantil →
+  abertura → **errar** → retomar → concluir → conferir a base
+- `tests/e2e/preparo.ts` — o roteiro (qual opção é a certa, em que ordem os números vão) é
+  **lido do acervo**, nunca escrito no teste
+- `npm run test:e2e` · job `e2e` no CI, com rastro e captura guardados só quando falha
+
+**Propriedades travadas (não relitigar):**
+o roteiro vem de `content/` — um teste que soubesse que a resposta é "4" quebraria na primeira
+missão nova e alguém o apagaria · a **jornada acontece numa página só**, porque contexto novo é
+navegador novo e a sessão do responsável morreria entre os passos · o projeto `celular` copia a
+emulação na mão (`browser.newContext()` não herda o `use` do projeto), senão rodaria em tela de
+computador e perderia a largura em que a grade muda de três colunas para duas · Playwright fixo
+em `~1.56`, que é a versão cujo Chromium existe no ambiente remoto · **verifiquei que o teste
+falha** reintroduzindo o defeito: teste que não pode falhar é decoração.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -496,6 +519,12 @@ npx prisma migrate deploy && npm run test:integration
 - **Estado de renderer não sobrevive à troca de atividade** — o executor passa
   `key={slug:tentativa}`. Sem isso, a opção marcada numa atividade continuava marcada na
   seguinte, com "Responder" aceso e um id que nem existia ali.
+- **Server Action que muda dado renderizado precisa declarar `revalidar`.** Sem isso o
+  formulário responde "Perfil de Menina criado." e a lista logo acima continua dizendo "você
+  ainda não criou nenhum perfil" — as duas frases na mesma tela. O `createAction` aceita a lista
+  de rotas; quem esquece não vê erro, vê tela mentindo.
+- **O e2e precisa do acervo no banco.** `globalSetup` importa antes de rodar — os testes de
+  integração limpam o conteúdo no fim, e sem isso o e2e encontraria banco vazio.
 - **`crypto.randomUUID()` exige contexto seguro.** O executor de missão gera a chave de
   idempotência no navegador. Em `http://` que não seja `localhost` a função não existe e o
   envio falha. Em produção é HTTPS; num túnel de teste por HTTP, não.

@@ -111,6 +111,9 @@ export async function sairAction(): Promise<never> {
 export const criarPerfilAction = createAction({
   nome: "identity.create_learner",
   escopo: "adulto-verificado",
+  // A lista de crianças é servida pelo servidor: sem isto ela continuaria
+  // dizendo que a família está vazia depois de o perfil ter sido criado.
+  revalidar: ["/familia"],
   entrada: z.object({
     displayName: z.string().min(1, "Como a criança quer ser chamada?").max(80),
     birthYear: z.coerce
@@ -129,6 +132,9 @@ export const criarPerfilAction = createAction({
 export const definirPinAction = createAction({
   nome: "identity.set_parent_pin",
   escopo: "adulto-verificado",
+  // O botão de entrar na área infantil só aparece depois do PIN — e ele é
+  // renderizado no servidor.
+  revalidar: ["/familia"],
   entrada: z.object({
     pin: z.string().min(1, "Escolha um PIN.").max(20),
     confirmacao: z.string().max(20).optional(),

@@ -101,6 +101,67 @@ jobs:
       - name: Testes de integração
         run: npm run test:integration
 
+  e2e:
+    name: Jogada completa no navegador
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # ── Por que este job existe ──
+    # Três defeitos chegaram à tela sem que um único teste falhasse: uma
+    # pergunta que apontava para conchas que não estavam lá, a resposta certa
+    # marcada como errada, e a resposta entregue no erro. Os três eram
+    # invisíveis para teste de unidade porque cada peça estava correta
+    # isoladamente. Este job faz a pergunta que faltava: dá para jogar?
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+
+      # Só o Chromium: a criança joga num navegador, e baixar três triplica o
+      # tempo do job sem cobrir mais nada do que importa aqui.
+      - name: Instalar o navegador
+        run: npx playwright install --with-deps chromium
+
+      # O e2e roda contra o build de produção — é o que a criança acessa.
+      - run: npm run build
+
+      - name: Jogada completa
+        run: npm run test:e2e
+
+      # Rastro e captura só existem quando algo falhou. É o que permite ver a
+      # tela exata em que a jogada quebrou, sem reproduzir na mão.
+      - name: Guardar o rastro da falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   build:
     name: Build de produção
     runs-on: ubuntu-latest

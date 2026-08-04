@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 
 import { isProduction } from "@/config/env";
@@ -25,7 +26,8 @@ import {
  *   4. rate limit
  *   5. idempotência, quando a ação tem efeito econômico
  *   6. execução do caso de uso
- *   7. tratamento de erro — nunca vaza *stack* ao cliente
+ *   7. revalidação das rotas que a ação invalidou
+ *   8. tratamento de erro — nunca vaza *stack* ao cliente
  *
  * A ordem não é arbitrária. Validar antes de autorizar conta ao anônimo quais
  * campos existem; limitar taxa antes de autenticar deixa um usuário legítimo
@@ -80,6 +82,18 @@ interface Config<TSchema extends z.ZodTypeAny, TSaida> {
    * quem jogou.
    */
   readonly idempotente?: boolean;
+  /**
+   * Rotas cujo conteúdo servido deixa de valer quando esta ação dá certo.
+   *
+   * Server Action que muda dado renderizado no servidor **precisa** dizer o que
+   * invalidou. Sem isto, o formulário responde "Perfil de Menina criado." e a
+   * lista logo acima continua dizendo "você ainda não criou nenhum perfil" —
+   * as duas frases na mesma tela, e o responsável sem saber em qual acreditar.
+   *
+   * Fica aqui, e não espalhado nos casos de uso, porque é decisão de
+   * apresentação: o caso de uso não sabe que existe uma página `/familia`.
+   */
+  readonly revalidar?: readonly string[];
   readonly executar: (args: {
     readonly entrada: z.infer<TSchema>;
     readonly ator: Ator | null;
@@ -166,10 +180,14 @@ export function createAction<TSchema extends z.ZodTypeAny, TSaida>(
         ctx,
       });
 
-      if (resultado.ok) return { status: "sucesso", dados: resultado.value };
+      if (resultado.ok) {
+        // Só no sucesso: revalidar depois de uma falha jogaria fora cache bom.
+        for (const rota of config.revalidar ?? []) revalidatePath(rota);
+        return { status: "sucesso", dados: resultado.value };
+      }
       return comoErro(resultado.error);
     } catch (causa) {
-      // 7 · nada de stack para o cliente. O traceId liga a tela ao log.
+      // 8 · nada de stack para o cliente. O traceId liga a tela ao log.
       console.error(`[action:${config.nome}] falha inesperada`, {
         traceId: ctx.traceId,
         causa,
