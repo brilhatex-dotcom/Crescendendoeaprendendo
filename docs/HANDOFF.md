@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-04 · **Etapa 2 em curso — importador de conteúdo concluído**
+> Última atualização: 2026-08-04 · **Etapa 2 em curso — importador e avaliação concluídos**
 
 ---
 
@@ -137,6 +137,38 @@ importado trava a criança numa tela sem saída · é **idempotente** — reimpo
 `Activity.id`, e isso é o que protege o histórico de quem já jogou · nada é apagado —
 despublicar é decisão editorial separada.
 
+### Avaliação — concluída (Etapa 2, passo 2)
+A resposta da criança agora vira histórico, modelo e evento. O ciclo está fechado.
+
+- `src/modules/assessment/` nas quatro camadas
+  - `domain/bkt.ts` — Bayesian Knowledge Tracing com os parâmetros de `docs/08 §2`
+  - `domain/elo.ts` — habilidade na escala Elo, com trilhos em [400, 2400]
+  - `domain/spaced-repetition.ts` — SM-2 adaptado (teto de 120 dias; qualidade derivada do
+    desfecho e das dicas, nunca perguntada à criança)
+  - `domain/mastery.ts` — junta os dois e decide **quando declarar domínio**
+  - `domain/events.ts` — dois tópicos, por necessidades incompatíveis (ver travadas abaixo)
+  - `domain/attempt-plan.ts` — **função pura**: contexto + resultado → plano de escrita
+  - `application/` — portas `RepositorioDeAvaliacao` e caso de uso `submeterTentativa`
+  - `infrastructure/prisma-assessment-repository.ts` — uma transação `READ COMMITTED`
+- `src/composition/assessment.ts` — composition root
+- `src/server/action.ts` — **passo 5 de `docs/09 §4` implementado**: `idempotente: true` exige
+  e valida `chaveDeIdempotencia`, entregue em `ctx.idempotencyKey`
+- `app/(play)/missao/[slug]/` — a ação chama `submeterTentativa`; o cliente gera a chave
+- `tests/policy/avaliacao.test.ts` — §12.2, §12.7, §11 e §5.2 como testes que quebram o build
+- `tests/integration/submit-attempt.integration.test.ts` — 10 testes contra Postgres real
+- Migration `20260804120000_versao_em_skillmastery` — `SkillMastery.version`
+
+**Propriedades travadas (não relitigar):**
+`submitAttempt` grava `Attempt`, `SkillMastery`, `ReviewCard` e as mensagens de outbox **numa
+transação só** · a linha de `SkillMastery` usa **atualização condicional por `version`**, e
+conflito faz **reler e recalcular** (nunca reenviar o plano) · **pular não é errar** — grava a
+tentativa, não move domínio nem revisão · **domínio alcançado nunca é retirado**; quem decai é a
+probabilidade, com piso 0.5 · a **sequência de acertos só conta atividade no nível de referência
+ou acima** — sem isso o sistema promoveria a criança pelo que ela já sabia · o prêmio usa a
+habilidade **de antes** da tentativa · **dois tópicos de outbox**: o interno leva `learnerId`
+(progressão e economia precisam), o de telemetria leva só `pseudonymId` e o tipo não tem o campo
+· `assessment` **calcula** o prêmio e **não credita nada**.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -158,10 +190,16 @@ despublicar é decisão editorial separada.
 
 ## 4. O que NÃO existe ainda
 
-- `src/modules/` além de `identity` — **`assessment`, `progression`, `economy`, `quest` não existem**
-- Persistência de tentativas — o contrato `RegistradorDeTentativas` existe; a gravação em
-  `Attempt`/`LearningEvent` é do `assessment`
-- BKT e Elo — fórmulas especificadas em `docs/08 §2`, cálculo ainda não implementado
+- `src/modules/` além de `identity`, `content` e `assessment` — **`progression`, `economy` e
+  `quest` não existem**
+- **Ninguém consome o outbox.** As mensagens são gravadas e ficam com `processedAt` nulo. XP,
+  Fôlego, carteira, conquistas e telemetria dependem do despachante e dos módulos que reagem —
+  é o próximo passo, e o evento já carrega tudo que eles precisam
+- `QuestRun` — nada cria corrida de missão; `Attempt.questRunId` fica nulo (coluna anulável por
+  desenho). Histórico e modelo de domínio já ficam corretos; falta o agrupamento por jogada
+- `LearnerProgress` — a linha não é criada por ninguém; a leitura de Fôlego trata a ausência
+  como "tem Fôlego", que é a verdade enquanto energia não for gasta
+- Calibração de dificuldade por telemetria (`docs/08 §2`, job noturno com ≥ 200 tentativas)
 - 18 dos 20 tipos de atividade — por decisão explícita
 - **Som do feedback** — o vocabulário está no schema e o conteúdo já pode declarar, mas nada toca.
   Faltam os arquivos em `public/sfx/` (identidade sonora, decisão de design) e o respeito a
@@ -176,28 +214,47 @@ despublicar é decisão editorial separada.
 
 ---
 
-## 5. PRÓXIMA TAREFA — Etapa 2, passo 2: tentativa persistida
+## 5. PRÓXIMA TAREFA — Etapa 2, passo 3: o que reage à tentativa
 
-O passo 1 (importador) está feito: o acervo já vive no Postgres e `Activity.id` existe.
-Falta fechar o ciclo — hoje a criança joga, o servidor corrige, e nada fica gravado.
+Os passos 1 e 2 estão feitos: o acervo vive no Postgres e a resposta da criança já vira
+`Attempt`, `SkillMastery`, `ReviewCard` e duas mensagens de outbox, numa transação só.
+
+**O que falta é o outro lado do evento.** Hoje as mensagens são gravadas e ninguém as lê:
+`OutboxMessage.processedAt` fica nulo para sempre. A criança acerta, o modelo aprende — e ela
+não vê Luz nenhuma subir.
 
 ### Ordem sugerida
-1. **`src/modules/assessment/`** — caso de uso `submitAttempt`: grava `Attempt`, atualiza
-   `SkillMastery` (BKT + Elo de `docs/08 §2`), agenda `ReviewCard` (SM-2). Publica o evento
-   `AttemptEvaluated` no outbox, na mesma transação.
-2. **Idempotência no `createAction`** — o passo 5 de `docs/09 §4` ainda não existe.
-   `submitAttempt` é a primeira ação com efeito econômico: **implemente junto**.
-3. **`src/modules/progression/`** — XP, nível, Fôlego, desbloqueios. **Reage** ao evento,
-   não é chamado pelo `assessment` (`docs/01 §2`).
-4. **`src/modules/economy/`** — carteira com razão contábil e `idempotencyKey`.
-5. **`QuestRun` retomável** — fechar o app no meio da missão não pode custar progresso.
+1. **Despachante do outbox** — lê `OutboxMessage` com `processedAt` nulo e `availableAt` no
+   passado, entrega ao handler do tópico, marca processada; erro incrementa `attempts` e
+   registra `lastError`. Precisa ser **at-least-once com handler idempotente**, não
+   exactly-once: a chave está no payload (`idempotencyKey`) justamente para isso.
+2. **`src/modules/progression/`** — XP, nível, Fôlego, Trilha de Luz, desbloqueios. **Reage** ao
+   evento `assessment.attempt_evaluated`; não é chamado pelo `assessment` (`docs/01 §2`). É
+   quem cria a linha de `LearnerProgress`.
+3. **`src/modules/economy/`** — carteira com razão contábil. Chave derivada da do evento
+   (ex.: `attempt:{idempotencyKey}:reward`), saldo nunca negativo, `Wallet` como projeção.
+4. **`QuestRun` retomável** — fechar o app no meio da missão não pode custar progresso. É o que
+   preenche `Attempt.questRunId`, hoje sempre nulo, e o que permite a recompensa de missão
+   (`rewardsGrantedAt`).
+5. **Mostrar na tela** — Luz, Fagulhas e Fôlego no `(play)`. Hoje o prêmio volta da ação e só
+   aparece na devolutiva da atividade.
 
-### Decisão em aberto — precisa do dono
-**A importação de conteúdo deve rodar no deploy?** Hoje é comando manual
+### Decisões em aberto — precisam do dono
+**1. A importação de conteúdo deve rodar no deploy?** Hoje é comando manual
 (`npm run content:import`). Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy,
 sem passo manual — mas os deploys de *preview* compartilham o `DATABASE_URL` de produção,
 então uma branch em rascunho escreveria no banco real. Enquanto não houver banco separado
 por ambiente, deixei fora do build de propósito.
+
+**Consequência nova:** desde o passo 2, jogar uma missão **exige** o acervo importado —
+`submeterTentativa` responde `assessment.activity_not_published` se a atividade não estiver no
+banco. Rode `npm run content:import` contra o banco de produção antes de a criança jogar.
+
+**2. Onde roda o despachante do outbox?** Na Vercel não há processo longo. As opções reais são
+Cron Job da Vercel (simples, latência de ~1 min) ou disparo em segundo plano após a Server
+Action (imediato, mas sem garantia de execução — precisa do cron como rede de segurança de
+qualquer forma). A recomendação é **cron como base**, e o disparo imediato só depois, se a
+espera incomodar.
 
 ### Depois
 Mapa visual do mundo, mais tipos de atividade conforme o conteúdo pedir, tutor IA.
@@ -223,6 +280,9 @@ Mapa visual do mundo, mais tipos de atividade conforme o conteúdo pedir, tutor 
 | Erro nunca é vermelho — é coral | Bíblia Cap. 11 §11.2 |
 | Modelo do tutor: `claude-sonnet-5` | `src/config/env.ts` |
 | Fase 1 = faixa `SPROUT` (6–8 anos) | Bíblia Cap. 2 §2.1 |
+| **Chave de idempotência mora na tabela que ela protege, não numa tabela genérica** | `src/server/action.ts` |
+| **`assessment` mede; quem credita reage ao evento** | `src/modules/assessment/domain/events.ts` |
+| **Telemetria e evento interno são tópicos separados** | `src/modules/assessment/domain/events.ts` |
 
 ---
 
@@ -311,6 +371,13 @@ npx prisma migrate deploy && npm run test:integration
   início do comentário continua barrado — verificado.
 - `npm run boundaries` emite 2 **warnings** de "órfão" para os arquivos de token. Esperado:
   eles são consumidos por teste e por CSS, não por import. Warning não quebra o build; erro sim.
+- **Jogar exige o acervo importado.** Desde a Etapa 2 passo 2, responder uma atividade lê
+  `Activity` pelo `sourceRef`. Num banco sem `npm run content:import`, a criança recebe
+  "esta atividade ainda não está publicada". O erro é explícito de propósito — o alternativo
+  seria gravar tentativa órfã e descobrir o problema num relatório vazio.
+- **`crypto.randomUUID()` exige contexto seguro.** O executor de missão gera a chave de
+  idempotência no navegador. Em `http://` que não seja `localhost` a função não existe e o
+  envio falha. Em produção é HTTPS; num túnel de teste por HTTP, não.
 - `prisma format` reordena o arquivo. Rode antes de commitar para evitar diff sujo.
 - O `package.json` tem `prisma.seed`, que o Prisma 7 vai depreciar → `prisma.config.ts`.
 - `npm audit` acusa 3 vulnerabilidades **altas** em dependências transitivas do Next

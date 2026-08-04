@@ -17,6 +17,16 @@ import { DIFICULDADE_INICIAL, type DifficultyLabel } from "./difficulty";
 
 export interface AtividadeNaSessao {
   readonly slug: string;
+  /**
+   * Identidade estável da atividade no acervo — o mesmo valor gravado em
+   * `Activity.sourceRef` pelo importador.
+   *
+   * É a ponte entre o mundo do conteúdo (arquivos, slugs) e o mundo do
+   * histórico (linhas, ids). Sem ela, registrar uma tentativa exigiria que o
+   * executor de missão conhecesse chave primária de tabela — e o motor voltaria
+   * a depender de banco, que é justamente o que esta camada evita.
+   */
+  readonly ref: string;
   readonly tipo: string;
   readonly objetivo: string;
   readonly config: unknown;

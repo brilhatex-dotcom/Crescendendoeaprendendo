@@ -646,6 +646,12 @@ model SkillMastery {
   streak        Int       @default(0)
   masteredAt    DateTime?
   lastAttemptAt DateTime?
+  /// Atualização condicional (docs/08 §11): esta é a linha quente de
+  /// `submitAttempt`. Duas abas na mesma missão gravam a mesma chave, e sem o
+  /// `WHERE version = ?` a segunda escrita sobrescreveria a primeira — a
+  /// tentativa sumiria do modelo sem sumir de `Attempt`, e a divergência só
+  /// apareceria num relatório errado meses depois.
+  version       Int       @default(0)
   updatedAt     DateTime  @updatedAt
 
   learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)

@@ -41,6 +41,15 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   const [tentativa, setTentativa] = useState(1);
   const [terminou, setTerminou] = useState(false);
   const [inicioMs, setInicioMs] = useState(() => Date.now());
+  /*
+   * Chave de idempotência da tentativa em curso.
+   *
+   * Nasce junto com a tentativa e só é trocada quando começa outra — é isso que
+   * faz o toque duplo, o reenvio depois de uma queda de rede e o sync de uma
+   * jogada offline chegarem todos com a mesma chave e serem contados uma vez
+   * só. Gerar uma chave nova a cada envio daria o efeito oposto do pretendido.
+   */
+  const [chave, setChave] = useState(() => crypto.randomUUID());
   const [pendente, iniciarTransicao] = useTransition();
 
   /*
@@ -82,6 +91,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     dados.set("resposta", JSON.stringify(resposta));
     dados.set("tentativa", String(tentativa));
     dados.set("duracaoMs", String(Date.now() - inicioMs));
+    dados.set("chaveDeIdempotencia", chave);
 
     iniciarTransicao(async () => {
       const estado = await responderAtividadeAction({ status: "inicial" }, dados);
@@ -116,6 +126,9 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     setPremio(null);
     setSegurando(false);
     setInicioMs(Date.now());
+    // Começa outra tentativa: chave nova, senão a segunda resposta seria
+    // descartada como repetição da primeira.
+    setChave(crypto.randomUUID());
   }
 
   const acertou = resultado?.outcome === "CORRECT";

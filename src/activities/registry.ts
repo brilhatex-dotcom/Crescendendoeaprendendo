@@ -168,3 +168,20 @@ export function avaliarAtividade(
   if (!plugin.ok) return plugin;
   return plugin.value.avaliar(atividade.config, resposta, ctx);
 }
+
+/**
+ * P(guess) da atividade — a chance de acertar sem saber.
+ *
+ * Sai do registro pela mesma porta que a correção, e pela mesma razão: quem
+ * mede o aprendizado precisa deste número (é o `P(guess)` do BKT, docs/08 §2) e
+ * não pode conhecer nenhum tipo concreto para obtê-lo. Depende da config, não
+ * do tipo — múltipla escolha com 2 opções é 0.5; com 5, é 0.2.
+ */
+export function chuteDaAtividade(
+  registro: ActivityRegistry,
+  atividade: { readonly type: string; readonly config: unknown },
+): Result<number> {
+  const plugin = registro.obter(atividade.type);
+  if (!plugin.ok) return plugin;
+  return plugin.value.probabilidadeDeChute(atividade.config);
+}
