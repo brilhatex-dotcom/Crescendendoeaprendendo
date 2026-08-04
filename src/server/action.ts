@@ -23,19 +23,21 @@ import {
  *   2. política de autorização
  *   3. validação Zod da entrada (fail-closed)
  *   4. rate limit
- *   5. execução do caso de uso
- *   6. tratamento de erro — nunca vaza *stack* ao cliente
+ *   5. idempotência, quando a ação tem efeito econômico
+ *   6. execução do caso de uso
+ *   7. tratamento de erro — nunca vaza *stack* ao cliente
  *
  * A ordem não é arbitrária. Validar antes de autorizar conta ao anônimo quais
  * campos existem; limitar taxa antes de autenticar deixa um usuário legítimo
  * ser bloqueado por vizinho de IP.
  *
- * **Sobre idempotência (passo 5 do documento):** ela entra aqui quando existir
- * a primeira ação com efeito econômico. Hoje nenhuma existe — o módulo de
- * economia é da Etapa 1 — e a chave de idempotência mora em `LedgerEntry`, não
- * numa tabela genérica. Escrever agora um passo que nada usa seria adivinhar o
- * formato errado; está registrado em `docs/HANDOFF.md` como pré-requisito da
- * primeira ação de carteira.
+ * **Sobre idempotência (passo 5):** o wrapper exige e valida a chave; **quem
+ * guarda é o caso de uso**, na coluna própria da entidade que ele escreve
+ * (`Attempt.idempotencyKey`, `LedgerEntry.idempotencyKey`). Uma tabela genérica
+ * de chaves seria mais fácil de escrever e teria um defeito grave: a chave
+ * viveria separada da linha que ela protege, e as duas poderiam divergir — a
+ * chave gravada e a tentativa perdida, ou o contrário. Com a restrição `@unique`
+ * na própria tabela, a proteção e o dado são a mesma escrita.
  */
 
 /**
@@ -68,6 +70,16 @@ interface Config<TSchema extends z.ZodTypeAny, TSaida> {
   readonly nome: string;
   readonly escopo: Escopo;
   readonly entrada: TSchema;
+  /**
+   * A ação tem efeito econômico (credita, debita ou registra tentativa).
+   *
+   * Torna `chaveDeIdempotencia` obrigatória no formulário e a entrega em
+   * `ctx.idempotencyKey`. Fail-closed: sem chave válida, a ação nem chega ao
+   * caso de uso. O contrário — aceitar e deixar passar — é o comportamento que
+   * faz um toque duplo virar dois créditos, e o defeito só aparece na conta de
+   * quem jogou.
+   */
+  readonly idempotente?: boolean;
   readonly executar: (args: {
     readonly entrada: z.infer<TSchema>;
     readonly ator: Ator | null;
@@ -79,7 +91,27 @@ export interface ContextoDaAction {
   readonly traceId: string;
   readonly ipHash: string | null;
   readonly userAgent: string | null;
+  /** Presente somente em ação declarada `idempotente`. */
+  readonly idempotencyKey: string | null;
 }
+
+/**
+ * Campo em que o cliente envia a chave.
+ *
+ * Nome único em todo o sistema de propósito: um cliente novo que esqueça de
+ * enviá-la falha na hora, em desenvolvimento, e não em produção depois de já
+ * ter creditado duas vezes.
+ */
+export const CAMPO_DE_IDEMPOTENCIA = "chaveDeIdempotencia";
+
+/**
+ * Forma aceita da chave: `crypto.randomUUID()` e afins.
+ *
+ * O formato é verificado — e não apenas o comprimento — porque a chave vira
+ * valor de índice único. Aceitar texto arbitrário deixaria um cliente
+ * defeituoso reservar a chave `""` para sempre e bloquear todo mundo.
+ */
+const CHAVE_DE_IDEMPOTENCIA = /^[A-Za-z0-9_-]{16,64}$/;
 
 type Action<TSaida> = (
   estadoAnterior: EstadoDaAction<TSaida>,
@@ -90,10 +122,11 @@ export function createAction<TSchema extends z.ZodTypeAny, TSaida>(
   config: Config<TSchema, TSaida>,
 ): Action<TSaida> {
   return async function acaoEnvolvida(_estadoAnterior, formData) {
-    const ctx: ContextoDaAction = {
+    let ctx: ContextoDaAction = {
       traceId: randomUUID(),
       ipHash: await ipHashDaRequisicao(),
       userAgent: await userAgentDaRequisicao(),
+      idempotencyKey: null,
     };
 
     try {
@@ -108,7 +141,22 @@ export function createAction<TSchema extends z.ZodTypeAny, TSaida>(
       const analise = config.entrada.safeParse(paraObjeto(formData));
       if (!analise.success) return comoErroDeCampos(analise.error);
 
-      // 4 · rate limit + 5 · caso de uso
+      // 5 · idempotência
+      if (config.idempotente) {
+        const chave = lerChaveDeIdempotencia(formData);
+        if (!chave) {
+          console.error(`[action:${config.nome}] chave de idempotência ausente ou inválida`, {
+            traceId: ctx.traceId,
+          });
+          return {
+            status: "erro",
+            mensagem: "Não conseguimos registrar isso agora. Tente de novo.",
+          };
+        }
+        ctx = { ...ctx, idempotencyKey: chave };
+      }
+
+      // 4 · rate limit + 6 · caso de uso
       //     Cada caso de uso declara o próprio limite, porque a janela certa
       //     depende do que a ação faz — login e reenvio de e-mail não podem
       //     compartilhar um número só.
@@ -121,7 +169,7 @@ export function createAction<TSchema extends z.ZodTypeAny, TSaida>(
       if (resultado.ok) return { status: "sucesso", dados: resultado.value };
       return comoErro(resultado.error);
     } catch (causa) {
-      // 6 · nada de stack para o cliente. O traceId liga a tela ao log.
+      // 7 · nada de stack para o cliente. O traceId liga a tela ao log.
       console.error(`[action:${config.nome}] falha inesperada`, {
         traceId: ctx.traceId,
         causa,
@@ -178,6 +226,22 @@ async function autorizar(
   }
 
   return null;
+}
+
+/**
+ * Lê e valida a chave de idempotência. `null` quando ausente ou malformada.
+ *
+ * Fora do `entrada` de propósito: a chave não é dado de negócio, é metadado de
+ * transporte. Se ela entrasse no schema Zod, cada ação com efeito econômico
+ * teria que declará-la de novo — e a primeira que esquecesse ficaria sem
+ * proteção sem ninguém notar, porque nada quebraria.
+ */
+function lerChaveDeIdempotencia(formData: FormData): string | null {
+  const bruta = formData.get(CAMPO_DE_IDEMPOTENCIA);
+  if (typeof bruta !== "string") return null;
+
+  const chave = bruta.trim();
+  return CHAVE_DE_IDEMPOTENCIA.test(chave) ? chave : null;
 }
 
 /**

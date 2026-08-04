@@ -1,0 +1,11 @@
+-- Atualização condicional na linha quente de submitAttempt (docs/08 §11).
+--
+-- Sem esta coluna, duas respostas simultâneas na mesma competência — duas abas,
+-- um toque duplo, um sync offline chegando junto com a jogada ao vivo — leriam
+-- a mesma probabilidade e a última escrita sobrescreveria a outra. A tentativa
+-- perdida continuaria em "Attempt", então o histórico e o modelo divergiriam em
+-- silêncio.
+--
+-- DEFAULT 0 casa com o estado inicial do domínio: quem já tem linha começa na
+-- versão 0 e o primeiro UPDATE condicional a encontra.
+ALTER TABLE "SkillMastery" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 0;

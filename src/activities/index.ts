@@ -25,6 +25,7 @@ export { ACTIVITY_TYPES } from "./contracts";
 
 export {
   avaliarAtividade,
+  chuteDaAtividade,
   criarRegistro,
   selar,
   type ActivityRegistry,

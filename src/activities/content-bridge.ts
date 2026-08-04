@@ -1,3 +1,4 @@
+import { refDeAtividade } from "@/modules/content";
 import { carregarAcervo } from "@/content/loader";
 
 import type { MissaoNaSessao } from "./session";
@@ -32,6 +33,10 @@ export async function carregarMissaoParaSessao(
       nome: fase.nome,
       atividades: fase.atividades.map((atividade) => ({
         slug: atividade.slug,
+        // A mesma função que o importador usa para gravar `Activity.sourceRef`.
+        // Duas implementações da regra de nomeação seria o jeito garantido de
+        // um dia a busca não encontrar a linha que ela própria criou.
+        ref: refDeAtividade(encontrada, fase.slug, atividade.slug),
         tipo: atividade.tipo,
         objetivo: atividade.objetivo,
         config: atividade.config,
