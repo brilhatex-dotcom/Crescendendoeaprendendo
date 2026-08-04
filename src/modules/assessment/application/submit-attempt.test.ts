@@ -3,9 +3,15 @@ import { describe, expect, it } from "vitest";
 import type { EvaluationResult, RegraDeRecompensa } from "@/activities";
 import { FixedClock } from "@/shared/kernel";
 
+import type { DomainEvent, EventBus, Transacao, UnidadeDeTrabalho } from "@/shared/kernel";
+
 import type { ContextoDaTentativa, PlanoDaTentativa } from "../domain/attempt-plan";
 import { TOPICO_TELEMETRIA_DE_TENTATIVA, TOPICO_TENTATIVA_AVALIADA } from "../domain/events";
-import type { RepositorioDeAvaliacao, ResultadoDaGravacao } from "./ports";
+import {
+  DominioMudouNoMeio,
+  TentativaJaRegistrada,
+  type RepositorioDeAvaliacao,
+} from "./ports";
 import { criarSubmeterTentativa } from "./submit-attempt";
 
 /**
@@ -92,11 +98,21 @@ const entrada = (parcial: Record<string, unknown> = {}) => ({
   ...parcial,
 });
 
+/**
+ * Desfecho programado de uma gravação.
+ *
+ * Os dois erros são os que o caso de uso trata: um vira "já registrada", o
+ * outro vira releitura. Qualquer outro tem que subir.
+ */
+type Desfecho = "gravado" | "duplicada" | "conflito";
+
 /** Repositório em memória com desfechos de gravação programáveis. */
-function repositorioFalso(opcoes: {
-  contexto?: ContextoDaTentativa | null;
-  desfechos?: readonly ResultadoDaGravacao[];
-} = {}) {
+function repositorioFalso(
+  opcoes: {
+    contexto?: ContextoDaTentativa | null;
+    desfechos?: readonly Desfecho[];
+  } = {},
+) {
   const registradas = new Set<string>();
   const gravados: PlanoDaTentativa[] = [];
   const desfechos = [...(opcoes.desfechos ?? [])];
@@ -113,12 +129,16 @@ function repositorioFalso(opcoes: {
     },
 
     async gravar(plano) {
-      const desfecho = desfechos.shift() ?? { status: "gravado" as const, attemptId: "1" };
-      if (desfecho.status === "gravado") {
-        registradas.add(plano.tentativa.idempotencyKey);
-        gravados.push(plano);
+      const desfecho = desfechos.shift() ?? "gravado";
+
+      if (desfecho === "duplicada") {
+        throw new TentativaJaRegistrada(plano.tentativa.idempotencyKey);
       }
-      return desfecho;
+      if (desfecho === "conflito") throw new DominioMudouNoMeio();
+
+      registradas.add(plano.tentativa.idempotencyKey);
+      gravados.push(plano);
+      return String(gravados.length);
     },
   };
 
@@ -132,12 +152,40 @@ function repositorioFalso(opcoes: {
   };
 }
 
+/**
+ * Unidade de trabalho de mentira: executa o trabalho sem transação nenhuma.
+ *
+ * Não desfaz nada — e não precisa. O que este teste prova é a *decisão* do caso
+ * de uso diante de cada desfecho. Que a transação realmente desfaça é o que o
+ * teste de integração prova, contra Postgres, porque nenhum dublê consegue.
+ */
+const TX_FALSA = {} as Transacao;
+
+const unidadeDeTrabalhoFalsa: UnidadeDeTrabalho = {
+  executar: (trabalho) => trabalho(TX_FALSA),
+};
+
+function barramentoFalso() {
+  const publicados: DomainEvent[] = [];
+  const barramento: EventBus = {
+    async publicar(eventos) {
+      publicados.push(...eventos);
+    },
+  };
+  return { barramento, publicados };
+}
+
 const deps = (repositorio: RepositorioDeAvaliacao) => {
   const esperas: number[] = [];
+  const { barramento, publicados } = barramentoFalso();
+
   return {
     esperas,
+    publicados,
     deps: {
       repositorio,
+      unidadeDeTrabalho: unidadeDeTrabalhoFalsa,
+      barramento,
       clock: new FixedClock(AGORA),
       dormir: async (ms: number) => {
         esperas.push(ms);
@@ -217,7 +265,7 @@ describe("submeterTentativa", () => {
     // O caminho da corrida: duas requisições passam pela consulta prévia e é o
     // índice único que decide. Quem perde precisa responder "já registrado",
     // nunca erro.
-    const falso = repositorioFalso({ desfechos: [{ status: "duplicada" }] });
+    const falso = repositorioFalso({ desfechos: ["duplicada"] });
     const submeter = criarSubmeterTentativa(deps(falso.repositorio).deps);
 
     const resultado = await submeter(entrada());
@@ -228,7 +276,7 @@ describe("submeterTentativa", () => {
 
   it("conflito de versão faz reler e recalcular, não reenviar o mesmo plano", async () => {
     const falso = repositorioFalso({
-      desfechos: [{ status: "conflito" }, { status: "gravado", attemptId: "7" }],
+      desfechos: ["conflito", "gravado"],
     });
     const montado = deps(falso.repositorio);
     const submeter = criarSubmeterTentativa(montado.deps);
@@ -244,7 +292,7 @@ describe("submeterTentativa", () => {
 
   it("desiste depois de três rodadas, com erro de conflito", async () => {
     const falso = repositorioFalso({
-      desfechos: [{ status: "conflito" }, { status: "conflito" }, { status: "conflito" }],
+      desfechos: ["conflito", "conflito", "conflito"],
     });
     const submeter = criarSubmeterTentativa(deps(falso.repositorio).deps);
 

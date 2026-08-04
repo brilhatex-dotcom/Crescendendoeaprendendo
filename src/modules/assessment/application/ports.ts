@@ -1,4 +1,5 @@
-import type { Clock } from "@/shared/kernel";
+import { ConflitoDeConcorrencia } from "@/shared/kernel";
+import type { Clock, EventBus, Transacao, UnidadeDeTrabalho } from "@/shared/kernel";
 
 import type { ContextoDaTentativa, PlanoDaTentativa } from "../domain/attempt-plan";
 
@@ -24,18 +25,30 @@ export interface PedidoDeContexto {
 }
 
 /**
- * O que aconteceu ao gravar.
+ * Desfechos esperados da gravação, como exceção e não como valor.
  *
- * `duplicada` e `conflito` são desfechos esperados, não falhas: um é sync
- * offline reenviando o que já chegou, o outro é a criança com duas abas
- * abertas. Exceção fica para o que é genuinamente excepcional.
+ * A escolha é imposta pela transação: sair do escopo transacional com um
+ * `return` **confirma** o que já foi escrito. Como a tentativa é inserida antes
+ * de tudo, devolver "conflito" normalmente deixaria uma `Attempt` gravada sem a
+ * atualização de domínio — exatamente a divergência silenciosa que a transação
+ * existe para impedir. Lançar desfaz.
+ *
+ * Declaradas aqui, na porta, e não na infraestrutura: modos de falha fazem
+ * parte do contrato, e é a aplicação que decide o que fazer com cada um.
  */
-export type ResultadoDaGravacao =
-  | { readonly status: "gravado"; readonly attemptId: string }
-  /** Já existia tentativa com esta `idempotencyKey`. Nada foi escrito. */
-  | { readonly status: "duplicada" }
-  /** A linha de domínio mudou entre a leitura e a escrita. Nada foi escrito. */
-  | { readonly status: "conflito" };
+export class TentativaJaRegistrada extends Error {
+  constructor(readonly idempotencyKey: string) {
+    super(`Tentativa ${idempotencyKey} já registrada`);
+    this.name = "TentativaJaRegistrada";
+  }
+}
+
+export class DominioMudouNoMeio extends ConflitoDeConcorrencia {
+  constructor() {
+    super("SkillMastery");
+    this.name = "DominioMudouNoMeio";
+  }
+}
 
 export interface RepositorioDeAvaliacao {
   /**
@@ -47,15 +60,16 @@ export interface RepositorioDeAvaliacao {
   carregarContexto(pedido: PedidoDeContexto): Promise<ContextoDaTentativa | null>;
 
   /**
-   * Grava o plano inteiro **numa transação** (docs/08 §11): `Attempt`,
-   * `SkillMastery`, `ReviewCard` e as mensagens de outbox.
+   * Grava `Attempt`, `SkillMastery` e `ReviewCard` **dentro da transação
+   * recebida** — que não é aberta aqui, porque não é só deste módulo.
    *
-   * Tudo ou nada. Uma tentativa gravada sem a atualização de domínio é pior que
-   * tentativa nenhuma: o histórico diria que a criança praticou, e o modelo
-   * diria que não — e o relatório do responsável mostraria a divergência sem
-   * ninguém saber de onde ela veio.
+   * `docs/08 §11` exige que XP e carteira sejam atômicos com a tentativa, e
+   * esses moram em outros módulos. Quem abre é o caso de uso; quem entra são os
+   * manipuladores do evento, sem que nenhum dos módulos conheça os outros.
+   *
+   * Lança `TentativaJaRegistrada` ou `DominioMudouNoMeio`.
    */
-  gravar(plano: PlanoDaTentativa): Promise<ResultadoDaGravacao>;
+  gravar(plano: PlanoDaTentativa, tx: Transacao): Promise<string>;
 
   /** `true` se já existe tentativa com esta chave. */
   jaRegistrada(idempotencyKey: string): Promise<boolean>;
@@ -63,6 +77,14 @@ export interface RepositorioDeAvaliacao {
 
 export interface AssessmentDeps {
   readonly repositorio: RepositorioDeAvaliacao;
+  readonly unidadeDeTrabalho: UnidadeDeTrabalho;
+  /**
+   * Publica o que a tentativa produziu.
+   *
+   * `assessment` mede; quem credita reage. Este módulo não conhece progressão
+   * nem economia, e a lista de quem escuta é decidida no composition root.
+   */
+  readonly barramento: EventBus;
   readonly clock: Clock;
   /**
    * Espera entre as tentativas de gravação (docs/08 §11: retry com backoff).

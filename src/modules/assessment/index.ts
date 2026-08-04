@@ -16,11 +16,12 @@ export {
   type SubmeterTentativaSaida,
 } from "./application/submit-attempt";
 
-export type {
-  AssessmentDeps,
-  PedidoDeContexto,
-  RepositorioDeAvaliacao,
-  ResultadoDaGravacao,
+export {
+  DominioMudouNoMeio,
+  TentativaJaRegistrada,
+  type AssessmentDeps,
+  type PedidoDeContexto,
+  type RepositorioDeAvaliacao,
 } from "./application/ports";
 
 export {

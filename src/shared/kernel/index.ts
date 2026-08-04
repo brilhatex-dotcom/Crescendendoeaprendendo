@@ -7,4 +7,5 @@
 
 export * from "./result";
 export * from "./domain-event";
+export * from "./unit-of-work";
 export * from "./clock";

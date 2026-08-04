@@ -12,7 +12,15 @@ import {
 import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
 import { criarImportarConteudo } from "@/modules/content";
 import { criarEscritorPrismaDeConteudo } from "@/modules/content/infrastructure/prisma-content-writer";
-import { systemClock } from "@/shared/kernel";
+import { criarCreditoDeRecompensa } from "@/modules/economy";
+import { criarRepositorioPrismaDeCarteira } from "@/modules/economy/infrastructure/prisma-wallet-repository";
+import { criarCreditoDeTentativa } from "@/modules/progression";
+import { criarRepositorioPrismaDeProgresso } from "@/modules/progression/infrastructure/prisma-progress-repository";
+import { criarBarramento } from "@/server/event-bus";
+import { criarDespachanteDoOutbox } from "@/server/outbox";
+import { criarTelemetriaDeTentativa } from "@/server/telemetry";
+import { criarUnidadeDeTrabalho } from "@/server/unit-of-work";
+import { systemClock, type EventHandler } from "@/shared/kernel";
 
 /**
  * Teste de integração de `submitAttempt` — Postgres de verdade.
@@ -32,10 +40,26 @@ import { systemClock } from "@/shared/kernel";
 
 const db = new PrismaClient();
 
-const repositorio = criarRepositorioPrismaDeAvaliacao(db);
+const progresso = criarRepositorioPrismaDeProgresso(db);
+const carteira = criarRepositorioPrismaDeCarteira(db);
+
+/*
+ * A montagem real: avaliação publica, progressão e economia reagem dentro da
+ * mesma transação, telemetria sai pelo outbox. É a mesma lista do composition
+ * root — se ela divergir, este teste para de provar o que importa.
+ */
+const MANIPULADORES: readonly EventHandler[] = [
+  criarCreditoDeTentativa({ repositorio: progresso, clock: systemClock }),
+  criarCreditoDeRecompensa({ repositorio: carteira }),
+  criarTelemetriaDeTentativa(),
+] as readonly EventHandler[];
+
+const despachante = criarDespachanteDoOutbox(db, MANIPULADORES);
 
 const submeter = criarSubmeterTentativa({
-  repositorio,
+  repositorio: criarRepositorioPrismaDeAvaliacao(db),
+  unidadeDeTrabalho: criarUnidadeDeTrabalho(db),
+  barramento: criarBarramento(MANIPULADORES),
   clock: systemClock,
   dormir: async () => {},
 });
@@ -105,9 +129,15 @@ async function limparConteudo(): Promise<void> {
 
 async function limparJogadas(): Promise<void> {
   await db.attempt.deleteMany();
+  await db.questRun.deleteMany();
   await db.skillMastery.deleteMany();
   await db.reviewCard.deleteMany();
   await db.outboxMessage.deleteMany();
+  await db.learningEvent.deleteMany();
+  await db.ledgerEntry.deleteMany();
+  await db.wallet.deleteMany();
+  await db.unlock.deleteMany();
+  await db.learnerProgress.deleteMany();
 }
 
 beforeAll(async () => {
@@ -203,8 +233,12 @@ describe("submitAttempt contra Postgres", () => {
     expect(tentativas).toBe(1);
     expect(dominios).toBe(1);
     expect(cartoes).toBe(1);
-    // Um evento interno + um de telemetria (ver `domain/events.ts`).
-    expect(mensagens).toBe(2);
+    /*
+     * Uma mensagem só. O evento interno (`attempt_evaluated`) é consumido
+     * `inline`, dentro desta transação — não vai para o outbox porque ninguém o
+     * espera lá. O de telemetria vai, porque é `outbox` (ver `event-bus.ts`).
+     */
+    expect(mensagens).toBe(1);
   });
 
   it("a mesma chave duas vezes grava uma tentativa só", async () => {
@@ -298,14 +332,14 @@ describe("submitAttempt contra Postgres", () => {
     const telemetria = await db.outboxMessage.findFirstOrThrow({
       where: { topic: TOPICO_TELEMETRIA_DE_TENTATIVA },
     });
-    const interna = await db.outboxMessage.findFirstOrThrow({
+    const interna = await db.outboxMessage.count({
       where: { topic: TOPICO_TENTATIVA_AVALIADA },
     });
 
-    // A interna precisa do learnerId — vai creditar XP nas tabelas da criança.
-    expect(JSON.stringify(interna.payload)).toContain(learnerId);
-    // A de telemetria, jamais (docs/08 §12.7, docs/09 §6).
+    // A de telemetria jamais carrega o id real (docs/08 §12.7, docs/09 §6).
     expect(JSON.stringify(telemetria.payload)).not.toContain(learnerId);
+    // E o evento interno não passa pelo outbox: é consumido na transação.
+    expect(interna).toBe(0);
   });
 
   it("atividade que não está no banco não grava nada", async () => {
@@ -323,6 +357,139 @@ describe("submitAttempt contra Postgres", () => {
     expect(await db.attempt.count()).toBe(1);
   });
 
+  it("a Luz é creditada na MESMA transação da tentativa", async () => {
+    /*
+     * A garantia central do passo 3 (docs/08 §11). Se a progressão saísse pelo
+     * outbox, este teste ainda passaria depois de rodar o despachante — mas a
+     * criança teria terminado a atividade sem ver nada acontecer. Aqui não se
+     * despacha nada: o progresso já tem que estar gravado.
+     */
+    const resultado = await submeter(entrada("chave-luz-1"));
+    expect(resultado.ok).toBe(true);
+
+    const progressoGravado = await db.learnerProgress.findUniqueOrThrow({
+      where: { learnerId },
+    });
+
+    expect(progressoGravado.totalXp).toBeGreaterThan(0);
+    expect(progressoGravado.version).toBe(1);
+    /*
+     * A Trilha de Luz **não** anda por responder (docs/08 §6: dias com missão
+     * concluída). Quem a avança é o manipulador de `quest.completed` — ver
+     * `quest.integration.test.ts`.
+     */
+    expect(progressoGravado.streakDays).toBe(0);
+  });
+
+  it("as Fagulhas viram razão contábil e projeção, juntas", async () => {
+    await submeter(entrada("chave-fagulha-1"));
+
+    const [lancamentos, carteiraGravada] = await Promise.all([
+      db.ledgerEntry.findMany({ where: { learnerId } }),
+      db.wallet.findUniqueOrThrow({ where: { learnerId } }),
+    ]);
+
+    expect(lancamentos).toHaveLength(1);
+    expect(lancamentos[0]!.currency).toBe("COIN");
+    // A projeção bate com o saldo declarado no lançamento.
+    expect(carteiraGravada.coins).toBe(lancamentos[0]!.balanceAfter);
+  });
+
+  it("a chave do lançamento deriva da chave da tentativa", async () => {
+    await submeter(entrada("chave-derivada-1"));
+
+    const lancamento = await db.ledgerEntry.findFirstOrThrow({ where: { learnerId } });
+    expect(lancamento.idempotencyKey.startsWith("chave-derivada-1")).toBe(true);
+  });
+
+  it("repetir a chave não credita Luz nem Fagulha de novo", async () => {
+    await submeter(entrada("chave-repetida-1"));
+    const primeiro = await db.learnerProgress.findUniqueOrThrow({ where: { learnerId } });
+
+    const segunda = await submeter(entrada("chave-repetida-1"));
+    expect(segunda.ok && segunda.value.repetida).toBe(true);
+
+    const depois = await db.learnerProgress.findUniqueOrThrow({ where: { learnerId } });
+    expect(depois.totalXp).toBe(primeiro.totalXp);
+    expect(await db.ledgerEntry.count({ where: { learnerId } })).toBe(1);
+  });
+
+  it("cinco tentativas somam Luz, e o nível acompanha", async () => {
+    for (let i = 0; i < 5; i += 1) {
+      await submeter(entrada(`chave-soma-${i}`, ACERTOU, refNaReferencia));
+    }
+
+    const progressoGravado = await db.learnerProgress.findUniqueOrThrow({
+      where: { learnerId },
+    });
+
+    expect(progressoGravado.totalXp).toBeGreaterThan(0);
+    expect(progressoGravado.version).toBe(5);
+    // A sequência conta missões concluídas, não tentativas.
+    expect(progressoGravado.streakDays).toBe(0);
+  });
+
+  it("uma falha no crédito desfaz a tentativa inteira", async () => {
+    /*
+     * O ponto da transação única. Um manipulador que estoura tem que levar a
+     * tentativa junto — o contrário deixaria `Attempt` gravada e a Luz por
+     * creditar, sem nada no sistema apontando que faltou.
+     */
+    const explode = criarSubmeterTentativa({
+      repositorio: criarRepositorioPrismaDeAvaliacao(db),
+      unidadeDeTrabalho: criarUnidadeDeTrabalho(db),
+      barramento: criarBarramento([
+        {
+          topico: TOPICO_TENTATIVA_AVALIADA,
+          modo: "inline",
+          async tratar() {
+            throw new Error("progressão indisponível");
+          },
+        },
+      ]),
+      clock: systemClock,
+      dormir: async () => {},
+    });
+
+    await expect(explode(entrada("chave-explode"))).rejects.toThrow(
+      "progressão indisponível",
+    );
+
+    expect(await db.attempt.count()).toBe(0);
+    expect(await db.skillMastery.count()).toBe(0);
+    expect(await db.outboxMessage.count()).toBe(0);
+  });
+
+  it("o despachante processa a telemetria e marca a mensagem", async () => {
+    await submeter(entrada("chave-despacho-1"));
+
+    // Antes: pendente.
+    expect(await db.learningEvent.count()).toBe(0);
+
+    const relatorio = await despachante.despachar();
+
+    expect(relatorio.processadas).toBe(1);
+    expect(relatorio.falhadas).toBe(0);
+
+    const registro = await db.learningEvent.findFirstOrThrow();
+    expect(registro.pseudonymId).not.toBe(learnerId);
+    expect(registro.name).toBe("attempt_recorded");
+
+    const mensagem = await db.outboxMessage.findFirstOrThrow();
+    expect(mensagem.processedAt).not.toBeNull();
+  });
+
+  it("despachar duas vezes não grava telemetria em dobro", async () => {
+    await submeter(entrada("chave-despacho-2"));
+
+    await despachante.despachar();
+    const segundo = await despachante.despachar();
+
+    // A mensagem já está marcada: o segundo pulso não tem o que ler.
+    expect(segundo.lidas).toBe(0);
+    expect(await db.learningEvent.count()).toBe(1);
+  });
+
   it("pular grava a tentativa sem tocar domínio nem revisão", async () => {
     await submeter(
       entrada("chave-pulou", { outcome: "SKIPPED", scoreRatio: 0 } as EvaluationResult),
@@ -332,6 +499,12 @@ describe("submitAttempt contra Postgres", () => {
     expect(await db.skillMastery.count()).toBe(0);
     expect(await db.reviewCard.count()).toBe(0);
     // O evento sai mesmo assim: pular é informação para o responsável.
-    expect(await db.outboxMessage.count()).toBe(2);
+    expect(await db.outboxMessage.count()).toBe(1);
+    // A linha de progresso é criada mesmo sem prêmio: pular ainda é uma
+    // tentativa registrada, e o Fôlego regenerado precisa de onde morar.
+    const progressoGravado = await db.learnerProgress.findUniqueOrThrow({
+      where: { learnerId },
+    });
+    expect(progressoGravado.streakDays).toBe(0);
   });
 });

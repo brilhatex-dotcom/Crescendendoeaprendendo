@@ -1,4 +1,4 @@
-import { refDeAtividade } from "@/modules/content";
+import { refDeAtividade, refDeMissao } from "@/modules/content";
 import { carregarAcervo } from "@/content/loader";
 
 import type { MissaoNaSessao } from "./session";
@@ -24,6 +24,7 @@ export async function carregarMissaoParaSessao(
 
   return {
     slug: missao.slug,
+    ref: refDeMissao(encontrada),
     nome: missao.nome,
     introducao: missao.introducao,
     conclusao: missao.conclusao,
