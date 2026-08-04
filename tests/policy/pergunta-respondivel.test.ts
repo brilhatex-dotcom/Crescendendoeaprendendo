@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { carregarAcervo } from "@/content/loader";
@@ -27,6 +29,28 @@ import { carregarAcervo } from "@/content/loader";
  * exigir apoio daria falso positivo em toda pergunta de comparação.
  */
 const APONTA_PARA_ALGO = /\b(esta|este|estas|estes)\s+[a-zà-ú]/i;
+
+describe("errar tem que ensinar, não entregar", () => {
+  it("a tela não revela a resposta certa quando a criança pode tentar de novo", () => {
+    const fonte = readFileSync(
+      join(process.cwd(), "src/activities/renderers/multiple-choice-renderer.tsx"),
+      "utf8",
+    );
+
+    /*
+     * O defeito, quando existia: a criança errava, o `ensino` explicava o que
+     * observar, o app pedia "tente de novo" — e a resposta estava ali, com ✓
+     * verde. Ela tocava na destacada e passava sem ter contado nada.
+     *
+     * Toda opção incorreta deste produto é obrigada a trazer `ensino` — o
+     * schema não compila sem. Entregar a resposta no mesmo instante joga fora
+     * exatamente o que essa obrigação existe para comprar.
+     */
+    expect(fonte).toContain("revelarACorreta");
+    expect(fonte).toContain('detalhes?.acertou === true');
+    expect(fonte).toContain("revelarACorreta && detalhes?.opcaoCorreta === opcao.id");
+  });
+});
 
 describe("uma pergunta que aponta para objetos precisa mostrar os objetos", () => {
   it("nenhuma atividade do acervo aponta para o que não está na tela", async () => {

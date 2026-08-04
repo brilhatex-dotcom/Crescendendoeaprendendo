@@ -61,6 +61,20 @@ export function MultipleChoiceRenderer({
   const curtas = opcoes.every((opcao) => opcao.texto.length <= 12);
   const revelada = resultado !== undefined;
 
+  /*
+   * ── A resposta certa só aparece quando ela acerta ──
+   *
+   * Marcar a opção correta logo depois de um erro parece gentil e destrói a
+   * atividade: a criança erra, o `ensino` explica o que observar, o app pede
+   * "tente de novo" — e a resposta está ali, com um ✓ verde. Ela toca na
+   * destacada e passa sem ter contado nada.
+   *
+   * Este produto obriga toda opção incorreta a trazer `ensino` (o schema não
+   * compila sem), justamente para transformar o erro em aprendizado. Entregar
+   * a resposta no mesmo instante joga fora o que a regra existe para comprar.
+   */
+  const revelarACorreta = revelada && detalhes?.acertou === true;
+
   return (
     <div className="flex flex-col gap-6">
       <h2 className="font-display text-2xl font-bold text-balance md:text-3xl">
@@ -79,7 +93,7 @@ export function MultipleChoiceRenderer({
       >
         {opcoes.map((opcao) => {
           const escolhida = detalhes?.opcaoEscolhida === opcao.id;
-          const eraCorreta = detalhes?.opcaoCorreta === opcao.id;
+          const eraCorreta = revelarACorreta && detalhes?.opcaoCorreta === opcao.id;
 
           return (
             <button
@@ -108,10 +122,10 @@ export function MultipleChoiceRenderer({
                   escolhida &&
                   !eraCorreta &&
                   "border-[var(--color-quase)] bg-[var(--color-quase)]/15",
-                // Não escolhida e não correta, depois da devolutiva: recua para
-                // o fundo. A atenção da criança precisa ir para as duas que
-                // importam, não se dividir entre todas.
-                revelada && !eraCorreta && !escolhida && "opacity-40",
+                // Depois do acerto, as que não importam recuam para o fundo. No
+                // erro nada recua: destacar por eliminação seria outro jeito de
+                // entregar a resposta.
+                revelarACorreta && !eraCorreta && !escolhida && "opacity-40",
               )}
             >
               {/* Ícone + texto: a informação nunca depende só da cor. */}
