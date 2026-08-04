@@ -488,6 +488,14 @@ npx prisma migrate deploy && npm run test:integration
   render cobraria Fôlego por missões que a criança nunca jogou. Se alguém mover `abrirJogada`
   para dentro de um Server Component, é este o defeito que aparece — e ele aparece como "o
   Fôlego dela some sozinho".
+- **Pergunta que aponta para objetos precisa mostrar os objetos.** A primeira atividade do
+  acervo perguntava "quantas são **estas** conchas?" e não mostrava nenhuma — impossível de
+  responder, e nenhum teste pegou porque nenhum perguntava "dá para responder?". Hoje
+  `tests/policy/pergunta-respondivel.test.ts` quebra o build. Ao autorar, declare `apoio`
+  (ver `src/activities/stimulus.ts`).
+- **Estado de renderer não sobrevive à troca de atividade** — o executor passa
+  `key={slug:tentativa}`. Sem isso, a opção marcada numa atividade continuava marcada na
+  seguinte, com "Responder" aceso e um id que nem existia ali.
 - **`crypto.randomUUID()` exige contexto seguro.** O executor de missão gera a chave de
   idempotência no navegador. Em `http://` que não seja `localhost` a função não existe e o
   envio falha. Em produção é HTTPS; num túnel de teste por HTTP, não.

@@ -214,7 +214,13 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   const podeAvancar = resultado !== undefined && (acertou || resultado.outcome === "PARTIAL");
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-8 px-6 py-8">
+    /*
+     * `justify-center` no container, e não `flex-1` no `main`: a atividade e a
+     * devolutiva sobem e descem **juntas**. Esticar só o `main` centralizava a
+     * atividade e deixava a devolutiva no rodapé — a criança acertava e a
+     * celebração aparecia a uma tela de distância do que ela tinha feito.
+     */
+    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-8 px-6 py-8">
       <header className="flex flex-col gap-3">
         <div className="flex items-center justify-between text-sm text-slate-400">
           <span className="font-display uppercase tracking-[0.15em]">{missao.nome}</span>
@@ -241,9 +247,22 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
         ) : null}
       </header>
 
-      <main className="flex-1">
+      <main>
         {Renderer ? (
           <Renderer
+            /*
+             * A chave é o que zera o estado interno do renderer.
+             *
+             * Sem ela, React reaproveita a mesma instância entre atividades do
+             * mesmo tipo — e a opção marcada na anterior continuava marcada na
+             * seguinte, com "Responder" já aceso. A criança podia enviar, sem
+             * ter escolhido nada, um id de opção que nem existe na atividade
+             * atual, e levar um "quase" por algo que ela não fez.
+             *
+             * A tentativa entra na chave pelo mesmo motivo: ao tentar de novo,
+             * a escolha anterior não pode continuar marcada.
+             */
+            key={`${atividade.slug}:${tentativa}`}
             config={atividade.config}
             aoResponder={responder}
             resultado={resultado}

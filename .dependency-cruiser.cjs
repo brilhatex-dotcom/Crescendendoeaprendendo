@@ -89,7 +89,7 @@ module.exports = {
       severity: "error",
       comment:
         "Se `contracts.ts` ou `registry.ts` importar um plugin concreto, o motor deixou de ser Open/Closed.",
-      from: { path: "^src/activities/(contracts|registry|difficulty|rewards|presentation|telemetry|session)\\.ts$" },
+      from: { path: "^src/activities/(contracts|registry|difficulty|rewards|presentation|stimulus|telemetry|session)\\.ts$" },
       to: { path: "^src/activities/plugins/" },
     },
 

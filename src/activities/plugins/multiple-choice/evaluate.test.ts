@@ -111,6 +111,26 @@ describe("múltipla escolha — casos de borda", () => {
     expect(r.detalhes).toMatchObject({ opcaoEscolhida: "a", opcaoCorreta: "b", acertou: false });
   });
 
+  it("o acerto também informa qual era a opção correta", () => {
+    /*
+     * Regressão de um defeito que só aparecia na tela: sem `opcaoCorreta` no
+     * caminho do acerto, o renderer comparava a escolha com `undefined` e
+     * marcava a resposta certa da criança com o coral de "tente de novo" — ao
+     * lado de uma devolutiva verde dizendo "Isso!".
+     *
+     * Os detalhes têm a mesma forma nos dois desfechos. Quem desenha não pode
+     * precisar conhecer dois contratos.
+     */
+    const r = evaluateMultipleChoice(CONFIG, { opcaoId: "b" }, CTX);
+
+    expect(r.outcome).toBe("CORRECT");
+    expect(r.detalhes).toMatchObject({
+      opcaoEscolhida: "b",
+      opcaoCorreta: "b",
+      acertou: true,
+    });
+  });
+
   it("é pura: mesma entrada, mesmo resultado", () => {
     const a = evaluateMultipleChoice(CONFIG, { opcaoId: "a" }, CTX);
     const b = evaluateMultipleChoice(CONFIG, { opcaoId: "a" }, CTX);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { apresentacaoDeFeedbackSchema } from "../../presentation";
+import { apoioVisualSchema } from "../../stimulus";
 
 /**
  * MÚLTIPLA ESCOLHA — contrato do conteúdo.
@@ -42,12 +43,14 @@ export const multipleChoiceConfigSchema = z
     enunciado: z.string().min(1).max(500),
     /** Texto lido em voz alta, quando difere do enunciado escrito. */
     enunciadoFalado: z.string().max(500).optional(),
-    apoio: z
-      .object({
-        assetId: z.string().min(1),
-        textoAlternativo: z.string().min(1).max(280),
-      })
-      .optional(),
+    /**
+     * O que a criança olha para responder.
+     *
+     * **Obrigatório sempre que o enunciado apontar para objetos** — "estas
+     * conchas", "estes blocos". Sem ele a pergunta é impossível, e a criança só
+     * pode chutar. Ver `stimulus.ts`.
+     */
+    apoio: apoioVisualSchema.optional(),
     opcoes: z.array(opcaoSchema).min(2).max(6),
     /** Mensagem de acerto. Específica da atividade, não genérica. */
     mensagemDeAcerto: z.string().min(1).max(280),
