@@ -64,6 +64,13 @@ export {
   type ApresentacaoDeFeedback,
 } from "./presentation";
 
+export {
+  apoioVisualSchema,
+  grupoDeObjetosSchema,
+  type ApoioVisual,
+  type GrupoDeObjetos,
+} from "./stimulus";
+
 export type {
   RegistradorDeTentativas,
   RegistroDeTentativa,

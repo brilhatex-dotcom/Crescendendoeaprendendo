@@ -15,9 +15,12 @@ import {
   criarAbrirJogada,
   criarAvancoDaCorrida,
   criarConcluirJogada,
+  criarMontarMapa,
   type AbrirJogada,
   type ConcluirJogada,
+  type MontarMapa,
 } from "@/modules/quest";
+import { criarLeituraPrismaDoMapa } from "@/modules/quest/infrastructure/prisma-map-reader";
 import { criarRepositorioPrismaDeMissoes } from "@/modules/quest/infrastructure/prisma-quest-repository";
 import { db } from "@/server/db";
 import { criarBarramento } from "@/server/event-bus";
@@ -49,6 +52,7 @@ import { systemClock } from "@/shared/kernel";
 const repositorioDeProgresso = criarRepositorioPrismaDeProgresso(db);
 const repositorioDeCarteira = criarRepositorioPrismaDeCarteira(db);
 const repositorioDeMissoes = criarRepositorioPrismaDeMissoes();
+const leituraDoMapa = criarLeituraPrismaDoMapa(db);
 
 const unidadeDeTrabalho = criarUnidadeDeTrabalho(db);
 
@@ -78,10 +82,19 @@ const MANIPULADORES: readonly EventHandler[] = [
 
 const barramento = criarBarramento(MANIPULADORES);
 
+const depsDeMissao = {
+  repositorio: repositorioDeMissoes,
+  leitura: leituraDoMapa,
+  unidadeDeTrabalho,
+  barramento,
+  clock: systemClock,
+};
+
 interface ContainerDaJogada {
   readonly submeterTentativa: SubmeterTentativa;
   readonly abrirJogada: AbrirJogada;
   readonly concluirJogada: ConcluirJogada;
+  readonly montarMapa: MontarMapa;
   readonly progresso: typeof repositorioDeProgresso;
   readonly carteira: typeof repositorioDeCarteira;
   readonly despachante: DespachanteDoOutbox;
@@ -98,18 +111,9 @@ export function containerDeAvaliacao(): ContainerDaJogada {
       clock: systemClock,
       dormir: (ms) => new Promise((resolver) => setTimeout(resolver, ms)),
     }),
-    abrirJogada: criarAbrirJogada({
-      repositorio: repositorioDeMissoes,
-      unidadeDeTrabalho,
-      barramento,
-      clock: systemClock,
-    }),
-    concluirJogada: criarConcluirJogada({
-      repositorio: repositorioDeMissoes,
-      unidadeDeTrabalho,
-      barramento,
-      clock: systemClock,
-    }),
+    abrirJogada: criarAbrirJogada(depsDeMissao),
+    concluirJogada: criarConcluirJogada(depsDeMissao),
+    montarMapa: criarMontarMapa({ leitura: leituraDoMapa }),
     progresso: repositorioDeProgresso,
     carteira: repositorioDeCarteira,
     despachante: criarDespachanteDoOutbox(db, MANIPULADORES),

@@ -8,9 +8,20 @@
   "competenciasExigidas": [],
   "recompensaDaMissao": {
     "porDesfecho": {
-      "CORRECT": { "xp": 40, "moedas": 15, "colecionaveis": ["concha-da-orla"] },
-      "PARTIAL": { "xp": 25, "moedas": 8 },
-      "INCORRECT": { "xp": 10 }
+      "CORRECT": {
+        "xp": 40,
+        "moedas": 15,
+        "colecionaveis": [
+          "concha-da-orla"
+        ]
+      },
+      "PARTIAL": {
+        "xp": 25,
+        "moedas": 8
+      },
+      "INCORRECT": {
+        "xp": 10
+      }
     },
     "aplicarFatorDeDificuldade": false
   },
@@ -56,15 +67,39 @@
             "dicas": [
               "Toque em cada concha enquanto conta em voz alta.",
               "Comece pela concha da esquerda e não volte atrás."
-            ]
+            ],
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "na areia da praia",
+              "grupos": [
+                {
+                  "simbolo": "🐚",
+                  "quantidade": 4,
+                  "nome": "concha"
+                }
+              ]
+            }
           },
           "recompensa": {
             "porDesfecho": {
-              "CORRECT": { "xp": 10, "moedas": 5 },
-              "PARTIAL": { "xp": 6, "moedas": 3 },
-              "INCORRECT": { "xp": 4, "moedas": 1 }
+              "CORRECT": {
+                "xp": 10,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 6,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
             },
-            "multiplicadorPorDica": [1, 0.6, 0.4]
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
           }
         },
         {
@@ -77,7 +112,7 @@
           "faixaMaxima": "EXPLORER",
           "config": {
             "schemaVersion": 1,
-            "enunciado": "ORLA tem 4 conchas e 6 pedrinhas. De qual ela tem mais?",
+            "enunciado": "ORLA juntou conchas e pedrinhas. De qual ela tem mais?",
             "opcoes": [
               {
                 "id": "conchas",
@@ -99,19 +134,50 @@
                 "equivoco": "nao-comparou-as-quantidades"
               }
             ],
-            "mensagemDeAcerto": "Isso! 6 é mais que 4. Sobraram pedrinhas sem par.",
+            "mensagemDeAcerto": "Isso! São 6 pedrinhas e 4 conchas. Sobraram pedrinhas sem par.",
             "dicas": [
               "Junte uma concha com uma pedrinha. O que sobrar tem mais.",
               "Conte cada grupo separado e veja qual número vem depois."
-            ]
+            ],
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "o que ORLA juntou hoje",
+              "grupos": [
+                {
+                  "simbolo": "🐚",
+                  "quantidade": 4,
+                  "nome": "concha",
+                  "rotulo": "conchas"
+                },
+                {
+                  "simbolo": "🪨",
+                  "quantidade": 6,
+                  "nome": "pedrinha",
+                  "rotulo": "pedrinhas"
+                }
+              ]
+            }
           },
           "recompensa": {
             "porDesfecho": {
-              "CORRECT": { "xp": 10, "moedas": 5 },
-              "PARTIAL": { "xp": 6, "moedas": 3 },
-              "INCORRECT": { "xp": 4, "moedas": 1 }
+              "CORRECT": {
+                "xp": 10,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 6,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
             },
-            "multiplicadorPorDica": [1, 0.6, 0.4]
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
           }
         }
       ]
@@ -132,26 +198,59 @@
             "schemaVersion": 1,
             "enunciado": "As marés chegam do menor para o maior. Coloque os números na ordem certa.",
             "itens": [
-              { "id": "n7", "texto": "7" },
-              { "id": "n2", "texto": "2" },
-              { "id": "n9", "texto": "9" },
-              { "id": "n5", "texto": "5" }
+              {
+                "id": "n7",
+                "texto": "7"
+              },
+              {
+                "id": "n2",
+                "texto": "2"
+              },
+              {
+                "id": "n9",
+                "texto": "9"
+              },
+              {
+                "id": "n5",
+                "texto": "5"
+              }
             ],
-            "ordemCorreta": ["n2", "n5", "n7", "n9"],
+            "ordemCorreta": [
+              "n2",
+              "n5",
+              "n7",
+              "n9"
+            ],
             "mensagemDeAcerto": "Perfeito! Do menor para o maior: 2, 5, 7 e 9.",
             "ensino": "Procure sempre o menor número que ainda sobrou e coloque na frente. Comece pelo 2.",
             "ensinoParcial": "Você já organizou boa parte! Olhe qual número saiu do lugar e compare com o vizinho.",
             "equivoco": "ordem-crescente-incompleta",
-            "dicas": ["Qual é o menor de todos?", "Depois do 2, qual é o menor que sobrou?"],
+            "dicas": [
+              "Qual é o menor de todos?",
+              "Depois do 2, qual é o menor que sobrou?"
+            ],
             "limiarParcial": 0.5
           },
           "recompensa": {
             "porDesfecho": {
-              "CORRECT": { "xp": 15, "moedas": 7 },
-              "PARTIAL": { "xp": 9, "moedas": 4 },
-              "INCORRECT": { "xp": 5, "moedas": 1 }
+              "CORRECT": {
+                "xp": 15,
+                "moedas": 7
+              },
+              "PARTIAL": {
+                "xp": 9,
+                "moedas": 4
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
             },
-            "multiplicadorPorDica": [1, 0.6, 0.4]
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
           }
         }
       ]

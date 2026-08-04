@@ -208,6 +208,48 @@ describe("§4 e §6 — as regras da missão", () => {
   });
 });
 
+describe("§3 — o mapa mostra o caminho, nunca só um cadeado", () => {
+  it("o avaliador devolve o que falta, não um booleano", () => {
+    const fonte = ler("src/modules/quest/domain/unlock-rule.ts");
+
+    /*
+     * Se alguém simplificar `Jogabilidade` para `boolean`, a tela perde como
+     * dizer o que fazer — e sobra o cadeado. É este teste que puxa a conversa
+     * antes de o commit entrar.
+     */
+    expect(fonte).toContain("readonly pendencias");
+    expect(fonte).toContain('tipo: "NIVEL"');
+    expect(fonte).toContain('tipo: "MISSAO"');
+    expect(fonte).toContain('tipo: "DOMINIO"');
+  });
+
+  it("a tela transforma cada pendência em frase", () => {
+    const fonte = ler("app/(play)/hub/mapa.tsx");
+
+    expect(fonte).toContain("function descrever");
+    // Nenhum número de domínio na tela: "0.42 de 0.75" não significa nada para
+    // quem tem sete anos.
+    expect(fonte).not.toMatch(/pendencia\.(atual|exigido)\.toFixed/);
+  });
+
+  it("a tranca vale no servidor, não só no mapa", () => {
+    const fonte = ler("src/modules/quest/application/play-quest.ts");
+
+    expect(fonte).toContain("quest.locked");
+    expect(fonte).toContain("avaliarDesbloqueio(regraEfetiva(missao), estado)");
+  });
+
+  it("a gramática da regra existe num lugar só", () => {
+    const autoria = ler("content/schema/index.ts");
+
+    // Duas definições da mesma gramática é como as duas passam a divergir — e a
+    // divergência apareceria como conteúdo válido na autoria que o motor não
+    // entende em produção.
+    expect(autoria).toContain('from "@/modules/quest"');
+    expect(autoria).not.toContain("z.lazy");
+  });
+});
+
 describe("§12 — a rota de despacho é fail-closed", () => {
   it("sem CRON_SECRET, ninguém despacha", () => {
     const fonte = ler("app/api/outbox/route.ts");

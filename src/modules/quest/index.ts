@@ -23,10 +23,32 @@ export {
 export { criarAvancoDaCorrida } from "./application/advance-run";
 
 export {
+  criarMontarMapa,
+  type CapituloDoMapa,
+  type MissaoDoMapa,
+  type MontarMapa,
+  type MundoDoMapa,
+} from "./application/map";
+
+export {
   CorridaJaAberta,
+  type DadosDoMapa,
+  type LeituraDoMapa,
+  type MissaoNoMapa,
   type QuestDeps,
   type RepositorioDeMissoes,
 } from "./application/ports";
+
+export {
+  DOMINIO_DO_COLOSSO,
+  avaliarDesbloqueio,
+  regraDeDesbloqueioSchema,
+  regraEfetiva,
+  type EstadoParaDesbloqueio,
+  type Jogabilidade,
+  type Pendencia,
+  type RegraDeDesbloqueio,
+} from "./domain/unlock-rule";
 
 export {
   TOPICO_MISSAO_CONCLUIDA,

@@ -48,7 +48,23 @@ export function evaluateMultipleChoice(
         tom: "CELEBRA",
         mensagem: config.mensagemDeAcerto,
       },
-      detalhes: { opcaoEscolhida: escolhida.id, acertou: true },
+      /*
+       * `opcaoCorreta` sai nos **dois** desfechos, e não só no erro.
+       *
+       * Faltava aqui, e o efeito na tela era o pior possível: a criança
+       * acertava, a devolutiva dizia "Isso!", e a opção que ela escolheu
+       * aparecia marcada com o coral de "tente de novo" — porque o renderer
+       * comparava a escolha com uma `opcaoCorreta` que não tinha vindo.
+       *
+       * Detalhes com forma diferente por desfecho obrigam quem desenha a
+       * conhecer dois contratos. Um só, sempre completo, é o que impede a
+       * próxima tela de errar do mesmo jeito.
+       */
+      detalhes: {
+        opcaoEscolhida: escolhida.id,
+        opcaoCorreta: escolhida.id,
+        acertou: true,
+      },
     };
   }
 

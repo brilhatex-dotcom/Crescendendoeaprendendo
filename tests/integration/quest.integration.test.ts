@@ -23,7 +23,9 @@ import {
   criarAbrirJogada,
   criarAvancoDaCorrida,
   criarConcluirJogada,
+  criarMontarMapa,
 } from "@/modules/quest";
+import { criarLeituraPrismaDoMapa } from "@/modules/quest/infrastructure/prisma-map-reader";
 import { criarRepositorioPrismaDeMissoes } from "@/modules/quest/infrastructure/prisma-quest-repository";
 import { criarBarramento } from "@/server/event-bus";
 import { criarUnidadeDeTrabalho } from "@/server/unit-of-work";
@@ -46,6 +48,7 @@ const db = new PrismaClient();
 const progresso = criarRepositorioPrismaDeProgresso(db);
 const carteira = criarRepositorioPrismaDeCarteira(db);
 const missoes = criarRepositorioPrismaDeMissoes();
+const leitura = criarLeituraPrismaDoMapa(db);
 
 const MANIPULADORES: readonly EventHandler[] = [
   criarCobrancaDeFolego({ repositorio: progresso, clock: systemClock }),
@@ -59,7 +62,7 @@ const MANIPULADORES: readonly EventHandler[] = [
 const unidadeDeTrabalho = criarUnidadeDeTrabalho(db);
 const barramento = criarBarramento(MANIPULADORES);
 
-const deps = { repositorio: missoes, unidadeDeTrabalho, barramento, clock: systemClock };
+const deps = { repositorio: missoes, leitura, unidadeDeTrabalho, barramento, clock: systemClock };
 
 const abrir = criarAbrirJogada(deps);
 const concluir = criarConcluirJogada(deps);
@@ -417,6 +420,100 @@ describe("o ciclo de uma missão", () => {
     const estado = await db.learnerProgress.findUniqueOrThrow({ where: { learnerId } });
     // Piso em zero: saldo negativo de Fôlego não existe no produto.
     expect(estado.energy).toBe(0);
+  });
+
+  it("missão trancada é recusada no servidor, não só escondida no mapa", async () => {
+    /*
+     * O cadeado precisa valer aqui. Sem esta guarda bastaria montar a
+     * requisição na mão para pular a progressão inteira — e encarar o Colosso
+     * sem ter aprendido o que ele cobra.
+     */
+    await db.quest.updateMany({
+      where: { sourceRef: refDaMissao },
+      data: { unlockRule: { level: { gte: 99 } } },
+    });
+
+    const resultado = await abrirMissao();
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.error.code).toBe("quest.locked");
+    expect(await db.questRun.count()).toBe(0);
+
+    await db.quest.updateMany({ where: { sourceRef: refDaMissao }, data: { unlockRule: {} } });
+  });
+
+  it("uma jogada já aberta não é interrompida por uma regra nova", async () => {
+    const aberta = await abrirMissao();
+    expect(aberta.ok).toBe(true);
+
+    // A regra muda depois que ela já começou.
+    await db.quest.updateMany({
+      where: { sourceRef: refDaMissao },
+      data: { unlockRule: { level: { gte: 99 } } },
+    });
+
+    const retomada = await abrirMissao();
+
+    // Quem começou antes da regra mudar não pode ficar preso no meio.
+    expect(retomada.ok).toBe(true);
+    if (retomada.ok) expect(retomada.value.retomada).toBe(true);
+
+    await db.quest.updateMany({ where: { sourceRef: refDaMissao }, data: { unlockRule: {} } });
+  });
+
+  it("o mapa diz o que falta, não só que está trancada", async () => {
+    await db.quest.updateMany({
+      where: { sourceRef: refDaMissao },
+      data: { unlockRule: { level: { gte: 12 } } },
+    });
+
+    const mundos = await criarMontarMapa({ leitura })(learnerId);
+    const missao = mundos
+      .flatMap((m) => m.capitulos)
+      .flatMap((c) => c.missoes)
+      .find((m) => m.ref === refDaMissao);
+
+    expect(missao).toBeDefined();
+    expect(missao!.jogabilidade.jogavel).toBe(false);
+    // docs/08 §3: o mapa mostra o caminho, nunca só um cadeado.
+    expect(missao!.jogabilidade.pendencias).toEqual([
+      { tipo: "NIVEL", exigido: 12, atual: 1 },
+    ]);
+
+    await db.quest.updateMany({ where: { sourceRef: refDaMissao }, data: { unlockRule: {} } });
+  });
+
+  it("o mapa marca a missão em andamento e a concluída", async () => {
+    const aberta = await abrirMissao();
+    if (!aberta.ok) return;
+
+    const emAndamento = (await criarMontarMapa({ leitura })(learnerId))
+      .flatMap((m) => m.capitulos)
+      .flatMap((c) => c.missoes)
+      .find((m) => m.ref === refDaMissao);
+    expect(emAndamento?.emAndamento).toBe(true);
+    expect(emAndamento?.concluida).toBe(false);
+
+    for (const [indice, ref] of refsDasAtividades.entries()) {
+      await responder(aberta.value.questRunId, ref, `chave-mapa-${indice}`);
+    }
+    await concluir({
+      learnerId,
+      questRunId: aberta.value.questRunId,
+      refDaMissao,
+      traceId: "trace-missao",
+    });
+
+    const depois = (await criarMontarMapa({ leitura })(learnerId))
+      .flatMap((m) => m.capitulos)
+      .flatMap((c) => c.missoes)
+      .find((m) => m.ref === refDaMissao);
+
+    expect(depois?.concluida).toBe(true);
+    expect(depois?.emAndamento).toBe(false);
+    // Concluída não tranca: rejogar para praticar é livre (docs/08 §3).
+    expect(depois?.jogabilidade.jogavel).toBe(true);
   });
 
   it("missão fora do banco é recusada com instrução acionável", async () => {
