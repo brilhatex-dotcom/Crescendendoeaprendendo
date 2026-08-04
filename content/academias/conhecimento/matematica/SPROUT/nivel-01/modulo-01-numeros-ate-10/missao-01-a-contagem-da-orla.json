@@ -1,0 +1,160 @@
+{
+  "slug": "missao-01-a-contagem-da-orla",
+  "nome": "A Contagem da Orla",
+  "tipo": "STORY",
+  "ordem": 1,
+  "introducao": "A maré levou as conchas de ORLA e espalhou tudo pela praia. Ela não consegue acender a costa sem saber quantas sobraram. Você conta com ela?",
+  "conclusao": "A costa acendeu! ORLA diz que agora consegue ver o caminho até o próximo trecho da praia.",
+  "competenciasExigidas": [],
+  "recompensaDaMissao": {
+    "porDesfecho": {
+      "CORRECT": { "xp": 40, "moedas": 15, "colecionaveis": ["concha-da-orla"] },
+      "PARTIAL": { "xp": 25, "moedas": 8 },
+      "INCORRECT": { "xp": 10 }
+    },
+    "aplicarFatorDeDificuldade": false
+  },
+  "fases": [
+    {
+      "slug": "fase-01-contar",
+      "nome": "Quantas sobraram?",
+      "atividades": [
+        {
+          "slug": "contar-conchas-4",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "contar-ate-10",
+          "dificuldade": "FACIL",
+          "duracaoEstimadaSeg": 40,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "ORLA encontrou estas conchas na areia. Quantas são?",
+            "enunciadoFalado": "Orla encontrou estas conchas na areia. Quantas são?",
+            "opcoes": [
+              {
+                "id": "tres",
+                "texto": "3",
+                "correta": false,
+                "ensino": "Falta uma! Toque em cada concha enquanto conta: uma, duas, três, quatro.",
+                "equivoco": "parou-antes-do-ultimo"
+              },
+              {
+                "id": "quatro",
+                "texto": "4",
+                "correta": true
+              },
+              {
+                "id": "cinco",
+                "texto": "5",
+                "correta": false,
+                "ensino": "Você contou uma concha duas vezes. Vá da esquerda para a direita, uma de cada vez.",
+                "equivoco": "contou-em-dobro"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! São 4 conchas. O último número que você diz é a quantidade.",
+            "dicas": [
+              "Toque em cada concha enquanto conta em voz alta.",
+              "Comece pela concha da esquerda e não volte atrás."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": { "xp": 10, "moedas": 5 },
+              "PARTIAL": { "xp": 6, "moedas": 3 },
+              "INCORRECT": { "xp": 4, "moedas": 1 }
+            },
+            "multiplicadorPorDica": [1, 0.6, 0.4]
+          }
+        },
+        {
+          "slug": "comparar-conchas-e-pedras",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "comparar-quantidades",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 50,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "EXPLORER",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "ORLA tem 4 conchas e 6 pedrinhas. De qual ela tem mais?",
+            "opcoes": [
+              {
+                "id": "conchas",
+                "texto": "Conchas",
+                "correta": false,
+                "ensino": "Conte de novo: as conchas são 4 e as pedrinhas são 6. O 6 vem depois do 4 quando contamos.",
+                "equivoco": "inverteu-a-comparacao"
+              },
+              {
+                "id": "pedrinhas",
+                "texto": "Pedrinhas",
+                "correta": true
+              },
+              {
+                "id": "iguais",
+                "texto": "As duas têm a mesma quantidade",
+                "correta": false,
+                "ensino": "Não são iguais: 4 é diferente de 6. Tente juntar uma concha com uma pedrinha e veja o que sobra.",
+                "equivoco": "nao-comparou-as-quantidades"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! 6 é mais que 4. Sobraram pedrinhas sem par.",
+            "dicas": [
+              "Junte uma concha com uma pedrinha. O que sobrar tem mais.",
+              "Conte cada grupo separado e veja qual número vem depois."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": { "xp": 10, "moedas": 5 },
+              "PARTIAL": { "xp": 6, "moedas": 3 },
+              "INCORRECT": { "xp": 4, "moedas": 1 }
+            },
+            "multiplicadorPorDica": [1, 0.6, 0.4]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-02-ordenar",
+      "nome": "A maré em ordem",
+      "atividades": [
+        {
+          "slug": "ordenar-4-numeros",
+          "tipo": "ORDER_SEQUENCE",
+          "objetivo": "ordenar-numeros-ate-10",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 70,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "As marés chegam do menor para o maior. Coloque os números na ordem certa.",
+            "itens": [
+              { "id": "n7", "texto": "7" },
+              { "id": "n2", "texto": "2" },
+              { "id": "n9", "texto": "9" },
+              { "id": "n5", "texto": "5" }
+            ],
+            "ordemCorreta": ["n2", "n5", "n7", "n9"],
+            "mensagemDeAcerto": "Perfeito! Do menor para o maior: 2, 5, 7 e 9.",
+            "ensino": "Procure sempre o menor número que ainda sobrou e coloque na frente. Comece pelo 2.",
+            "ensinoParcial": "Você já organizou boa parte! Olhe qual número saiu do lugar e compare com o vizinho.",
+            "equivoco": "ordem-crescente-incompleta",
+            "dicas": ["Qual é o menor de todos?", "Depois do 2, qual é o menor que sobrou?"],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": { "xp": 15, "moedas": 7 },
+              "PARTIAL": { "xp": 9, "moedas": 4 },
+              "INCORRECT": { "xp": 5, "moedas": 1 }
+            },
+            "multiplicadorPorDica": [1, 0.6, 0.4]
+          }
+        }
+      ]
+    }
+  ]
+}

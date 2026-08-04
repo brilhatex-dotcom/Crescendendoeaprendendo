@@ -7,7 +7,12 @@ import { resolverSessao, type Ator } from "@/modules/identity";
 import type { AppError, Result } from "@/shared/kernel";
 import type { EstadoDaAction } from "@/shared/forms/action-state";
 
-import { ipHashDaRequisicao, lerTokenDeSessao, userAgentDaRequisicao } from "./session";
+import {
+  ipHashDaRequisicao,
+  lerSubSessaoDeCrianca,
+  lerTokenDeSessao,
+  userAgentDaRequisicao,
+} from "./session";
 
 /**
  * `createAction` — o único jeito de escrever uma Server Action neste projeto.
@@ -47,7 +52,16 @@ export type Escopo =
   /** Sessão adulta válida. */
   | "adulto"
   /** Sessão adulta **com e-mail verificado** — tudo que toca dado de criança. */
-  | "adulto-verificado";
+  | "adulto-verificado"
+  /**
+   * Sub-sessão de criança em vigor (`play:*`). Jogar missão, responder
+   * atividade, falar com o tutor.
+   *
+   * Não é um escopo "mais fraco" que o adulto: é **outro** escopo. Um token de
+   * criança não abre rota adulta, e uma ação de criança exige que a sub-sessão
+   * esteja aberta — não basta o responsável estar logado (docs/09 §2).
+   */
+  | "crianca";
 
 interface Config<TSchema extends z.ZodTypeAny, TSaida> {
   /** Nome estável, usado em log e auditoria: `identity.sign_in`. */
@@ -87,7 +101,7 @@ export function createAction<TSchema extends z.ZodTypeAny, TSaida>(
       const ator = await resolverSessao(identityDeps(), await lerTokenDeSessao());
 
       // 2 · política
-      const autorizacao = autorizar(config.escopo, ator);
+      const autorizacao = await autorizar(config.escopo, ator);
       if (autorizacao) return autorizacao;
 
       // 3 · validação (fail-closed: campo não declarado é descartado)
@@ -124,14 +138,36 @@ export function createAction<TSchema extends z.ZodTypeAny, TSaida>(
 
 // ── Peças internas ───────────────────────────────────────────────────────────
 
-function autorizar(
+async function autorizar(
   escopo: Escopo,
   ator: Ator | null,
-): { status: "erro"; mensagem: string } | null {
+): Promise<{ status: "erro"; mensagem: string } | null> {
   if (escopo === "publica") return null;
 
   if (!ator) {
     return { status: "erro", mensagem: "Sua sessão expirou. Entre novamente." };
+  }
+
+  if (escopo === "crianca") {
+    /*
+     * Duas checagens, e as duas precisam passar:
+     *  · o banco diz qual criança está ativa (`activeLearnerId`) — é o que
+     *    torna "sair" e "trocar de criança" efetivos na hora;
+     *  · o cookie assinado prova que a sub-sessão é desta sessão adulta e que
+     *    ainda está dentro das 4 horas.
+     *
+     * Só o cookie deixaria uma sub-sessão revogada continuar valendo até
+     * expirar. Só o banco não teria prazo próprio nem amarração de sessão.
+     */
+    const learnerIdDoCookie = await lerSubSessaoDeCrianca(ator.sessionId, new Date());
+
+    if (!ator.activeLearnerId || learnerIdDoCookie !== ator.activeLearnerId) {
+      return {
+        status: "erro",
+        mensagem: "Sua aventura foi pausada. Peça a um adulto para entrar de novo.",
+      };
+    }
+    return null;
   }
 
   if (escopo === "adulto-verificado" && !ator.account.isEmailVerified) {

@@ -64,6 +64,36 @@ module.exports = {
       to: { path: "^(src/modules|src/server|src/design-system|node_modules)" },
     },
     {
+      name: "motor-e-puro",
+      severity: "error",
+      comment:
+        "O núcleo do motor de atividades é isomórfico: o mesmo `evaluate` roda no servidor e no navegador. Nada de React, Next, Prisma ou acesso a dados nele.",
+      from: {
+        path: "^src/activities",
+        pathNot: "^src/activities/(renderers|content-bridge|default-registry)",
+      },
+      to: {
+        path: "^(node_modules/(next|react|react-dom|@prisma)|src/server|src/modules|content/)",
+      },
+    },
+    {
+      name: "plugins-nao-se-conhecem",
+      severity: "error",
+      comment:
+        "Um plugin importando outro cria acoplamento entre tipos de atividade — exatamente o que o registro existe para impedir.",
+      from: { path: "^src/activities/plugins/([^/]+)/" },
+      to: { path: "^src/activities/plugins/(?!$1)[^/]+/" },
+    },
+    {
+      name: "nucleo-nao-conhece-plugin",
+      severity: "error",
+      comment:
+        "Se `contracts.ts` ou `registry.ts` importar um plugin concreto, o motor deixou de ser Open/Closed.",
+      from: { path: "^src/activities/(contracts|registry|difficulty|rewards|presentation|telemetry|session)\\.ts$" },
+      to: { path: "^src/activities/plugins/" },
+    },
+
+    {
       name: "sem-dependencia-circular",
       severity: "error",
       comment: "Ciclo entre módulos indica fronteira mal desenhada.",

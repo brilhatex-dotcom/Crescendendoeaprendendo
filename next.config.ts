@@ -33,6 +33,19 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
   },
 
+  /**
+   * O acervo de conteúdo é lido do disco em tempo de execução (`content/loader.ts`).
+   *
+   * O rastreador de dependências do Next só empacota o que consegue ver por
+   * `import`, e a leitura aqui é dinâmica de propósito — é o que permite
+   * publicar uma missão nova sem tocar em código. Sem esta declaração, os JSON
+   * ficariam de fora do pacote e o acervo apareceria vazio em produção,
+   * funcionando perfeitamente em desenvolvimento.
+   */
+  outputFileTracingIncludes: {
+    "/**": ["./content/**/*.json"],
+  },
+
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

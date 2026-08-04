@@ -16,15 +16,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "boundaries": "depcruise src app --config .dependency-cruiser.cjs",
+    "boundaries": "depcruise src app content --config .dependency-cruiser.cjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed/index.ts",
-    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run test",
+    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run test && npm run content:validate",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "conta:verificar": "tsx scripts/verificar-conta.ts"
+    "conta:verificar": "tsx scripts/verificar-conta.ts",
+    "content:validate": "tsx scripts/validate-content.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed/index.ts"

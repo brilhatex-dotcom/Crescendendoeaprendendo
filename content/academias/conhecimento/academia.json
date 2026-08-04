@@ -1,0 +1,13 @@
+{
+  "slug": "conhecimento",
+  "nome": "Conhecimento",
+  "ilha": "Ilha das Mil Perguntas",
+  "guardiao": "ORLA",
+  "descricao": "A primeira ilha do Arquipélago. Aqui vivem as perguntas que ninguém respondeu ainda — e cada resposta acende um pedaço da costa.",
+  "ordem": 1,
+  "paleta": {
+    "de": "#4F46E5",
+    "para": "#22D3EE",
+    "brilho": "rgba(79, 70, 229, 0.45)"
+  }
+}

@@ -1,5 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+
+import { listarMissoes } from "@/activities/content-bridge";
 
 import { identityDeps } from "@/composition/identity";
 import { listarFamilia, resolverSessao } from "@/modules/identity";
@@ -41,6 +44,8 @@ export default async function HubPage() {
     : undefined;
   if (!crianca) redirect("/familia");
 
+  const missoes = await listarMissoes();
+
   return (
     <main
       data-age-band={crianca.ageBand}
@@ -58,10 +63,40 @@ export default async function HubPage() {
         </span>
       </h1>
 
-      <p className="max-w-lg text-lg text-slate-300 text-pretty">
-        As sete ilhas ainda estão acordando. Quando a primeira acender, ela vai
-        estar esperando por você bem aqui.
-      </p>
+      {missoes.length > 0 ? (
+        <>
+          <p className="max-w-lg text-lg text-slate-300 text-pretty">
+            A Ilha das Mil Perguntas está acordando. ORLA precisa de ajuda.
+          </p>
+
+          <ul className="flex w-full max-w-md flex-col gap-3">
+            {missoes.map((missao) => (
+              <li key={missao.slug}>
+                <Link
+                  /*
+                   * `typedRoutes` valida rota literal em tempo de compilação; o
+                   * slug aqui vem do acervo, que é dado. A conversão é o escape
+                   * previsto para rota dinâmica — e o `notFound()` da página de
+                   * missão é quem trata slug que não existe.
+                   */
+                  href={`/missao/${missao.slug}` as Route}
+                  className="flex min-h-[var(--touch-target-play)] items-center justify-between gap-4 rounded-[var(--radius-lg)] border-2 border-[var(--glass-border)] bg-[var(--color-play-raised)] px-6 py-4 text-left transition-colors duration-[var(--duration-quick)] hover:border-[var(--color-corrente)]"
+                >
+                  <span className="font-display text-lg font-bold">{missao.nome}</span>
+                  <span className="text-sm text-slate-400">
+                    {missao.atividades} desafios
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="max-w-lg text-lg text-slate-300 text-pretty">
+          As sete ilhas ainda estão acordando. Quando a primeira acender, ela vai
+          estar esperando por você bem aqui.
+        </p>
+      )}
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <SairDaAreaForm />
