@@ -43,6 +43,16 @@ const serverSchema = z.object({
     )
     .default("Crescendo e Aprendendo <ola@crescendoeaprendendo.com.br>"),
 
+  /**
+   * Segredo do Cron Job da Vercel, que despacha o outbox.
+   *
+   * Opcional para não derrubar o build de quem ainda não configurou o cron —
+   * mas a rota é **fail-closed**: sem o segredo ela recusa toda chamada. O
+   * inverso (rota aberta quando o segredo falta) deixaria qualquer um na
+   * internet disparar o processamento da fila.
+   */
+  CRON_SECRET: z.string().min(16).optional(),
+
   // Infra opcional em desenvolvimento
   REDIS_URL: z.string().url().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),

@@ -33,6 +33,8 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   const [posicao, setPosicao] = useState<PosicaoNaMissao>(primeiraPosicao);
   const [resultado, setResultado] = useState<EvaluationResult | undefined>();
   const [premio, setPremio] = useState<Premio | null>(null);
+  /** Momento de domínio: a criança acabou de provar que sabe a competência. */
+  const [dominou, setDominou] = useState(false);
   const [apresentacao, setApresentacao] = useState<ApresentacaoDeFeedback>(
     APRESENTACAO_PADRAO.CELEBRA,
   );
@@ -98,7 +100,10 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
 
       if (estado.status === "sucesso") {
         setResultado(estado.dados.resultado);
+        // `premio` já vem nulo numa resposta repetida: nada foi concedido, e
+        // mostrar o número de novo seria mentir para ela.
         setPremio(estado.dados.premio);
+        setDominou(estado.dados.dominouAgora);
         setApresentacao(estado.dados.apresentacao);
         setSegurando(estado.dados.apresentacao.segurarSegundos > 0);
       } else if (estado.status === "erro") {
@@ -124,6 +129,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   function limparDevolutiva(): void {
     setResultado(undefined);
     setPremio(null);
+    setDominou(false);
     setSegurando(false);
     setInicioMs(Date.now());
     // Começa outra tentativa: chave nova, senão a segunda resposta seria
@@ -188,6 +194,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
           <Devolutiva
             resultado={resultado}
             premio={apresentacao.mostrarPremio ? premio : null}
+            dominou={dominou}
             podeAvancar={podeAvancar}
             segurando={segurando}
             aoAvancar={avancar}
@@ -202,6 +209,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
 function Devolutiva({
   resultado,
   premio,
+  dominou,
   podeAvancar,
   segurando,
   aoAvancar,
@@ -209,6 +217,7 @@ function Devolutiva({
 }: {
   resultado: EvaluationResult;
   premio: Premio | null;
+  dominou: boolean;
   podeAvancar: boolean;
   segurando: boolean;
   aoAvancar: () => void;
@@ -256,6 +265,18 @@ function Devolutiva({
         <p className="font-display mt-4 text-[var(--color-fagulha)]">
           +{premio.xp} de Luz
           {premio.moedas > 0 ? ` · +${premio.moedas} Fagulhas` : ""}
+        </p>
+      ) : null}
+
+      {/*
+        O momento de domínio é raro por construção: exige crença alta, três
+        tentativas e dois acertos seguidos no nível de referência (docs/08 §2).
+        Justamente por ser raro é que vale marcar — e por isso não se anuncia
+        "dominou" a cada acerto.
+      */}
+      {dominou ? (
+        <p className="font-display mt-3 text-[var(--color-corrente)]">
+          Você acendeu esta competência. Ela é sua agora.
         </p>
       ) : null}
 

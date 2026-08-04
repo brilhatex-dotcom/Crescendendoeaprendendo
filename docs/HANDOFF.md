@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-04 · **Etapa 2 em curso — importador e avaliação concluídos**
+> Última atualização: 2026-08-04 · **Etapa 2 concluída — a criança vê a Luz subir**
 
 ---
 
@@ -169,6 +169,39 @@ habilidade **de antes** da tentativa · **dois tópicos de outbox**: o interno l
 (progressão e economia precisam), o de telemetria leva só `pseudonymId` e o tipo não tem o campo
 · `assessment` **calcula** o prêmio e **não credita nada**.
 
+### Progressão, economia e entrega de efeitos — concluídas (Etapa 2, passo 3)
+O ciclo fecha na tela: a criança responde, a Luz sobe, as Fagulhas entram na carteira.
+
+- **`src/shared/kernel/unit-of-work.ts`** — `Transacao` (handle opaco) e
+  `UnidadeDeTrabalho`. Resolve a tensão entre `docs/08 §11` (XP e carteira na **mesma
+  transação** da tentativa) e `docs/01 §2` (módulos não se chamam): o caso de uso abre uma
+  transação, e quem reage ao evento escreve dentro dela sem conhecer os outros módulos.
+- **`src/server/unit-of-work.ts`** — implementação Prisma. **Único lugar** que sabe que uma
+  `Transacao` é um `Prisma.TransactionClient`; dois `as unknown as` e mais nada.
+- **`src/server/event-bus.ts`** — roda os manipuladores `inline` e grava o outbox, na mesma
+  escrita. Nenhum evento sai pelos dois caminhos.
+- **`src/modules/progression/`** — Luz, nível, tier, Fôlego, Trilha de Luz, desbloqueios.
+  Manipulador `inline` de `assessment.attempt_evaluated`.
+- **`src/modules/economy/`** — razão contábil (`LedgerEntry`) e projeção (`Wallet`).
+  Manipulador `inline`. Chave derivada da chave da tentativa.
+- **`src/server/outbox.ts`** — despachante at-least-once, com backoff e teto de tentativas.
+- **`src/server/telemetry.ts`** — `LearningEvent` a partir do tópico pseudonimizado. `outbox`.
+- **`app/api/outbox/route.ts`** + `vercel.json` — Cron Job a cada 5 min, **fail-closed**.
+- **`app/(play)/hub/painel-de-progresso.tsx`** — Luz, nível, Fagulhas, Fôlego e Trilha na base.
+- `tests/policy/progressao-e-economia.test.ts` — §1, §4, §5, §11 e §12 quebram o build.
+
+**Propriedades travadas (não relitigar):**
+XP e carteira são gravados **na mesma transação da tentativa**, nunca pelo outbox — pelo outbox,
+a criança terminaria a atividade e não veria nada acontecer · **Luz nunca diminui e o nível nunca
+desce**; o nível é sempre recalculado do total de Luz, então coluna divergente se corrige sozinha
+· **responder nunca gasta Fôlego** — não existe função `gastar` no módulo, e há teste de política
+guardando a ausência · o **recorde da Trilha de Luz é preservado** quando a sequência cai, e a
+sequência recomeça em **1**, nunca em zero · a Trilha avança **mesmo sem prêmio**: mede presença,
+não pontuação · **saldo nunca negativo** e lote de lançamentos é tudo-ou-nada · **nenhuma moeda se
+compra com dinheiro real** (teste de política procura por `stripe`, `checkout`, `pagamento`…) ·
+o outbox só recebe mensagem de tópico que tem consumidor `outbox` — mensagem que ninguém lê
+destruiria a métrica de fila pendente.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -190,15 +223,24 @@ habilidade **de antes** da tentativa · **dois tópicos de outbox**: o interno l
 
 ## 4. O que NÃO existe ainda
 
-- `src/modules/` além de `identity`, `content` e `assessment` — **`progression`, `economy` e
-  `quest` não existem**
-- **Ninguém consome o outbox.** As mensagens são gravadas e ficam com `processedAt` nulo. XP,
-  Fôlego, carteira, conquistas e telemetria dependem do despachante e dos módulos que reagem —
-  é o próximo passo, e o evento já carrega tudo que eles precisam
-- `QuestRun` — nada cria corrida de missão; `Attempt.questRunId` fica nulo (coluna anulável por
-  desenho). Histórico e modelo de domínio já ficam corretos; falta o agrupamento por jogada
-- `LearnerProgress` — a linha não é criada por ninguém; a leitura de Fôlego trata a ausência
-  como "tem Fôlego", que é a verdade enquanto energia não for gasta
+- **`src/modules/quest` não existe.** `QuestRun` não é criado por ninguém e
+  `Attempt.questRunId` fica nulo (coluna anulável por desenho). Consequências reais hoje:
+  fechar o app no meio da missão perde o lugar; a recompensa de missão (`Quest.rewardXp`,
+  `rewardsGrantedAt`) nunca é concedida; **o Fôlego nunca é gasto**, porque quem gasta é quem
+  inicia uma missão
+- **A Trilha de Luz conta "dia com ≥ 1 tentativa", não "dia com ≥ 1 missão concluída"**
+  como diz `docs/08 §6`. Divergência consciente: sem `QuestRun` nenhuma missão conclui, e uma
+  sequência que nunca anda seria pior que uma que mede prática real. **Apertar para o critério
+  do documento quando `quest` existir** — a função `registrarDia` já está pronta para isso, só
+  muda quem a chama
+- **Desbloqueio por nível** (Academia da Inteligência no 10, Prosperidade no 15…) — a tabela de
+  `docs/08 §1` não está implementada. O que funciona é o desbloqueio **declarado no conteúdo**
+  (`premio.desbloqueios` → linhas em `Unlock`). O gate por nível precisa da declaração no lado do
+  conteúdo primeiro; pôr os números no código violaria "balanceamento fica em `content/`"
+- `LearnerProgress.minutesToday` — fica em 0. Medir tempo de sessão exige marco de início e fim,
+  que é assunto de `quest`. Preferi zero honesto a um número inventado
+- Conquistas, talentos, notificações e relatórios — o outbox e o barramento já estão prontos;
+  falta escrever os manipuladores
 - Calibração de dificuldade por telemetria (`docs/08 §2`, job noturno com ≥ 200 tentativas)
 - 18 dos 20 tipos de atividade — por decisão explícita
 - **Som do feedback** — o vocabulário está no schema e o conteúdo já pode declarar, mas nada toca.
@@ -214,52 +256,45 @@ habilidade **de antes** da tentativa · **dois tópicos de outbox**: o interno l
 
 ---
 
-## 5. PRÓXIMA TAREFA — Etapa 2, passo 3: o que reage à tentativa
+## 5. PRÓXIMA TAREFA — Etapa 3: a missão como unidade
 
-Os passos 1 e 2 estão feitos: o acervo vive no Postgres e a resposta da criança já vira
-`Attempt`, `SkillMastery`, `ReviewCard` e duas mensagens de outbox, numa transação só.
-
-**O que falta é o outro lado do evento.** Hoje as mensagens são gravadas e ninguém as lê:
-`OutboxMessage.processedAt` fica nulo para sempre. A criança acerta, o modelo aprende — e ela
-não vê Luz nenhuma subir.
+A Etapa 2 fechou o ciclo da **resposta**: a criança responde, o modelo aprende, a Luz sobe e as
+Fagulhas entram. O que falta agora é o ciclo da **missão** — e a lista de coisas que hoje não
+funcionam tem todas a mesma causa: `QuestRun` não existe.
 
 ### Ordem sugerida
-1. **Despachante do outbox** — lê `OutboxMessage` com `processedAt` nulo e `availableAt` no
-   passado, entrega ao handler do tópico, marca processada; erro incrementa `attempts` e
-   registra `lastError`. Precisa ser **at-least-once com handler idempotente**, não
-   exactly-once: a chave está no payload (`idempotencyKey`) justamente para isso.
-2. **`src/modules/progression/`** — XP, nível, Fôlego, Trilha de Luz, desbloqueios. **Reage** ao
-   evento `assessment.attempt_evaluated`; não é chamado pelo `assessment` (`docs/01 §2`). É
-   quem cria a linha de `LearnerProgress`.
-3. **`src/modules/economy/`** — carteira com razão contábil. Chave derivada da do evento
-   (ex.: `attempt:{idempotencyKey}:reward`), saldo nunca negativo, `Wallet` como projeção.
-4. **`QuestRun` retomável** — fechar o app no meio da missão não pode custar progresso. É o que
-   preenche `Attempt.questRunId`, hoje sempre nulo, e o que permite a recompensa de missão
-   (`rewardsGrantedAt`).
-5. **Mostrar na tela** — Luz, Fagulhas e Fôlego no `(play)`. Hoje o prêmio volta da ação e só
-   aparece na devolutiva da atividade.
+1. **`src/modules/quest/`** — iniciar, retomar e concluir uma jogada.
+   - `iniciarMissao` cria o `QuestRun`, **gasta o Fôlego** (5 campanha, 3 revisão, 0 em conteúdo
+     novo da trilha e em revisão pendente — `docs/08 §4`) e devolve o estado da jogada;
+   - `retomarMissao` devolve a corrida em andamento: fechar o app não pode custar progresso;
+   - `concluirMissao` credita `Quest.rewardXp` **uma vez só** (`rewardsGrantedAt`) e publica
+     `quest.completed`.
+   - `Attempt.questRunId` passa a ser preenchido. A ação de jogo já aceita o campo.
+2. **Apertar a Trilha de Luz** para "dia com missão concluída", como manda `docs/08 §6` —
+   ver §4. É trocar quem chama `registrarDia`, nada mais.
+3. **Regra de desbloqueio** (`docs/08 §3`): `unlockRule` declarativa, avaliada contra nível,
+   missões concluídas e domínio médio. O mapa mostra **o caminho**, nunca só um cadeado.
+4. **Mapa do mundo** — a base hoje lista missões em texto. `World`, `Chapter` e `Quest` já estão
+   no banco, com ordem e `sourceRef`.
+5. **Manipuladores que faltam** — conquistas (`Achievement.criteria` é regra declarativa avaliada
+   por evento) e perfil de talentos. O barramento e o outbox já estão prontos: é registrar no
+   composition root.
 
 ### Decisões em aberto — precisam do dono
-**1. A importação de conteúdo deve rodar no deploy?** Hoje é comando manual
-(`npm run content:import`). Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy,
-sem passo manual — mas os deploys de *preview* compartilham o `DATABASE_URL` de produção,
-então uma branch em rascunho escreveria no banco real. Enquanto não houver banco separado
-por ambiente, deixei fora do build de propósito.
+**1. A importação de conteúdo deve rodar no deploy?** Continua manual (`npm run content:import`).
+Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy — mas os deploys de *preview*
+compartilham o `DATABASE_URL` de produção, então uma branch em rascunho escreveria no banco real.
+**Jogar exige o acervo importado**: sem ele, `submeterTentativa` responde
+`assessment.activity_not_published`.
 
-**Consequência nova:** desde o passo 2, jogar uma missão **exige** o acervo importado —
-`submeterTentativa` responde `assessment.activity_not_published` se a atividade não estiver no
-banco. Rode `npm run content:import` contra o banco de produção antes de a criança jogar.
+**2. `CRON_SECRET` precisa ser configurado na Vercel.** Sem ele, `/api/outbox` responde 503 e a
+**telemetria nunca é gravada** — a Luz e as Fagulhas continuam funcionando, porque são `inline`.
+Gerar um valor de 32+ caracteres, pôr nas variáveis de ambiente do projeto, e o cron de
+`vercel.json` (a cada 5 min) passa a rodar.
 
-**2. Onde roda o despachante do outbox?** Na Vercel não há processo longo. As opções reais são
-Cron Job da Vercel (simples, latência de ~1 min) ou disparo em segundo plano após a Server
-Action (imediato, mas sem garantia de execução — precisa do cron como rede de segurança de
-qualquer forma). A recomendação é **cron como base**, e o disparo imediato só depois, se a
-espera incomodar.
-
-### Depois
-Mapa visual do mundo, mais tipos de atividade conforme o conteúdo pedir, tutor IA.
-
----
+**3. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
+`prisma-progress-repository.ts`. Não há campo de fuso em `Account`. Para uma família só, está
+certo; para vender a uma escola, vira campo.
 
 ## 6. Decisões já tomadas — não relitigar
 
@@ -281,6 +316,8 @@ Mapa visual do mundo, mais tipos de atividade conforme o conteúdo pedir, tutor 
 | Modelo do tutor: `claude-sonnet-5` | `src/config/env.ts` |
 | Fase 1 = faixa `SPROUT` (6–8 anos) | Bíblia Cap. 2 §2.1 |
 | **Chave de idempotência mora na tabela que ela protege, não numa tabela genérica** | `src/server/action.ts` |
+| **Uma transação atravessa módulos; quem a abre é o caso de uso** | `src/shared/kernel/unit-of-work.ts` |
+| **XP e carteira são `inline`; telemetria é `outbox`** | `src/shared/kernel/domain-event.ts` |
 | **`assessment` mede; quem credita reage ao evento** | `src/modules/assessment/domain/events.ts` |
 | **Telemetria e evento interno são tópicos separados** | `src/modules/assessment/domain/events.ts` |
 
@@ -375,6 +412,12 @@ npx prisma migrate deploy && npm run test:integration
   `Activity` pelo `sourceRef`. Num banco sem `npm run content:import`, a criança recebe
   "esta atividade ainda não está publicada". O erro é explícito de propósito — o alternativo
   seria gravar tentativa órfã e descobrir o problema num relatório vazio.
+- **`/api/outbox` é fail-closed.** Sem `CRON_SECRET`, responde 503 e a telemetria nunca é
+  gravada. Luz e Fagulhas **não** dependem dele — são `inline`, na transação da tentativa. Se
+  `LearningEvent` estiver vazio em produção, o segredo é o primeiro lugar para olhar.
+- **Mensagem de outbox parada é sintoma, não ruído.** `processedAt` nulo com `attempts` no teto
+  significa que um manipulador falha sempre; `lastError` diz qual. A linha não é apagada de
+  propósito: mensagem que some é um efeito que ninguém sabe que faltou.
 - **`crypto.randomUUID()` exige contexto seguro.** O executor de missão gera a chave de
   idempotência no navegador. Em `http://` que não seja `localhost` a função não existe e o
   envio falha. Em produção é HTTPS; num túnel de teste por HTTP, não.

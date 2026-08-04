@@ -9,6 +9,8 @@
  * transação; o resto sai pelo outbox (docs/08 §11).
  */
 
+import type { Transacao } from "./unit-of-work";
+
 export interface DomainEvent<TName extends string = string, TPayload = unknown> {
   readonly name: TName;
   readonly payload: TPayload;
@@ -26,18 +28,44 @@ export function domainEvent<TName extends string, TPayload>(
   return { name, payload, occurredAt, traceId };
 }
 
-/** Entrega assíncrona e durável — gravada na mesma transação da origem. */
+/**
+ * Como um efeito chega ao seu manipulador.
+ *
+ * `inline` — roda **dentro da transação da origem**. É para o que não pode
+ * divergir nem por um instante: creditar a Luz de uma tentativa que ficou
+ * gravada, debitar a carteira de uma compra que aconteceu (docs/08 §11).
+ *
+ * `outbox` — a mensagem é gravada na mesma transação, mas o efeito roda depois,
+ * em outro processo. É para o que pode esperar e para o que não pode derrubar a
+ * resposta da criança se falhar: telemetria, relatório, notificação, IA.
+ *
+ * A escolha é do manipulador, não de quem publica. Quem publica um evento não
+ * sabe — nem deve saber — quantos reagem a ele nem quando.
+ */
 export type DeliveryMode = "inline" | "outbox";
 
 export interface EventHandler<E extends DomainEvent = DomainEvent> {
-  readonly handles: E["name"];
-  readonly mode: DeliveryMode;
-  handle(event: E): Promise<void>;
+  /** Nome do evento que este manipulador trata. */
+  readonly topico: E["name"];
+  readonly modo: DeliveryMode;
+  /**
+   * A transação é parâmetro, e não algo que o manipulador abre por conta
+   * própria. Um manipulador `inline` que abrisse a sua estaria fora da
+   * atomicidade que ele existe para ter.
+   */
+  tratar(evento: E, tx: Transacao): Promise<void>;
 }
 
 export interface EventBus {
-  /** Publica dentro da transação em curso. */
-  publish(events: readonly DomainEvent[]): Promise<void>;
+  /**
+   * Publica dentro da transação em curso.
+   *
+   * Roda os manipuladores `inline` e grava a mensagem de outbox — as duas
+   * coisas na mesma escrita. Nenhum evento sai pelos dois caminhos: quem
+   * declara `outbox` não é chamado aqui, e quem declara `inline` não é chamado
+   * pelo despachante. É o que impede crédito em dobro.
+   */
+  publicar(eventos: readonly DomainEvent[], tx: Transacao): Promise<void>;
 }
 
 /**

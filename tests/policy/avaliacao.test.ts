@@ -132,17 +132,38 @@ describe("§12.7 — telemetria jamais carrega o id real da criança", () => {
 });
 
 describe("§11 — a consistência transacional não é opcional", () => {
-  it("a gravação acontece dentro de uma transação, com isolamento declarado", () => {
-    const fonte = ler(
+  it("existe uma transação só, com isolamento declarado, aberta pelo caso de uso", () => {
+    const unidade = ler("src/server/unit-of-work.ts");
+    const casoDeUso = ler("src/modules/assessment/application/submit-attempt.ts");
+
+    expect(unidade).toContain("$transaction");
+    expect(unidade).toContain("ReadCommitted");
+
+    /*
+     * A transação é aberta **acima** do repositório de propósito: docs/08 §11
+     * exige que `LearnerProgress` e `Wallet` sejam atômicos com a tentativa, e
+     * esses moram em outros módulos. Se o repositório voltar a abrir a sua, a
+     * Luz sai da atomicidade sem ninguém notar.
+     */
+    expect(casoDeUso).toContain("unidadeDeTrabalho.executar");
+    expect(casoDeUso).toContain("barramento.publicar");
+
+    const repositorio = ler(
       "src/modules/assessment/infrastructure/prisma-assessment-repository.ts",
     );
-
-    expect(fonte).toContain("$transaction");
-    expect(fonte).toContain("ReadCommitted");
-    // Tentativa, domínio, revisão e outbox — os quatro na mesma escrita.
-    for (const tabela of ["attempt.create", "skillMastery", "reviewCard", "outboxMessage"]) {
-      expect(fonte).toContain(tabela);
+    expect(repositorio).not.toContain("$transaction");
+    for (const tabela of ["attempt.create", "skillMastery", "reviewCard"]) {
+      expect(repositorio).toContain(tabela);
     }
+  });
+
+  it("o outbox é gravado dentro da mesma transação da origem", () => {
+    const barramento = ler("src/server/event-bus.ts");
+
+    // Publicar depois do commit abriria a janela em que um processo derrubado
+    // deixaria um efeito por acontecer para sempre.
+    expect(barramento).toContain("outboxMessage.create");
+    expect(barramento).toContain("clienteDaTransacao(tx)");
   });
 
   it("a linha quente de domínio usa atualização condicional por versão", () => {

@@ -5,9 +5,11 @@ import { redirect } from "next/navigation";
 import { listarMissoes } from "@/activities/content-bridge";
 
 import { identityDeps } from "@/composition/identity";
+import { painelDaCrianca } from "@/composition/progression";
 import { listarFamilia, resolverSessao } from "@/modules/identity";
 import { lerTokenDeSessao } from "@/server/session";
 
+import { PainelDeProgresso } from "./painel-de-progresso";
 import { SairDaAreaForm } from "./sair-da-area-form";
 
 export const metadata: Metadata = {
@@ -20,15 +22,14 @@ export const dynamic = "force-dynamic";
 /**
  * A base da criança.
  *
- * Nesta etapa a base ainda não tem mapa, missão nem Fôlego — o motor de
- * atividades é da Etapa 1. O que existe aqui é real: a criança entrou com o
- * próprio perfil, é reconhecida pelo apelido dela, e só sai com o PIN do
- * responsável.
+ * A base ainda não tem mapa do mundo, mas os números agora são reais: a Luz que
+ * aparece aqui foi creditada na mesma transação da resposta que a gerou, e as
+ * Fagulhas têm lançamento em razão contábil por trás.
  *
- * Não inventamos números de Luz nem Fagulhas para "encher a tela". Mostrar
- * progresso falso a uma criança ensina que os símbolos do produto não
- * significam nada — e é justamente o significado deles que faz o sistema
- * funcionar depois (Bíblia Cap. 6).
+ * Isso importa mais do que parece. Nunca inventamos progresso para "encher a
+ * tela" — mostrar número falso a uma criança ensina que os símbolos do produto
+ * não significam nada, e é justamente o significado deles que faz o sistema
+ * funcionar (Bíblia Cap. 6). Quem nunca jogou vê zero, e zero é a verdade.
  *
  * Léxico obrigatório (Bíblia Cap. 3 §3.5): aqui não existe "estudar",
  * "exercício" nem "pontos".
@@ -44,7 +45,10 @@ export default async function HubPage() {
     : undefined;
   if (!crianca) redirect("/familia");
 
-  const missoes = await listarMissoes();
+  const [missoes, painel] = await Promise.all([
+    listarMissoes(),
+    painelDaCrianca(crianca.id),
+  ]);
 
   return (
     <main
@@ -62,6 +66,8 @@ export default async function HubPage() {
           Esta base é sua.
         </span>
       </h1>
+
+      <PainelDeProgresso progresso={painel.progresso} carteira={painel.carteira} />
 
       {missoes.length > 0 ? (
         <>

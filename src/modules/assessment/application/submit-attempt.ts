@@ -1,8 +1,8 @@
 import type { EvaluationResult, Premio, RegraDeRecompensa } from "@/activities";
-import { conflict, err, notFound, ok, type Result } from "@/shared/kernel";
+import { ConflitoDeConcorrencia, conflict, err, notFound, ok, type Result } from "@/shared/kernel";
 
 import { planejarTentativa } from "../domain/attempt-plan";
-import type { AssessmentDeps } from "./ports";
+import { TentativaJaRegistrada, type AssessmentDeps } from "./ports";
 
 /**
  * `submitAttempt` — a resposta de uma criança vira histórico, modelo e evento.
@@ -130,36 +130,51 @@ export function criarSubmeterTentativa(deps: AssessmentDeps): SubmeterTentativa 
         agora: deps.clock.now(),
       });
 
-      const gravacao = await deps.repositorio.gravar(plano);
-
-      if (gravacao.status === "duplicada") return ok(REPETIDA);
-
-      if (gravacao.status === "gravado") {
-        return ok({
-          premio: plano.premio,
-          repetida: false,
-          dominio: plano.dominio
-            ? {
-                probabilidade: plano.dominio.proximo.probabilidade,
-                habilidade: plano.dominio.proximo.habilidade,
-                dominouAgora:
-                  plano.dominio.anterior.dominadaEm === null &&
-                  plano.dominio.proximo.dominadaEm !== null,
-              }
-            : null,
-          proximaRevisaoEm: plano.revisao?.proximo.venceEm ?? null,
-          numeroDaTentativa: contexto.tentativasNaAtividade + 1,
+      try {
+        /*
+         * Uma transação para tudo que docs/08 §11 exige atômico: a tentativa, o
+         * modelo de domínio, a revisão — e, através do barramento, a Luz, o
+         * Fôlego e a carteira, escritos pelos módulos que reagem ao evento sem
+         * que nenhum deles conheça os outros.
+         */
+        await deps.unidadeDeTrabalho.executar(async (tx) => {
+          await deps.repositorio.gravar(plano, tx);
+          await deps.barramento.publicar(plano.eventos, tx);
         });
+      } catch (causa) {
+        if (causa instanceof TentativaJaRegistrada) return ok(REPETIDA);
+
+        /*
+         * Conflito numa linha quente — pode ter sido o domínio, a progressão
+         * ou a carteira; daqui não se sabe e não importa. Recalcular do zero é
+         * obrigatório: reaproveitar o plano aplicaria o BKT sobre uma
+         * probabilidade que já não existe, e a tentativa seria contada duas
+         * vezes no modelo.
+         */
+        if (causa instanceof ConflitoDeConcorrencia) {
+          const espera = ESPERAS_MS[rodada];
+          if (espera !== undefined) await deps.dormir(espera);
+          continue;
+        }
+
+        throw causa;
       }
 
-      /*
-       * Conflito: outra escrita mexeu na mesma linha de domínio entre a leitura
-       * e a gravação. Recalcular do zero é obrigatório — reaproveitar o plano
-       * aplicaria o BKT sobre uma probabilidade que já não existe, e o efeito
-       * seria uma tentativa contada duas vezes no modelo.
-       */
-      const espera = ESPERAS_MS[rodada];
-      if (espera !== undefined) await deps.dormir(espera);
+      return ok({
+        premio: plano.premio,
+        repetida: false,
+        dominio: plano.dominio
+          ? {
+              probabilidade: plano.dominio.proximo.probabilidade,
+              habilidade: plano.dominio.proximo.habilidade,
+              dominouAgora:
+                plano.dominio.anterior.dominadaEm === null &&
+                plano.dominio.proximo.dominadaEm !== null,
+            }
+          : null,
+        proximaRevisaoEm: plano.revisao?.proximo.venceEm ?? null,
+        numeroDaTentativa: contexto.tentativasNaAtividade + 1,
+      });
     }
 
     return err(
