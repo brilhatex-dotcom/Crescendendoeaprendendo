@@ -19,6 +19,8 @@ const missao: DadosDaMissao = {
   tipo: "STORY",
   nome: "A Contagem da Orla",
   premio: { xp: 40, moedas: 10, cristais: 0 },
+  competenciasExigidas: [],
+  desbloqueio: null,
   atividades: [
     { activityId: "a1", fase: 0 },
     { activityId: "a2", fase: 0 },

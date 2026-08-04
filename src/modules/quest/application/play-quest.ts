@@ -1,4 +1,12 @@
-import { ConflitoDeConcorrencia, conflict, err, notFound, ok, type Result } from "@/shared/kernel";
+import {
+  ConflitoDeConcorrencia,
+  conflict,
+  err,
+  forbidden,
+  notFound,
+  ok,
+  type Result,
+} from "@/shared/kernel";
 
 import { custoDeFolego } from "../domain/energy-cost";
 import {
@@ -11,6 +19,7 @@ import {
   missaoConcluida,
   posicaoDaRetomada,
 } from "../domain/quest-run";
+import { avaliarDesbloqueio, regraEfetiva } from "../domain/unlock-rule";
 import { CorridaJaAberta, type QuestDeps } from "./ports";
 
 /**
@@ -61,6 +70,28 @@ export function criarAbrirJogada(deps: QuestDeps): AbrirJogada {
           missao.questId,
           tx,
         );
+
+        /*
+         * A tranca vale no servidor, não só no mapa.
+         *
+         * Sem esta conferência, o cadeado seria decoração: bastaria montar a
+         * requisição na mão para pular a progressão inteira e encarar o Colosso
+         * sem ter aprendido o que ele cobra. A jogada já aberta passa direto —
+         * quem começou antes de a regra mudar não pode ficar preso no meio.
+         */
+        if (!emAndamento) {
+          const estado = await deps.leitura.estadoDeDesbloqueio(learnerId, tx);
+          const jogabilidade = avaliarDesbloqueio(regraEfetiva(missao), estado);
+
+          if (!jogabilidade.jogavel) {
+            return err(
+              forbidden(
+                "quest.locked",
+                "Esta missão ainda está esperando por você. Olhe o caminho na sua base.",
+              ),
+            );
+          }
+        }
 
         const agora = deps.clock.now();
         const corrida = emAndamento ?? (await deps.repositorio.abrir(

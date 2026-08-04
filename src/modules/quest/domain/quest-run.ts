@@ -1,3 +1,5 @@
+import type { RegraDeDesbloqueio } from "./unlock-rule";
+
 /**
  * A CORRIDA DE MISSÃO — uma jogada, do começo ao fim.
  *
@@ -46,6 +48,10 @@ export interface DadosDaMissao {
   readonly tipo: string;
   readonly nome: string;
   readonly premio: PremioDaMissao;
+  /** Competências que um Colosso cobra. Entra na regra efetiva (docs/08 §3). */
+  readonly competenciasExigidas: readonly string[];
+  /** Regra declarada no conteúdo. `null` quando a missão não tranca nada. */
+  readonly desbloqueio: RegraDeDesbloqueio | null;
   /**
    * Atividades da missão, em ordem de fase e posição.
    *

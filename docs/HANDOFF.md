@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-04 · **Etapa 3 em curso — a missão como unidade**
+> Última atualização: 2026-08-04 · **Etapa 3 em curso — o mundo visível e trancado**
 
 ---
 
@@ -233,6 +233,33 @@ a cobrança de Fôlego **nunca recusa** — piso em zero, e sem Fôlego a missã
 anterior foi corrigida) · abrir é uma **ação**, não efeito de render: o Next pré-carrega links, e
 iniciar no render cobraria Fôlego de missões nunca jogadas.
 
+### Desbloqueio e mapa — concluídos (Etapa 3, passo 2)
+A base deixou de listar arquivos e passou a mostrar o arquipélago — com tranca **e caminho**.
+
+- `src/modules/quest/domain/unlock-rule.ts` — a gramática de `docs/08 §3`
+  (`all`/`any`/`level`/`questCompleted`/`masteryAvg`) e o avaliador. **Devolve o que falta**,
+  não um booleano
+- `src/modules/quest/application/map.ts` — o mapa da criança: mundos → capítulos → missões,
+  cada uma com jogabilidade, pendências, `concluida` e `emAndamento`
+- `src/modules/quest/infrastructure/prisma-map-reader.ts` — a árvore inteira numa consulta
+- `app/(play)/hub/mapa.tsx` — as pendências viram frases ("Chegue ao nível 12 — você está no 8")
+- `content/schema/index.ts` — o campo `desbloqueio` passou de `z.unknown()` para a gramática
+  real, **importada** do módulo que a avalia
+- `tests/policy/progressao-e-economia.test.ts` — §3 entrou nos testes que quebram o build
+
+**Propriedades travadas (não relitigar):**
+o avaliador devolve **pendências estruturadas**, e a frase nasce na apresentação — o domínio diz
+*o que* falta, a tela sabe *para quem* está falando · **regra ausente ou irreconhecível libera**:
+na dúvida entre travar e liberar, liberar erra menos (um conteúdo liberado cedo custa uma missão
+fora de hora; um travado por engano custa uma criança parada sem saber por quê) · **a tranca vale
+no servidor**, em `abrirJogada` — sem isso o cadeado seria decoração · **uma jogada já aberta não
+é interrompida** por regra nova · **concluída não tranca**: rejogar para praticar é livre ·
+`any` sem saída mostra **um** caminho, o mais curto — listar todos faria a criança achar que
+precisa de todos · **Colosso exige domínio nas competências do capítulo mesmo sem regra escrita**
+(0.75), senão o primeiro chefão sem o campo preenchido viraria chefão de enfeite · competência
+sem registro conta **zero** na média, nunca é ignorada · a gramática vive **num lugar só**, e a
+autoria a importa.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -254,9 +281,10 @@ iniciar no render cobraria Fôlego de missões nunca jogadas.
 
 ## 4. O que NÃO existe ainda
 
-- **Regra de desbloqueio (`unlockRule`) não é avaliada.** A coluna existe e o importador a
-  grava, mas nada a lê: **toda missão publicada é jogável**. `docs/08 §3` pede regra declarativa
-  (nível, missão concluída, domínio médio) e o mapa mostrando **o caminho**, nunca só um cadeado
+- **O mapa é uma lista, não um desenho.** `World.mapLayout` (nós, arestas, coordenadas) está no
+  schema e o importador grava `{ schemaVersion: 1, nos: [], arestas: [] }` — vazio. O mapa atual
+  agrupa por ilha e capítulo, com tranca e caminho, mas não tem geografia. Fazer o desenho exige
+  autorar o layout em `content/`
 - **Slots dinâmicos são ignorados.** `StageActivity` com `activityId` nulo é descartado pelo
   repositório de missões: uma missão só de slots não é jogável, e contar um slot como atividade
   obrigatória tornaria a conclusão impossível. A seleção adaptativa (`docs/08 §7`) é quem os
@@ -289,33 +317,30 @@ iniciar no render cobraria Fôlego de missões nunca jogadas.
 
 ---
 
-## 5. PRÓXIMA TAREFA — Etapa 3, passo 2: o mundo visível
+## 5. PRÓXIMA TAREFA — Etapa 3, passo 3: o conteúdo encontra o motor
 
-A missão já é uma unidade: abre, retoma e fecha. O que falta é **onde ela mora**. Hoje a base
-lista missões em texto e todas são jogáveis, porque `unlockRule` está no banco e ninguém a lê.
+O sistema está fechado: a criança abre uma missão, responde, o modelo aprende, a Luz sobe, a
+missão fecha e o mapa mostra o que vem. **O que falta agora é o motor usar tudo que ele já sabe.**
+
+Três peças estão prontas e desligadas — cada uma é uma porta que já existe, esperando quem a
+chame.
 
 ### Ordem sugerida
-1. **Avaliar `unlockRule`** (`docs/08 §3`). Regra declarativa, avaliada contra nível, missões
-   concluídas e domínio médio:
-   ```json
-   { "all": [ { "level": { "gte": 12 } },
-              { "questCompleted": "quest_xyz" },
-              { "masteryAvg": { "skills": ["s1","s2"], "gte": 0.6 } } ] }
-   ```
-   **O mapa mostra o caminho, nunca só um cadeado**: "Treine 2 missões em Frações para enfrentar
-   o Guardião". Um cadeado sem explicação é uma parede sem porta.
-   O avaliador é função pura — entra o estado da criança, sai jogável/não-jogável **e o motivo**.
-2. **Mapa do mundo** — `World.mapLayout` (nós, arestas, coordenadas) já está no schema e o
-   importador o grava. `Chapter` ordena os capítulos. É a primeira tela que faz o arquipélago
-   parecer um lugar em vez de uma lista.
-3. **Seleção adaptativa** (`docs/08 §7`) — preencher os slots dinâmicos de `StageActivity`. A
-   porta `SeletorDeAtividades` e a implementação determinística por proximidade **já existem**
-   em `src/activities/difficulty.ts`; falta ligá-las ao carregamento da missão.
-4. **Fila de revisão** — `ReviewCard.dueAt` já é escrito a cada tentativa e ninguém lê. Uma
-   missão de revisão (`QuestKind.REVIEW`, custo 3 de Fôlego) montada da fila vencida fecha o
-   ciclo do SM-2.
-5. **Conquistas** — `Achievement.criteria` é regra declarativa avaliada por evento. O barramento
-   e o outbox estão prontos: é escrever o manipulador e registrá-lo no composition root.
+1. **Seleção adaptativa** (`docs/08 §7`). `StageActivity` com `activityId` nulo é um slot, e hoje
+   é descartado. `SeletorDeAtividades` e `seletorPorProximidade` **já existem** em
+   `src/activities/difficulty.ts`, e `SkillMastery.ability` já é gravado a cada tentativa. Falta
+   preencher o slot ao carregar a missão: candidatas do `objectiveId`, alvo `habilidade + 60`,
+   sem repetir as vistas em 48h, sem o mesmo tipo três vezes seguidas.
+2. **Fila de revisão** (`ReviewCard.dueAt`). É escrito a cada tentativa desde a Etapa 2 e ninguém
+   lê. Uma missão `REVIEW` montada da fila vencida fecha o ciclo do SM-2 — e é a peça que faz o
+   que ela aprendeu em março ainda estar lá em julho.
+3. **Conquistas.** `Achievement.criteria` é regra declarativa avaliada por evento, como a de
+   desbloqueio. O barramento e o outbox estão prontos: é escrever o manipulador (modo `outbox`,
+   porque conquista pode esperar) e registrá-lo no composition root.
+4. **Mapa desenhado** — `World.mapLayout` autorado em `content/`, com nós e arestas.
+5. **Perfil de talentos** (`docs/08 §9`) — recalculado a cada 50 tentativas. Tem regra ética
+   própria: teto de 40% de sugestões do talento dominante, mínimo 1 fora do perfil por dia,
+   e não é exibido com `confidence < 0.6`.
 
 ### Decisões em aberto — precisam do dono
 **1. A importação de conteúdo deve rodar no deploy?** Continua manual (`npm run content:import`).
@@ -323,17 +348,16 @@ Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy — mas os dep
 compartilham o `DATABASE_URL` de produção, então uma branch em rascunho escreveria no banco real.
 **Jogar exige o acervo importado**: sem ele, abrir a missão responde `quest.not_published`.
 
-**2. `CRON_SECRET` precisa ser configurado na Vercel.** Sem ele, `/api/outbox` responde 503 e a
-**telemetria nunca é gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
-Gerar um valor de 32+ caracteres e pôr nas variáveis de ambiente do projeto.
+**2. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
+gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 
 **3. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
-`prisma-progress-repository.ts`. Não há campo de fuso em `Account`. Para uma família só, está
-certo; para vender a uma escola, vira campo.
+`prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**4. O acervo tem uma missão.** Todo o sistema está pronto e há **três atividades** para jogar.
-A partir daqui, o gargalo deixou de ser código e passou a ser conteúdo — e conteúdo é `content/`,
-que não exige deploy para crescer.
+**4. O gargalo agora é conteúdo, não código.** Uma missão, três atividades, dois tipos de
+atividade implementados. Todo o resto do sistema está pronto para receber muito mais — e
+conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
+importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 
 ## 6. Decisões já tomadas — não relitigar
 
@@ -361,6 +385,7 @@ que não exige deploy para crescer.
 | **Telemetria e evento interno são tópicos separados** | `src/modules/assessment/domain/events.ts` |
 | **Iniciar e retomar uma missão são a mesma operação** | `src/modules/quest/application/play-quest.ts` |
 | **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
+| **Desbloqueio devolve o caminho, não um cadeado** | `src/modules/quest/domain/unlock-rule.ts` |
 
 ---
 

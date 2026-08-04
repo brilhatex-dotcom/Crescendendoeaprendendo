@@ -4,6 +4,7 @@ import { clienteDaTransacao } from "@/server/unit-of-work";
 import type { Transacao } from "@/shared/kernel";
 
 import type { DadosDaMissao, EstadoDaCorrida, StatusDaCorrida } from "../domain/quest-run";
+import { lerRegraDeDesbloqueio } from "./unlock-rule-json";
 import { CorridaJaAberta, type RepositorioDeMissoes } from "../application/ports";
 
 /**
@@ -112,6 +113,8 @@ const SELECAO_DA_MISSAO = {
   rewardXp: true,
   rewardCoins: true,
   rewardCrystals: true,
+  requiredSkills: true,
+  unlockRule: true,
   stages: {
     orderBy: { order: "asc" },
     select: {
@@ -142,6 +145,8 @@ function paraDadosDaMissao(quest: QuestSelecionada): DadosDaMissao {
       moedas: quest.rewardCoins,
       cristais: quest.rewardCrystals,
     },
+    competenciasExigidas: quest.requiredSkills,
+    desbloqueio: lerRegraDeDesbloqueio(quest.unlockRule),
     atividades,
   };
 }

@@ -132,11 +132,17 @@ export const questKindSchema = z.enum([
 /**
  * Regra de desbloqueio declarativa (docs/08 §3).
  *
- * É `unknown` porque a gramática é recursiva (`all`/`any`/condições) e o
- * avaliador dela vive no módulo `quest`. Validar aqui duplicaria a gramática em
- * dois lugares, que é como as duas versões passam a divergir.
+ * A gramática é recursiva (`all`/`any`/condições) e vive **num lugar só**: o
+ * módulo que a avalia. Este arquivo a importa em vez de redeclará-la — duas
+ * definições da mesma gramática é como as duas passam a divergir, e a
+ * divergência apareceria como conteúdo válido na autoria que o motor não
+ * entende em produção.
+ *
+ * A dependência é de mão única (autoria → avaliador) e não cria ciclo.
  */
-export const regraDeDesbloqueioSchema = z.unknown();
+import { regraDeDesbloqueioSchema as regraDeDesbloqueio } from "@/modules/quest";
+
+export { regraDeDesbloqueio as regraDeDesbloqueioSchema };
 
 export const missaoSchema = z.object({
   slug: slugSchema,
@@ -147,7 +153,7 @@ export const missaoSchema = z.object({
   /** Fala de encerramento. */
   conclusao: z.string().min(5).max(600),
   ordem: z.number().int().min(0),
-  desbloqueio: regraDeDesbloqueioSchema.optional(),
+  desbloqueio: regraDeDesbloqueio.optional(),
   recompensaDaMissao: regraDeRecompensaSchema.optional(),
   /** Competências que um Colosso (chefão) cobra. */
   competenciasExigidas: z.array(slugSchema).default([]),

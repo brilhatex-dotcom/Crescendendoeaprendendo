@@ -1,4 +1,5 @@
 import { DIFICULDADE_INICIAL, type DifficultyLabel } from "@/activities";
+import type { RegraDeDesbloqueio } from "@/modules/quest";
 import type { Acervo, MissaoCarregada } from "@/content/loader";
 import type { DisciplinaCurricular } from "@/content/schema";
 
@@ -135,7 +136,7 @@ export interface LinhaMissao {
   readonly moedas: number;
   readonly cristais: number;
   readonly competenciasExigidas: readonly string[];
-  readonly regraDeDesbloqueio: unknown;
+  readonly regraDeDesbloqueio: RegraDeDesbloqueio | null;
   readonly ordem: number;
 }
 

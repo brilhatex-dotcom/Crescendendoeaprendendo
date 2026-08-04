@@ -2,6 +2,7 @@ import { ConflitoDeConcorrencia } from "@/shared/kernel";
 import type { Clock, EventBus, Transacao, UnidadeDeTrabalho } from "@/shared/kernel";
 
 import type { DadosDaMissao, EstadoDaCorrida } from "../domain/quest-run";
+import type { EstadoParaDesbloqueio, RegraDeDesbloqueio } from "../domain/unlock-rule";
 
 /**
  * Duas jogadas da mesma missão começaram ao mesmo tempo.
@@ -67,8 +68,55 @@ export interface RepositorioDeMissoes {
   concluir(questRunId: string, quando: Date, tx: Transacao): Promise<boolean>;
 }
 
+/** Uma missão como o mapa a conhece — sem as atividades, com a regra. */
+export interface MissaoNoMapa {
+  readonly ref: string;
+  readonly slug: string;
+  readonly nome: string;
+  readonly tipo: string;
+  readonly atividades: number;
+  readonly competenciasExigidas: readonly string[];
+  readonly desbloqueio: RegraDeDesbloqueio | null;
+}
+
+export interface CapituloNoMapa {
+  readonly nome: string;
+  readonly missoes: readonly MissaoNoMapa[];
+}
+
+export interface MundoNoMapa {
+  readonly slug: string;
+  readonly nome: string;
+  readonly academia: string;
+  readonly nivelMinimo: number;
+  readonly capitulos: readonly CapituloNoMapa[];
+}
+
+export interface DadosDoMapa {
+  readonly mundos: readonly MundoNoMapa[];
+  readonly estado: EstadoParaDesbloqueio;
+  /** Referências das missões já concluídas alguma vez. */
+  readonly concluidas: ReadonlySet<string>;
+  /** Referências das missões com jogada aberta. */
+  readonly emAndamento: ReadonlySet<string>;
+}
+
+/**
+ * Leitura do mapa — fora de transação.
+ *
+ * Separada de `RepositorioDeMissoes` porque é outra coisa: montar o mapa é uma
+ * consulta de tela, não pode abrir transação e nunca deve falhar por corrida.
+ * A criança que abre a base tem que ver a base.
+ */
+export interface LeituraDoMapa {
+  mapaDaCrianca(learnerId: string): Promise<DadosDoMapa>;
+  /** Estado de desbloqueio da criança, para conferir ao abrir uma missão. */
+  estadoDeDesbloqueio(learnerId: string, tx: Transacao): Promise<EstadoParaDesbloqueio>;
+}
+
 export interface QuestDeps {
   readonly repositorio: RepositorioDeMissoes;
+  readonly leitura: LeituraDoMapa;
   readonly unidadeDeTrabalho: UnidadeDeTrabalho;
   readonly barramento: EventBus;
   readonly clock: Clock;

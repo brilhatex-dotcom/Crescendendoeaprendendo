@@ -1,14 +1,13 @@
-import type { Metadata, Route } from "next";
-import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { listarMissoes } from "@/activities/content-bridge";
-
+import { containerDeAvaliacao } from "@/composition/assessment";
 import { identityDeps } from "@/composition/identity";
 import { painelDaCrianca } from "@/composition/progression";
 import { listarFamilia, resolverSessao } from "@/modules/identity";
 import { lerTokenDeSessao } from "@/server/session";
 
+import { Mapa } from "./mapa";
 import { PainelDeProgresso } from "./painel-de-progresso";
 import { SairDaAreaForm } from "./sair-da-area-form";
 
@@ -22,9 +21,11 @@ export const dynamic = "force-dynamic";
 /**
  * A base da criança.
  *
- * A base ainda não tem mapa do mundo, mas os números agora são reais: a Luz que
- * aparece aqui foi creditada na mesma transação da resposta que a gerou, e as
- * Fagulhas têm lançamento em razão contábil por trás.
+ * O mapa agora vem do banco, não do disco — e com ele a regra de desbloqueio
+ * de `docs/08 §3`: cada missão sabe dizer se pode ser jogada e, quando não
+ * pode, **o que falta**. Os números são reais: a Luz foi creditada na mesma
+ * transação da resposta que a gerou, e as Fagulhas têm lançamento em razão
+ * contábil por trás.
  *
  * Isso importa mais do que parece. Nunca inventamos progresso para "encher a
  * tela" — mostrar número falso a uma criança ensina que os símbolos do produto
@@ -45,8 +46,10 @@ export default async function HubPage() {
     : undefined;
   if (!crianca) redirect("/familia");
 
-  const [missoes, painel] = await Promise.all([
-    listarMissoes(),
+  const { montarMapa } = containerDeAvaliacao();
+
+  const [mundos, painel] = await Promise.all([
+    montarMapa(crianca.id),
     painelDaCrianca(crianca.id),
   ]);
 
@@ -69,40 +72,7 @@ export default async function HubPage() {
 
       <PainelDeProgresso progresso={painel.progresso} carteira={painel.carteira} />
 
-      {missoes.length > 0 ? (
-        <>
-          <p className="max-w-lg text-lg text-slate-300 text-pretty">
-            A Ilha das Mil Perguntas está acordando. ORLA precisa de ajuda.
-          </p>
-
-          <ul className="flex w-full max-w-md flex-col gap-3">
-            {missoes.map((missao) => (
-              <li key={missao.slug}>
-                <Link
-                  /*
-                   * `typedRoutes` valida rota literal em tempo de compilação; o
-                   * slug aqui vem do acervo, que é dado. A conversão é o escape
-                   * previsto para rota dinâmica — e o `notFound()` da página de
-                   * missão é quem trata slug que não existe.
-                   */
-                  href={`/missao/${missao.slug}` as Route}
-                  className="flex min-h-[var(--touch-target-play)] items-center justify-between gap-4 rounded-[var(--radius-lg)] border-2 border-[var(--glass-border)] bg-[var(--color-play-raised)] px-6 py-4 text-left transition-colors duration-[var(--duration-quick)] hover:border-[var(--color-corrente)]"
-                >
-                  <span className="font-display text-lg font-bold">{missao.nome}</span>
-                  <span className="text-sm text-slate-400">
-                    {missao.atividades} desafios
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p className="max-w-lg text-lg text-slate-300 text-pretty">
-          As sete ilhas ainda estão acordando. Quando a primeira acender, ela vai
-          estar esperando por você bem aqui.
-        </p>
-      )}
+      <Mapa mundos={mundos} />
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <SairDaAreaForm />
