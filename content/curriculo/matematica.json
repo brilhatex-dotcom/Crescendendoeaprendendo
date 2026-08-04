@@ -1,0 +1,32 @@
+{
+  "slug": "matematica",
+  "nome": "Matemática",
+  "area": "Matemática",
+  "competencias": [
+    {
+      "slug": "numeros",
+      "nome": "Números",
+      "descricao": "Contagem, comparação, ordenação e as primeiras operações com quantidades do dia a dia.",
+      "objetivos": [
+        {
+          "slug": "contar-ate-10",
+          "descricao": "Contar coleções de até 10 objetos, dizendo quantos são ao final da contagem.",
+          "codigoBncc": "EF01MA01",
+          "preRequisitos": []
+        },
+        {
+          "slug": "comparar-quantidades",
+          "descricao": "Comparar duas coleções e dizer qual tem mais, qual tem menos ou se têm a mesma quantidade.",
+          "codigoBncc": "EF01MA05",
+          "preRequisitos": ["contar-ate-10"]
+        },
+        {
+          "slug": "ordenar-numeros-ate-10",
+          "descricao": "Colocar números de 0 a 10 em ordem crescente e decrescente.",
+          "codigoBncc": "EF01MA04",
+          "preRequisitos": ["contar-ate-10"]
+        }
+      ]
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-03 · **Etapa 0 concluída** (autenticação completa)
+> Última atualização: 2026-08-04 · **Etapa 1 — Motor de Atividades concluído**
 
 ---
 
@@ -33,6 +33,7 @@ Isso define a faixa etária do conteúdo da primeira fase (`SPROUT`, 6–8 anos)
 | 4º | [`docs/01-arquitetura.md`](01-arquitetura.md) | camadas, módulos, motor de atividades |
 | 5º | [`docs/04-modelagem-de-dados.md`](04-modelagem-de-dados.md) | contrato do banco |
 | 6º | [`docs/12-roadmap.md`](12-roadmap.md) | ordem de execução técnica |
+| 7º | [`docs/13-motor-de-atividades.md`](13-motor-de-atividades.md) | **o motor**: contrato de plugin, conteúdo, guias de extensão |
 
 **A Bíblia Pedagógica é soberana.** Qualquer conflito entre ela e um documento técnico
 se resolve a favor da Bíblia. Qualquer pessoa pode recusar uma decisão dizendo
@@ -80,6 +81,26 @@ com o mesmo custo de CPU (anti-enumeração por tempo) · token de sessão de 25
 e-mail existente responde igual e avisa o dono por e-mail · isolamento entre famílias no
 `where` da consulta · auditoria sem dado de criança.
 
+### Motor de Atividades — completo (Etapa 1)
+**Leia [`docs/13-motor-de-atividades.md`](13-motor-de-atividades.md) antes de mexer aqui.**
+
+- `src/activities/` — núcleo puro e isomórfico: `contracts.ts`, `registry.ts`, `difficulty.ts`,
+  `rewards.ts`, `presentation.ts`, `session.ts`, `telemetry.ts`
+- `plugins/multiple-choice/` e `plugins/order-sequence/` — o segundo prova a extensibilidade
+  (resposta em lista, crédito parcial) sem ter tocado no núcleo
+- `plugins/index.ts` e `renderers/index.tsx` — **os dois únicos manifestos** que ganham uma linha
+  por tipo novo
+- `renderers/` — telas carregadas sob demanda (`next/dynamic`), fora do núcleo
+- `content/` — acervo como dado: `schema/` (Zod de autoria), `loader.ts`, currículo BNCC de
+  demonstração e a missão `missao-01-a-contagem-da-orla` (3 atividades)
+- `scripts/validate-content.ts` — `npm run content:validate`, roda no CI
+- Rota jogável: `(play)/missao/[slug]` com correção **no servidor**
+
+**Propriedades travadas (não relitigar):**
+resultado incorreto sem `ensino` **não compila** (união discriminada) · núcleo não importa React,
+Next, Prisma nem `src/modules` (dependency-cruiser) · plugin não importa plugin · `evaluate` é
+puro · telemetria não tem campo para `learnerId` · sem Fôlego a criança perde moeda, nunca XP.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -88,53 +109,55 @@ e-mail existente responde igual e avisa o dono por e-mail · isolamento entre fa
 - `(marketing)` — `/`, `/para-pais` (CTA de cadastro **recolocado**)
 - `(auth)` — `/criar-conta`, `/entrar`, `/verificar-email`
 - `(guardian)` — `/familia` (seletor, criar criança, definir PIN)
-- `(play)` — `/hub` (base mínima da criança; guarda tripla de sub-sessão)
+- `(play)` — `/hub` (lista as missões do acervo) e `/missao/[slug]` (jogável)
 
 ### Barreiras de qualidade
-- `.dependency-cruiser.cjs` — 7 regras de fronteira (0 erros)
+- `.dependency-cruiser.cjs` — 10 regras de fronteira, 3 delas do motor (0 erros)
 - `eslint.config.mjs` — sem `TODO`, `any`, `dangerouslySetInnerHTML`; fronteiras por camada
-- `.github/workflows/ci.yml` — 3 jobs: verify · **integração com Postgres** · build
+- `tests/policy/` — tokens de design **e** motor de atividades
+- `.github/workflows/ci.yml` — 3 jobs: verify (+ validação de conteúdo) · integração com Postgres · build
 - `vitest.config.ts` (rápido) e `vitest.integration.config.ts` (com banco)
 
 ---
 
 ## 4. O que NÃO existe ainda
 
-- `src/activities/` — **o motor de plugins (ADR 0002) não existe**
-- `src/modules/` além de `identity` — nenhum outro bounded context
-- `content/` — nenhum conteúdo autorado
+- `src/modules/` além de `identity` — **`assessment`, `progression`, `economy`, `quest` não existem**
+- Persistência de tentativas — o contrato `RegistradorDeTentativas` existe; a gravação em
+  `Attempt`/`LearningEvent` é do `assessment`
+- Importador de `content/` para o Postgres — o motor lê os arquivos direto hoje
+- BKT e Elo — fórmulas especificadas em `docs/08 §2`, cálculo ainda não implementado
+- 18 dos 20 tipos de atividade — por decisão explícita
 - `prisma/seed/` — sem seeds
 - `tests/e2e/` — sem Playwright
 - OAuth (Google/Apple) — `OAuthAccount` existe no schema, sem implementação
-- Recuperação de senha (`/recuperar`) — **o fluxo não existe**; ver §5
+- Recuperação de senha (`/recuperar`) — o fluxo não existe
 - Redis — o rate limiter é em memória; ver §9
 
 ---
 
-## 5. PRÓXIMA TAREFA — Etapa 1: motor de atividades e primeira missão
+## 5. PRÓXIMA TAREFA — Etapa 2: tentativa persistida e progressão
 
-Objetivo: **a criança abre uma missão, responde, recebe devolutiva e vê a ilha acender.**
+Objetivo: **o que a criança faz fica registrado, e o progresso dela é real.**
 
-O motor é a peça mais importante da arquitetura. **Leia `docs/01 §3` e o
-[ADR 0002](adr/0002-motor-de-atividades-por-plugins.md) antes de escrever qualquer linha dele.**
+Hoje a missão é jogável e a correção é autoritativa no servidor, mas nada é gravado: fechar o
+navegador apaga tudo. Fechar esse ciclo é o que transforma o motor em produto.
 
 ### Ordem sugerida
-1. `src/activities/contracts.ts` — `ActivityPlugin`, `EvaluationResult`, contextos
-2. `src/activities/registry.ts` — mapa `type → plugin` (Open/Closed)
-3. Primeiro plugin: `multiple-choice/` (`schema.ts`, `evaluate.ts`, `Renderer.tsx`, `index.ts`, teste)
-4. `content/` — schema Zod de autoria + validador em CI + primeiro pacote de missões SPROUT
-5. `src/modules/assessment/` e `src/modules/progression/` — tentativa, domínio, Trilha de Luz
-6. `(play)/missao/[questId]` — sessão de gameplay
-7. Substituir o `/hub` provisório pelo HUD real (Luz, Fôlego, Fagulhas)
+1. **Importador de conteúdo** — `content/` → Postgres (`Activity`, `Quest`, `Stage`,
+   `StageActivity`, `Objective`, `Skill`). É pré-requisito de tudo abaixo, porque `Attempt`
+   referencia `Activity.id`.
+2. **`src/modules/assessment/`** — caso de uso `submitAttempt`: grava `Attempt`, atualiza
+   `SkillMastery` (BKT + Elo de `docs/08 §2`), agenda `ReviewCard` (SM-2).
+3. **`src/modules/progression/`** — XP, nível, Fôlego, desbloqueios. Reage ao evento
+   `AttemptEvaluated`, não é chamado pelo `assessment` (`docs/01 §2`).
+4. **`src/modules/economy/`** — carteira com razão contábil e `idempotencyKey`.
+5. **Idempotência no `createAction`** — o passo 5 de `docs/09 §4` ainda não existe, de propósito:
+   não havia ação com efeito econômico. Agora vai haver. **Implemente junto com a primeira.**
+6. **`QuestRun` retomável** — fechar o app no meio da missão não pode custar progresso.
 
-### Dívidas pequenas, quando tocar na área
-- **Idempotência no `createAction`.** O passo 5 de `docs/09 §4` ainda não existe, de propósito:
-  não há ação com efeito econômico hoje, e a chave mora em `LedgerEntry`, não numa tabela
-  genérica. **É pré-requisito da primeira ação de carteira** — implemente junto com ela.
-- **Recuperação de senha.** `/recuperar` está previsto em `docs/02` e não existe. A infraestrutura
-  já está pronta (`VerificationToken`, mailer, `revokeAllForAccount`): é um caso de uso novo,
-  não uma fundação nova.
-- **Redis para rate limit.** Ver §9.
+### Depois
+Mapa visual do mundo, mais tipos de atividade conforme o conteúdo pedir, tutor IA.
 
 ---
 
@@ -147,6 +170,8 @@ O motor é a peça mais importante da arquitetura. **Leia `docs/01 §3` e o
 | Monólito modular + Clean Architecture | ADR 0001 |
 | Motor de atividades por plugins tipados | ADR 0002 |
 | **Sessão de primeira parte, não Auth.js** | **ADR 0004** |
+| **Conteúdo é dado; o motor interpreta, não contém** | ADR 0002 · `docs/13` |
+| **Erro incorreto sem `ensino` não compila** | `docs/13 §4` |
 | **E-mail transacional: Resend** | decisão do dono, 2026-08-03 |
 | Currículo é dado, não código | `docs/01 §4` |
 | Fôlego (energia) jamais impede aprender | Bíblia Cap. 6 §6.4 |
@@ -186,6 +211,7 @@ npm run dev                   # http://localhost:3000
 
 npm run verify                # tipos + lint + fronteiras + testes — o que o CI roda
 npm run test:integration      # testes com Postgres real (precisa de banco)
+npm run content:validate      # valida todo o acervo de conteúdo
 npm run build                 # build de produção
 npx prisma migrate deploy     # aplica as migrations existentes
 

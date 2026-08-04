@@ -54,6 +54,11 @@ jobs:
       - name: Testes
         run: npm run test
 
+      # Conteúdo quebrado não dá erro de compilação — dá tela travada na frente
+      # de uma criança. Este passo é o compilador do conteúdo.
+      - name: Validar conteúdo
+        run: npm run content:validate
+
   integracao:
     name: Integração com Postgres
     runs-on: ubuntu-latest
