@@ -32,11 +32,15 @@ export {
 
 export {
   CorridaJaAberta,
+  type CandidataParaSlot,
+  type ContextoParaSlots,
   type DadosDoMapa,
   type LeituraDoMapa,
   type MissaoNoMapa,
   type QuestDeps,
   type RepositorioDeMissoes,
+  type RepositorioDeSlots,
+  type ResolucaoDeSlot,
 } from "./application/ports";
 
 export {
@@ -73,5 +77,13 @@ export {
   type DadosDaMissao,
   type EstadoDaCorrida,
   type PremioDaMissao,
+  type SlotPendente,
   type StatusDaCorrida,
 } from "./domain/quest-run";
+
+export { type RegraDeSlot, regraDeSlotSchema } from "./domain/slot-rule";
+
+export {
+  criarResolverSlots,
+  type ResolverSlots,
+} from "./application/resolve-slots";

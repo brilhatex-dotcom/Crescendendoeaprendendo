@@ -1,3 +1,4 @@
+import type { SeletorDeAtividades } from "@/activities";
 import { ConflitoDeConcorrencia } from "@/shared/kernel";
 import type { Clock, EventBus, Transacao, UnidadeDeTrabalho } from "@/shared/kernel";
 
@@ -114,9 +115,89 @@ export interface LeituraDoMapa {
   estadoDeDesbloqueio(learnerId: string, tx: Transacao): Promise<EstadoParaDesbloqueio>;
 }
 
+// ── Seleção adaptativa de slot (docs/08 §7) ─────────────────────────────────
+
+/** O que o seletor precisa saber da criança para montar o pedido de seleção. */
+export interface ContextoParaSlots {
+  readonly ageBand: string;
+  readonly locale: string;
+  /**
+   * Habilidade Elo por objetivo pedido — na verdade a habilidade da
+   * **competência** a que o objetivo pertence, porque é nela que
+   * `SkillMastery` mora. Objetivo sem tentativa nenhuma não aparece no mapa;
+   * quem lê usa o centro da escala (`ELO.centro`) no lugar.
+   */
+  readonly habilidadePorObjetivo: ReadonlyMap<string, number>;
+}
+
+/** Uma atividade candidata a preencher um slot, com o que o seletor precisa. */
+export interface CandidataParaSlot {
+  readonly activityId: string;
+  readonly type: string;
+  readonly dificuldade: number;
+  readonly minAgeBand: string;
+  readonly maxAgeBand: string;
+}
+
+export interface ResolucaoDeSlot {
+  readonly stageId: string;
+  readonly order: number;
+  readonly activityId: string;
+}
+
+/**
+ * Tudo que a seleção adaptativa lê e grava — fora do domínio porque consulta
+ * `Learner`, `Objective`, `SkillMastery`, `Activity` e `Attempt`, e o domínio
+ * de `quest` não conhece nenhum deles.
+ */
+export interface RepositorioDeSlots {
+  /** `null` quando a criança não existe (conta excluída, id forjado). */
+  contexto(
+    learnerId: string,
+    objectiveIds: readonly string[],
+    tx: Transacao,
+  ): Promise<ContextoParaSlots | null>;
+
+  /**
+   * Atividades publicadas deste objetivo, no idioma pedido. A faixa etária é
+   * filtrada por quem chama — comparar `AgeBand` é regra do domínio, não do
+   * acesso a dados.
+   */
+  candidatas(
+    objectiveId: string,
+    locale: string,
+    tx: Transacao,
+  ): Promise<readonly CandidataParaSlot[]>;
+
+  /** Ids de atividade que a criança viu em qualquer missão desde `desde` (docs/08 §7.2). */
+  vistasRecentemente(
+    learnerId: string,
+    desde: Date,
+    tx: Transacao,
+  ): Promise<ReadonlySet<string>>;
+
+  /** Slots já preenchidos nesta jogada. Chave: `chaveDoSlot` (`stageId:order`). */
+  slotsResolvidos(questRunId: string, tx: Transacao): Promise<ReadonlyMap<string, string>>;
+
+  /**
+   * Grava as resoluções novas e devolve o mapa **completo** da jogada — as que
+   * já existiam mais as novas. Duplicata é ignorada, não é erro: duas abas
+   * resolvendo o mesmo slot ao mesmo tempo tendem a calcular a mesma resposta
+   * (o seletor é determinístico), e quem perdeu a corrida de escrita ainda
+   * precisa saber o que ganhou, para montar a mesma missão que a criança vê.
+   */
+  resolver(
+    questRunId: string,
+    resolucoes: readonly ResolucaoDeSlot[],
+    tx: Transacao,
+  ): Promise<ReadonlyMap<string, string>>;
+}
+
 export interface QuestDeps {
   readonly repositorio: RepositorioDeMissoes;
   readonly leitura: LeituraDoMapa;
+  readonly slots: RepositorioDeSlots;
+  readonly seletor: SeletorDeAtividades;
   readonly unidadeDeTrabalho: UnidadeDeTrabalho;
   readonly barramento: EventBus;
   readonly clock: Clock;

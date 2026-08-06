@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-04 · **Etapa 3 em curso — o mundo visível e trancado**
+> Última atualização: 2026-08-06 · **Etapa 3, passo 3 em curso — o conteúdo encontra o motor**
 
 ---
 
@@ -260,6 +260,49 @@ precisa de todos · **Colosso exige domínio nas competências do capítulo mesm
 sem registro conta **zero** na média, nunca é ignorada · a gramática vive **num lugar só**, e a
 autoria a importa.
 
+### Seleção adaptativa de slot — concluída (Etapa 3, passo 3, item 1)
+O primeiro dos três fios soltos da Etapa 3 passo 3 (`docs/08 §7`). `StageActivity` com
+`activityId` nulo agora se transforma numa atividade de verdade ao abrir a jogada — e continua
+sendo a mesma atividade em toda retomada.
+
+- `src/modules/quest/domain/slot-rule.ts` — `RegraDeSlot` (`objectiveId` + `difficultyDelta`) e o
+  Zod correspondente. `src/modules/quest/infrastructure/slot-rule-json.ts` lê o `Json` da mesma
+  forma que `unlock-rule-json.ts`, mas a direção do erro é a oposta: regra irreconhecível **não
+  libera nada** — o slot só some da missão
+- `src/modules/quest/domain/quest-run.ts` — `DadosDaMissao.slotsPendentes` (vazio em toda missão
+  de hoje, porque `content/` ainda não autora slot nenhum — ver §4)
+- `src/modules/quest/domain/slot-resolution.ts` — puro: `agruparSlotsPendentes` (mesmo objetivo +
+  mesmo `difficultyDelta` cai no mesmo pedido de seleção), `faixaCompativel` (ordinal de
+  `AgeBand`) e `mesclarAtividades` (junta fixa e slot resolvido numa sequência só)
+- `src/modules/quest/application/resolve-slots.ts` — `resolverSlotsDaMissao`: lê o que já foi
+  resolvido, busca candidata só do que falta, chama `seletorPorProximidade`
+  (`src/activities/difficulty.ts`) e grava. Chamado em `abrirJogada`, `concluirJogada` e
+  `criarAvancoDaCorrida` — as três leituras de `missao.atividades` que precisavam do slot cheio
+- `src/modules/quest/application/ports.ts` — `RepositorioDeSlots` (contexto da criança, candidata
+  por objetivo, vistas nas últimas 48h, resolver e ler de volta)
+- `src/modules/quest/infrastructure/prisma-slot-repository.ts` — a implementação; lê `Learner`,
+  `Objective`→`SkillMastery` (de `assessment`) e `Activity`, porque infraestrutura pode
+- **`QuestRunSlot`** (migration `20260806223110_slot_dinamico_de_missao`) — a resolução gravada,
+  chave `(questRunId, stageId, order)`
+- `src/modules/quest/domain/slot-resolution.test.ts`, `application/resolve-slots.test.ts` —
+  puros e com dublê. `tests/integration/slot-selection.integration.test.ts` — Postgres real, com
+  árvore de conteúdo própria (o acervo de demonstração não tem slot)
+
+**Propriedades travadas (não relitigar):**
+a resolução é gravada na primeira abertura e **nunca recalculada** — retomar com a habilidade já
+diferente não pode trocar a atividade que a criança já estava vendo, senão a posição da retomada
+(que conta `Attempt` por `activityId`) perde o sentido · **habilidade ausente usa o centro da
+escala** (`ELO.centro`, 1000), nunca lança erro · `difficultyDelta` desloca a **habilidade** antes
+do alvo (`habilidade + 60` continua sendo o cálculo do seletor), na mesma unidade Elo de "reduzir
+alvo em 100" (`docs/08 §7.6`) · **decisão de mesclagem**: o slot resolvido entra ao final da fase,
+nunca na posição declarada em `StageActivity.order` — preservar a posição exata exigiria carregar
+a ordem de cada atividade fixa também, e nenhum conteúdo intercala hoje · slot com regra
+irreconhecível, sem criança encontrada ou sem candidata **nunca lança exceção** — só não entra na
+missão, e é tentado de novo na próxima abertura · duas abas resolvendo o mesmo slot ao mesmo
+tempo não é corrida perigosa: `createMany` com `skipDuplicates` mais leitura de volta garante que
+as duas saiam com a mesma resposta · a mesma atividade não repete dentro da mesma missão (fixa ou
+slot de outro grupo).
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -285,10 +328,11 @@ autoria a importa.
   schema e o importador grava `{ schemaVersion: 1, nos: [], arestas: [] }` — vazio. O mapa atual
   agrupa por ilha e capítulo, com tranca e caminho, mas não tem geografia. Fazer o desenho exige
   autorar o layout em `content/`
-- **Slots dinâmicos são ignorados.** `StageActivity` com `activityId` nulo é descartado pelo
-  repositório de missões: uma missão só de slots não é jogável, e contar um slot como atividade
-  obrigatória tornaria a conclusão impossível. A seleção adaptativa (`docs/08 §7`) é quem os
-  preenche, e o `SeletorDeAtividades` já existe como porta em `src/activities/difficulty.ts`
+- **`content/` ainda não autora slot nenhum.** O motor sabe preencher `StageActivity.activityId`
+  nulo (seção 3, acima), mas o schema de autoria (`content/schema/`) não tem campo para declarar
+  um slot — todo `fase.atividades` de hoje é fixo. Escrever a primeira missão com slot de
+  verdade exige estender `content/schema/index.ts` e o importador (`domain/plan.ts`) para
+  reconhecer o tipo "slot" e gravar `slotRule` com o `Objective.id` já resolvido
 - **`Chapter`, `World` e `mapLayout`** — no banco, sem tela. A base lista missões em texto
 - **Desbloqueio por nível** (Academia da Inteligência no 10, Prosperidade no 15…) — a tabela de
   `docs/08 §1` não está implementada. O que funciona é o desbloqueio **declarado no conteúdo**
@@ -322,15 +366,12 @@ autoria a importa.
 O sistema está fechado: a criança abre uma missão, responde, o modelo aprende, a Luz sobe, a
 missão fecha e o mapa mostra o que vem. **O que falta agora é o motor usar tudo que ele já sabe.**
 
-Três peças estão prontas e desligadas — cada uma é uma porta que já existe, esperando quem a
-chame.
+O item 1 (seleção adaptativa) está feito — ver seção 3. Faltam quatro peças, prontas e
+desligadas — cada uma é uma porta que já existe, esperando quem a chame. **Nenhum conteúdo
+autora slot ainda**, então o item 1 não muda nada para a criança de hoje: ele fica esperando a
+primeira missão que declarar um (ver seção 4).
 
 ### Ordem sugerida
-1. **Seleção adaptativa** (`docs/08 §7`). `StageActivity` com `activityId` nulo é um slot, e hoje
-   é descartado. `SeletorDeAtividades` e `seletorPorProximidade` **já existem** em
-   `src/activities/difficulty.ts`, e `SkillMastery.ability` já é gravado a cada tentativa. Falta
-   preencher o slot ao carregar a missão: candidatas do `objectiveId`, alvo `habilidade + 60`,
-   sem repetir as vistas em 48h, sem o mesmo tipo três vezes seguidas.
 2. **Fila de revisão** (`ReviewCard.dueAt`). É escrito a cada tentativa desde a Etapa 2 e ninguém
    lê. Uma missão `REVIEW` montada da fila vencida fecha o ciclo do SM-2 — e é a peça que faz o
    que ela aprendeu em março ainda estar lá em julho.
@@ -384,6 +425,8 @@ importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 | **`assessment` mede; quem credita reage ao evento** | `src/modules/assessment/domain/events.ts` |
 | **Telemetria e evento interno são tópicos separados** | `src/modules/assessment/domain/events.ts` |
 | **Iniciar e retomar uma missão são a mesma operação** | `src/modules/quest/application/play-quest.ts` |
+| **Slot resolvido entra ao final da fase, não na posição declarada** | `src/modules/quest/domain/slot-resolution.ts` |
+| **Resolução de slot é gravada na primeira abertura; retomada só lê** | `src/modules/quest/application/resolve-slots.ts` |
 | **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
 | **Desbloqueio devolve o caminho, não um cadeado** | `src/modules/quest/domain/unlock-rule.ts` |
 

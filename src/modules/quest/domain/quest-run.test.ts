@@ -26,6 +26,7 @@ const missao: DadosDaMissao = {
     { activityId: "a2", fase: 0 },
     { activityId: "a3", fase: 1 },
   ],
+  slotsPendentes: [],
 };
 
 describe("posição da retomada", () => {

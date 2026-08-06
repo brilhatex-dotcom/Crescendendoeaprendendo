@@ -21,6 +21,7 @@ import {
 } from "../domain/quest-run";
 import { avaliarDesbloqueio, regraEfetiva } from "../domain/unlock-rule";
 import { CorridaJaAberta, type QuestDeps } from "./ports";
+import { criarResolverSlots } from "./resolve-slots";
 
 /**
  * ABRIR E FECHAR UMA JOGADA.
@@ -52,6 +53,8 @@ export type AbrirJogada = (entrada: {
 }) => Promise<Result<JogadaAberta>>;
 
 export function criarAbrirJogada(deps: QuestDeps): AbrirJogada {
+  const resolverSlots = criarResolverSlots({ slots: deps.slots, seletor: deps.seletor });
+
   return async function abrirJogada({ learnerId, refDaMissao, traceId }) {
     try {
       return await deps.unidadeDeTrabalho.executar(async (tx) => {
@@ -101,8 +104,17 @@ export function criarAbrirJogada(deps: QuestDeps): AbrirJogada {
           tx,
         ));
 
+        // Só a partir daqui existe uma jogada — e é a jogada que resolve o
+        // slot, não a declaração de conteúdo: sem `questRunId` não há onde
+        // gravar a escolha (docs/08 §7).
+        const missaoResolvida = await resolverSlots(
+          missao,
+          { learnerId, questRunId: corrida.id, agora },
+          tx,
+        );
+
         const respondidas = await deps.repositorio.atividadesRespondidas(corrida.id, tx);
-        const posicao = posicaoDaRetomada(missao, respondidas);
+        const posicao = posicaoDaRetomada(missaoResolvida, respondidas);
 
         /*
          * O evento sai nos dois casos — abrir e retomar —, com `retomada`
@@ -134,7 +146,7 @@ export function criarAbrirJogada(deps: QuestDeps): AbrirJogada {
           questRunId: corrida.id,
           questId: missao.questId,
           retomarNoIndice: posicao.indice,
-          atividadesRestantes: atividadesRestantes(missao, respondidas),
+          atividadesRestantes: atividadesRestantes(missaoResolvida, respondidas),
           retomada: emAndamento !== null,
           custoDeFolego: custo,
         });
@@ -169,6 +181,8 @@ export type ConcluirJogada = (entrada: {
 }) => Promise<Result<JogadaConcluida>>;
 
 export function criarConcluirJogada(deps: QuestDeps): ConcluirJogada {
+  const resolverSlots = criarResolverSlots({ slots: deps.slots, seletor: deps.seletor });
+
   return async function concluirJogada({ learnerId, questRunId, refDaMissao, traceId }) {
     try {
       return await deps.unidadeDeTrabalho.executar(async (tx) => {
@@ -184,10 +198,23 @@ export function criarConcluirJogada(deps: QuestDeps): ConcluirJogada {
           return err(notFound("quest.run_not_found", "Esta aventura não foi encontrada."));
         }
 
-        const missao = await deps.repositorio.buscarMissao(refDaMissao, tx);
-        if (!missao || missao.questId !== corrida.questId) {
+        const missaoDeclarada = await deps.repositorio.buscarMissao(refDaMissao, tx);
+        if (!missaoDeclarada || missaoDeclarada.questId !== corrida.questId) {
           return err(notFound("quest.not_found", "Esta missão não existe."));
         }
+
+        const agora = deps.clock.now();
+
+        /*
+         * A jogada aberta é a mesma que resolveu o slot na primeira vez — se
+         * concluir usasse a declaração crua, um slot nunca contaria como
+         * atividade respondida, e a missão nunca fecharia.
+         */
+        const missao = await resolverSlots(
+          missaoDeclarada,
+          { learnerId, questRunId: corrida.id, agora },
+          tx,
+        );
 
         const respondidas = await deps.repositorio.atividadesRespondidas(corrida.id, tx);
 
@@ -204,7 +231,6 @@ export function criarConcluirJogada(deps: QuestDeps): ConcluirJogada {
           );
         }
 
-        const agora = deps.clock.now();
         const primeiraVez = await deps.repositorio.concluir(corrida.id, agora, tx);
 
         // Já concedida: a jogada fecha do mesmo jeito, sem prêmio novo.

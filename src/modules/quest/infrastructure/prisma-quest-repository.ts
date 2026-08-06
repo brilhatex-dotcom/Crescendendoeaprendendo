@@ -5,15 +5,19 @@ import type { Transacao } from "@/shared/kernel";
 
 import type { DadosDaMissao, EstadoDaCorrida, StatusDaCorrida } from "../domain/quest-run";
 import { lerRegraDeDesbloqueio } from "./unlock-rule-json";
+import { lerRegraDeSlot } from "./slot-rule-json";
 import { CorridaJaAberta, type RepositorioDeMissoes } from "../application/ports";
 
 /**
  * `QuestRun` e a leitura da missão, no Prisma.
  *
  * A lista de atividades vem de `StageActivity` ordenada por fase e posição —
- * a mesma ordem em que a criança as vê. Slots dinâmicos (`activityId` nulo) são
- * descartados aqui: uma missão feita só de slots ainda não é jogável, e contar
- * um slot como atividade obrigatória tornaria a conclusão impossível.
+ * a mesma ordem em que a criança as vê. Slot dinâmico (`activityId` nulo) não
+ * entra em `atividades`: uma missão feita só de slot ainda não é jogável, e
+ * contar um slot como atividade obrigatória tornaria a conclusão impossível
+ * antes de alguém o preencher. Ele vai para `slotsPendentes`, e quem o
+ * transforma em atividade de verdade é `resolverSlotsDaMissao` (docs/08 §7) —
+ * este repositório só lê o que já está declarado no conteúdo.
  */
 
 const CHAVE_DUPLICADA = "P2002";
@@ -121,7 +125,7 @@ const SELECAO_DA_MISSAO = {
       order: true,
       activities: {
         orderBy: { order: "asc" },
-        select: { activityId: true },
+        select: { stageId: true, order: true, activityId: true, slotRule: true },
       },
     },
   },
@@ -136,6 +140,17 @@ function paraDadosDaMissao(quest: QuestSelecionada): DadosDaMissao {
       .map((vinculo) => ({ activityId: vinculo.activityId as string, fase: indice })),
   );
 
+  const slotsPendentes = quest.stages.flatMap((fase, indice) =>
+    fase.activities
+      .filter((vinculo) => vinculo.activityId === null)
+      .map((vinculo) => ({
+        stageId: vinculo.stageId,
+        order: vinculo.order,
+        fase: indice,
+        regra: lerRegraDeSlot(vinculo.slotRule),
+      })),
+  );
+
   return {
     questId: quest.id,
     tipo: quest.kind,
@@ -148,6 +163,7 @@ function paraDadosDaMissao(quest: QuestSelecionada): DadosDaMissao {
     competenciasExigidas: quest.requiredSkills,
     desbloqueio: lerRegraDeDesbloqueio(quest.unlockRule),
     atividades,
+    slotsPendentes,
   };
 }
 
