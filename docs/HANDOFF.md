@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-06 · **Etapa 3, passo 3 em curso — o conteúdo encontra o motor**
+> Última atualização: 2026-08-07 · **Etapa 3, passo 3 em curso — o conteúdo encontra o motor**
 
 ---
 
@@ -265,28 +265,31 @@ O primeiro dos três fios soltos da Etapa 3 passo 3 (`docs/08 §7`). `StageActiv
 `activityId` nulo agora se transforma numa atividade de verdade ao abrir a jogada — e continua
 sendo a mesma atividade em toda retomada.
 
-- `src/modules/quest/domain/slot-rule.ts` — `RegraDeSlot` (`objectiveId` + `difficultyDelta`) e o
-  Zod correspondente. `src/modules/quest/infrastructure/slot-rule-json.ts` lê o `Json` da mesma
-  forma que `unlock-rule-json.ts`, mas a direção do erro é a oposta: regra irreconhecível **não
-  libera nada** — o slot só some da missão
+- `src/modules/quest/domain/slot-rule.ts` — `RegraDeSlot`, união discriminada por `modo`:
+  `{ modo: "objetivo", objectiveId, difficultyDelta }` (este item) e `{ modo: "revisao" }` (item 2,
+  abaixo). `src/modules/quest/infrastructure/slot-rule-json.ts` lê o `Json` da mesma forma que
+  `unlock-rule-json.ts`, mas a direção do erro é a oposta: regra irreconhecível **não libera
+  nada** — o slot só some da missão
 - `src/modules/quest/domain/quest-run.ts` — `DadosDaMissao.slotsPendentes` (vazio em toda missão
-  de hoje, porque `content/` ainda não autora slot nenhum — ver §4)
-- `src/modules/quest/domain/slot-resolution.ts` — puro: `agruparSlotsPendentes` (mesmo objetivo +
-  mesmo `difficultyDelta` cai no mesmo pedido de seleção), `faixaCompativel` (ordinal de
-  `AgeBand`) e `mesclarAtividades` (junta fixa e slot resolvido numa sequência só)
+  autorada de hoje, porque `content/` ainda não tem sintaxe para declarar um slot — ver §4)
+- `src/modules/quest/domain/slot-resolution.ts` — puro: `agruparSlotsPendentes` (só modo
+  `objetivo`; mesmo objetivo + mesmo `difficultyDelta` cai no mesmo pedido de seleção),
+  `slotsDeRevisaoPendentes` (só modo `revisao`), `faixaCompativel` (ordinal de `AgeBand`) e
+  `mesclarAtividades` (junta fixa e slot resolvido numa sequência só, qualquer que seja o modo)
 - `src/modules/quest/application/resolve-slots.ts` — `resolverSlotsDaMissao`: lê o que já foi
-  resolvido, busca candidata só do que falta, chama `seletorPorProximidade`
-  (`src/activities/difficulty.ts`) e grava. Chamado em `abrirJogada`, `concluirJogada` e
-  `criarAvancoDaCorrida` — as três leituras de `missao.atividades` que precisavam do slot cheio
+  resolvido, resolve o que falta (um caminho por modo — ver item 2) chamando
+  `seletorPorProximidade` (`src/activities/difficulty.ts`), e grava. Chamado em `abrirJogada`,
+  `concluirJogada` e `criarAvancoDaCorrida` — as três leituras de `missao.atividades` que
+  precisavam do slot cheio
 - `src/modules/quest/application/ports.ts` — `RepositorioDeSlots` (contexto da criança, candidata
-  por objetivo, vistas nas últimas 48h, resolver e ler de volta)
+  por objetivo, vistas nas últimas 48h, resolver e ler de volta — mais os dois métodos do item 2)
 - `src/modules/quest/infrastructure/prisma-slot-repository.ts` — a implementação; lê `Learner`,
   `Objective`→`SkillMastery` (de `assessment`) e `Activity`, porque infraestrutura pode
 - **`QuestRunSlot`** (migration `20260806223110_slot_dinamico_de_missao`) — a resolução gravada,
   chave `(questRunId, stageId, order)`
 - `src/modules/quest/domain/slot-resolution.test.ts`, `application/resolve-slots.test.ts` —
   puros e com dublê. `tests/integration/slot-selection.integration.test.ts` — Postgres real, com
-  árvore de conteúdo própria (o acervo de demonstração não tem slot)
+  árvore de conteúdo própria (o acervo de demonstração não tem slot do modo `objetivo`)
 
 **Propriedades travadas (não relitigar):**
 a resolução é gravada na primeira abertura e **nunca recalculada** — retomar com a habilidade já
@@ -302,6 +305,61 @@ missão, e é tentado de novo na próxima abertura · duas abas resolvendo o mes
 tempo não é corrida perigosa: `createMany` com `skipDuplicates` mais leitura de volta garante que
 as duas saiam com a mesma resposta · a mesma atividade não repete dentro da mesma missão (fixa ou
 slot de outro grupo).
+
+> ⚠️ **Achado importante, dos dois itens acima**: o motor resolve o slot e grava certo — provado
+> pelos testes de integração —, mas **a tela de jogo ainda não consegue exibir uma atividade
+> resolvida por slot**. Ver o alerta grande em §4, "a UI real não toca em slot". Enquanto isso não
+> for corrigido, os dois modos só são jogáveis pela camada de aplicação (o que os testes de
+> integração exercitam), não pelo navegador.
+
+### Fila de revisão — concluída (Etapa 3, passo 3, item 2)
+`ReviewCard.dueAt` é escrito a cada tentativa desde a Etapa 2 e ninguém lia. Agora existe uma
+missão que lê: "Fila de Revisão", do modo `revisao` do slot, preenchida com a competência mais
+vencida da criança — e cada resposta ainda atualiza o SM-2 normalmente, fechando o ciclo.
+
+- `src/modules/quest/domain/slot-rule.ts` — modo `{ modo: "revisao" }`: sem objetivo declarado,
+  porque quem escolhe é a fila, não o conteúdo
+- `src/modules/quest/domain/slot-resolution.ts` — `slotsDeRevisaoPendentes`
+- `src/modules/quest/application/resolve-slots.ts` — cada slot de revisão pendente recebe uma
+  competência da fila vencida (`filaDeRevisaoVencida`, ordenada por `dueAt` — a mais vencida no
+  primeiro slot livre), busca candidata por **competência** (`candidatasPorCompetencia`, porque a
+  fila não sabe qual objetivo específico, só a competência) e **não aplica a exclusão de 48h**
+  (docs/08 §7.2 isenta o item vencido — é o próprio ponto de revisar)
+- `src/modules/quest/application/ports.ts` — `ItemDaFilaDeRevisao`, e os dois métodos novos de
+  `RepositorioDeSlots`: `filaDeRevisaoVencida` e `candidatasPorCompetencia`
+- **A missão "Fila de Revisão" não vem de `content/`** — vem de uma migration de dados
+  (`prisma/migrations/20260806234721_fila_de_revisao_fixture`): `Academy` "sistema" → `World` →
+  `Chapter` → `Quest` (`kind: REVIEW`, `sourceRef: "sistema/fila-de-revisao"`, 20 XP, 5 moedas) →
+  `Stage` → 5 `StageActivity` (todas slot, modo `revisao`). Não é conteúdo pedagógico autorado —
+  é dado de sistema, e por isso não segue o caminho do importador (docs/HANDOFF.md, esta seção)
+- `src/modules/quest/infrastructure/prisma-map-reader.ts` — a academia "sistema" é excluída da
+  lista de ilhas do mapa (`where: { academy: { slug: { not: "sistema" } } }`): é prateleira, não
+  ilha
+- `tests/integration/review-queue.integration.test.ts` — Postgres real. `garantirFixtureDeRevisao`
+  refaz a fixture por `upsert` no `beforeAll`, porque os outros arquivos de integração apagam a
+  tabela `Quest` inteira nos próprios `beforeAll`/`afterAll` (rebuild do acervo a partir de
+  `content/`) — e esta fixture, ao contrário do acervo, não é reimportável
+
+**Propriedades travadas (não relitigar):**
+custo de Fôlego continua 3 (`CUSTO_DE_FOLEGO.REVIEW`, docs/08 §4 "3 por revisão") — não criei um
+`QuestKind` novo para isto; **cada slot de revisão busca uma competência diferente da fila** —
+`filaDeRevisaoVencida` já devolve uma linha por competência, então dois slots nunca competem pela
+mesma · **slot de revisão e slot de objetivo compartilham a lista de atividades já usadas na
+missão** — a mesma atividade não sai duas vezes mesmo que os dois modos apontem para a mesma
+competência · fila mais curta que os slots disponíveis deixa slot sem dono, sem erro — o mesmo
+destino de sempre · fila vazia (nada vencido) abre a missão sem nenhuma atividade — ver a
+consequência disso, abaixo.
+
+**Decisões em aberto — precisam do dono:**
+1. **Tamanho da fila (5 slots) e recompensa (20 XP, 5 moedas)** são valores razoáveis, não
+   calibrados — não há especificação numérica em `docs/08` para uma sessão de revisão dedicada
+   (só para item individual: "5 XP" por item em dia). Ajustar é editar a migration com uma nova
+   migration de dados (`UPDATE`), já que a fixture não vem de `content/`.
+2. **Abrir a fila sem nada vencido cobra Fôlego e abre uma jogada sem nenhuma atividade**, que
+   nunca conclui (`missaoConcluida` exige `atividades.length > 0`). Não é bug do motor — é a
+   ausência do card de hub que só mostraria o botão quando a fila não estiver vazia (ver §4). Até
+   esse card existir, quem chamar `abrirJogada("sistema/fila-de-revisao")` precisa checar a fila
+   antes.
 
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
@@ -324,15 +382,41 @@ slot de outro grupo).
 
 ## 4. O que NÃO existe ainda
 
+> ⚠️ **A UI real não toca em slot — leia isto antes de autorar ou de tentar jogar um.**
+>
+> `carregarMissaoParaSessao` (`src/activities/content-bridge.ts`) monta a sessão que o navegador
+> recebe **lendo só `content/` no disco**, com `slug` fixo — nunca o banco. Isso quer dizer que
+> nenhuma atividade resolvida por slot (modo `objetivo` ou `revisao`) aparece na tela: o
+> `MissaoRunner` recebe `missao.fases` já pronto, do arquivo, e uma atividade de slot nunca esteve
+> em arquivo nenhum. A "Fila de Revisão" nem tem `content/` para achar — `carregarMissaoParaSessao`
+> devolveria `null` e a página cairia em 404.
+>
+> Tem mais uma camada por baixo dessa: mesmo que o bridge passasse a ler do banco, `abrirJogada`
+> (que resolve o slot) só é chamado pelo clique em "Começar" — depois que a página já carregou a
+> lista de atividades. `MissaoRunner` usa essa lista, carregada uma vez, para o resto da sessão
+> inteira (`atividadeEm`, `posicaoDoIndice`). Se o slot resolver *depois* da lista ter sido montada,
+> os índices que o servidor manda (`retomarNoIndice`) não combinam com o que o cliente tem.
+>
+> As duas partes têm resposta e nenhuma foi escrita: (1) o bridge precisa de um caminho que leia do
+> banco quando a missão não estiver em `content/`, ou quando houver slot resolvido para aquele
+> `questRunId`; (2) a resolução do slot precisa acontecer antes da página entregar a lista de
+> atividades ao cliente — não no clique em "Começar". O comentário em `content-bridge.ts` já dizia
+> "quando o conteúdo passar a vir do banco, só esta função muda" — é essa migração, e ela ainda não
+> aconteceu. Até acontecer, os dois modos de slot só são exercitáveis pela camada de aplicação
+> (`abrirJogada`/`submeterTentativa`/`concluirJogada` chamados direto, como os testes de
+> integração fazem), nunca por um clique de verdade.
+
 - **O mapa é uma lista, não um desenho.** `World.mapLayout` (nós, arestas, coordenadas) está no
   schema e o importador grava `{ schemaVersion: 1, nos: [], arestas: [] }` — vazio. O mapa atual
   agrupa por ilha e capítulo, com tranca e caminho, mas não tem geografia. Fazer o desenho exige
   autorar o layout em `content/`
-- **`content/` ainda não autora slot nenhum.** O motor sabe preencher `StageActivity.activityId`
-  nulo (seção 3, acima), mas o schema de autoria (`content/schema/`) não tem campo para declarar
-  um slot — todo `fase.atividades` de hoje é fixo. Escrever a primeira missão com slot de
-  verdade exige estender `content/schema/index.ts` e o importador (`domain/plan.ts`) para
-  reconhecer o tipo "slot" e gravar `slotRule` com o `Objective.id` já resolvido
+- **`content/` ainda não autora slot do modo `objetivo`.** O motor sabe preencher
+  `StageActivity.activityId` nulo (seção 3, acima), mas o schema de autoria (`content/schema/`)
+  não tem campo para declarar um slot — todo `fase.atividades` de hoje é fixo. Escrever a primeira
+  missão com slot desse modo exige estender `content/schema/index.ts` e o importador
+  (`domain/plan.ts`) para reconhecer o tipo "slot" e gravar `slotRule` com o `Objective.id` já
+  resolvido — **e resolver o alerta acima primeiro**, senão a missão fica injogável do mesmo jeito
+  que a Fila de Revisão fica hoje
 - **`Chapter`, `World` e `mapLayout`** — no banco, sem tela. A base lista missões em texto
 - **Desbloqueio por nível** (Academia da Inteligência no 10, Prosperidade no 15…) — a tabela de
   `docs/08 §1` não está implementada. O que funciona é o desbloqueio **declarado no conteúdo**
@@ -366,15 +450,20 @@ slot de outro grupo).
 O sistema está fechado: a criança abre uma missão, responde, o modelo aprende, a Luz sobe, a
 missão fecha e o mapa mostra o que vem. **O que falta agora é o motor usar tudo que ele já sabe.**
 
-O item 1 (seleção adaptativa) está feito — ver seção 3. Faltam quatro peças, prontas e
-desligadas — cada uma é uma porta que já existe, esperando quem a chame. **Nenhum conteúdo
-autora slot ainda**, então o item 1 não muda nada para a criança de hoje: ele fica esperando a
-primeira missão que declarar um (ver seção 4).
+Os itens 1 (seleção adaptativa) e 2 (fila de revisão) estão feitos no banco e na aplicação — ver
+seção 3. **Nenhum dos dois é jogável no navegador ainda** — leia o alerta no topo da seção 4 antes
+de continuar. Por isso o item 0 abaixo vem antes de qualquer coisa nova: sem ele, toda peça de
+slot construída a partir daqui repete o mesmo problema.
 
 ### Ordem sugerida
-2. **Fila de revisão** (`ReviewCard.dueAt`). É escrito a cada tentativa desde a Etapa 2 e ninguém
-   lê. Uma missão `REVIEW` montada da fila vencida fecha o ciclo do SM-2 — e é a peça que faz o
-   que ela aprendeu em março ainda estar lá em julho.
+0. **Fechar o alerta da seção 4 — o bridge de conteúdo precisa saber ler o banco.**
+   `carregarMissaoParaSessao` (`src/activities/content-bridge.ts`) só lê `content/`; precisa de um
+   caminho que monte `MissaoNaSessao` a partir de `Quest`/`Stage`/`StageActivity`/`QuestRunSlot`
+   quando a missão não existir em disco (a Fila de Revisão) ou quando existir e tiver slot
+   resolvido (futuro modo `objetivo` em conteúdo autorado). E a resolução do slot precisa acontecer
+   **antes** da página entregar a lista de atividades ao cliente, não no clique em "Começar" — hoje
+   `abrirMissaoAction` resolve depois que `MissaoRunner` já fixou a lista. Sem isto, uma criança de
+   verdade nunca vê a Fila de Revisão nem qualquer missão com slot.
 3. **Conquistas.** `Achievement.criteria` é regra declarativa avaliada por evento, como a de
    desbloqueio. O barramento e o outbox estão prontos: é escrever o manipulador (modo `outbox`,
    porque conquista pode esperar) e registrá-lo no composition root.
@@ -427,6 +516,9 @@ importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 | **Iniciar e retomar uma missão são a mesma operação** | `src/modules/quest/application/play-quest.ts` |
 | **Slot resolvido entra ao final da fase, não na posição declarada** | `src/modules/quest/domain/slot-resolution.ts` |
 | **Resolução de slot é gravada na primeira abertura; retomada só lê** | `src/modules/quest/application/resolve-slots.ts` |
+| **Slot de revisão não exclui atividade vista nas últimas 48h** (revisar é o ponto) | `docs/08 §7.2` · `application/resolve-slots.ts` |
+| **Fila de Revisão é dado de sistema (migration), não conteúdo de `content/`** | `prisma/migrations/20260806234721_fila_de_revisao_fixture` |
+| **Custo de Fôlego da Fila de Revisão é o mesmo de qualquer `REVIEW`** (3, não criei kind novo) | `src/modules/quest/domain/energy-cost.ts` |
 | **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
 | **Desbloqueio devolve o caminho, não um cadeado** | `src/modules/quest/domain/unlock-rule.ts` |
 

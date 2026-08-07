@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { DadosDaMissao } from "./quest-run";
-import { agruparSlotsPendentes, faixaCompativel, mesclarAtividades } from "./slot-resolution";
+import {
+  agruparSlotsPendentes,
+  faixaCompativel,
+  mesclarAtividades,
+  slotsDeRevisaoPendentes,
+} from "./slot-resolution";
 
 /**
  * A parte pura da seleção adaptativa (docs/08 §7): agrupar o pedido e juntar o
@@ -9,11 +14,16 @@ import { agruparSlotsPendentes, faixaCompativel, mesclarAtividades } from "./slo
  * é `application/resolve-slots.test.ts` que cobre a orquestração.
  */
 
+const objetivo = (objectiveId: string, difficultyDelta = 0) =>
+  ({ modo: "objetivo", objectiveId, difficultyDelta }) as const;
+
+const revisao = () => ({ modo: "revisao" }) as const;
+
 describe("agrupar slots pendentes", () => {
   it("slots do mesmo objetivo e mesmo ajuste caem no mesmo grupo", () => {
     const grupos = agruparSlotsPendentes([
-      { stageId: "stg1", order: 0, fase: 0, regra: { objectiveId: "obj1", difficultyDelta: 0 } },
-      { stageId: "stg1", order: 1, fase: 0, regra: { objectiveId: "obj1", difficultyDelta: 0 } },
+      { stageId: "stg1", order: 0, fase: 0, regra: objetivo("obj1") },
+      { stageId: "stg1", order: 1, fase: 0, regra: objetivo("obj1") },
     ]);
 
     expect(grupos).toHaveLength(1);
@@ -22,9 +32,9 @@ describe("agrupar slots pendentes", () => {
 
   it("objetivo diferente, ou mesmo ajuste diferente, vira grupo separado", () => {
     const grupos = agruparSlotsPendentes([
-      { stageId: "stg1", order: 0, fase: 0, regra: { objectiveId: "obj1", difficultyDelta: 0 } },
-      { stageId: "stg1", order: 1, fase: 0, regra: { objectiveId: "obj2", difficultyDelta: 0 } },
-      { stageId: "stg1", order: 2, fase: 0, regra: { objectiveId: "obj1", difficultyDelta: -100 } },
+      { stageId: "stg1", order: 0, fase: 0, regra: objetivo("obj1") },
+      { stageId: "stg1", order: 1, fase: 0, regra: objetivo("obj2") },
+      { stageId: "stg1", order: 2, fase: 0, regra: objetivo("obj1", -100) },
     ]);
 
     expect(grupos).toHaveLength(3);
@@ -36,6 +46,32 @@ describe("agrupar slots pendentes", () => {
     ]);
 
     expect(grupos).toHaveLength(0);
+  });
+
+  it("slot do modo revisão não entra em grupo de objetivo", () => {
+    const grupos = agruparSlotsPendentes([
+      { stageId: "stg1", order: 0, fase: 0, regra: revisao() },
+    ]);
+
+    expect(grupos).toHaveLength(0);
+  });
+});
+
+describe("slots de revisão pendentes", () => {
+  it("separa só o modo revisão, em ordem de posição", () => {
+    const slots = slotsDeRevisaoPendentes([
+      { stageId: "stg1", order: 2, fase: 0, regra: revisao() },
+      { stageId: "stg1", order: 0, fase: 0, regra: objetivo("obj1") },
+      { stageId: "stg1", order: 1, fase: 0, regra: revisao() },
+    ]);
+
+    expect(slots.map((s) => s.order)).toEqual([1, 2]);
+  });
+
+  it("regra irreconhecível não é revisão", () => {
+    expect(
+      slotsDeRevisaoPendentes([{ stageId: "stg1", order: 0, fase: 0, regra: null }]),
+    ).toHaveLength(0);
   });
 });
 
@@ -57,9 +93,7 @@ describe("mesclar atividade fixa e slot resolvido", () => {
     competenciasExigidas: [],
     desbloqueio: null,
     atividades: [{ activityId: "fixa-1", fase: 0 }],
-    slotsPendentes: [
-      { stageId: "stg1", order: 1, fase: 0, regra: { objectiveId: "obj1", difficultyDelta: 0 } },
-    ],
+    slotsPendentes: [{ stageId: "stg1", order: 1, fase: 0, regra: objetivo("obj1") }],
   };
 
   it("sem slot pendente, devolve a mesma lista de atividades — zero custo para o acervo de hoje", () => {
@@ -83,15 +117,26 @@ describe("mesclar atividade fixa e slot resolvido", () => {
     const missao: DadosDaMissao = {
       ...missaoBase,
       atividades: [{ activityId: "fixa-1", fase: 0 }],
-      slotsPendentes: [
-        { stageId: "stg2", order: 0, fase: 1, regra: { objectiveId: "obj1", difficultyDelta: 0 } },
-      ],
+      slotsPendentes: [{ stageId: "stg2", order: 0, fase: 1, regra: objetivo("obj1") }],
     };
     const resolvidos = new Map([["stg2:0", "slot-fase-2"]]);
 
     expect(mesclarAtividades(missao, resolvidos)).toEqual([
       { activityId: "fixa-1", fase: 0 },
       { activityId: "slot-fase-2", fase: 1 },
+    ]);
+  });
+
+  it("slot de revisão resolvido também entra na fase, do mesmo jeito que um de objetivo", () => {
+    const missao: DadosDaMissao = {
+      ...missaoBase,
+      slotsPendentes: [{ stageId: "stg1", order: 1, fase: 0, regra: revisao() }],
+    };
+    const resolvidos = new Map([["stg1:1", "slot-de-revisao"]]);
+
+    expect(mesclarAtividades(missao, resolvidos)).toEqual([
+      { activityId: "fixa-1", fase: 0 },
+      { activityId: "slot-de-revisao", fase: 0 },
     ]);
   });
 });

@@ -145,6 +145,12 @@ export interface ResolucaoDeSlot {
   readonly activityId: string;
 }
 
+/** Uma competência vencida na fila de revisão, com a habilidade atual da criança nela. */
+export interface ItemDaFilaDeRevisao {
+  readonly skillId: string;
+  readonly ability: number;
+}
+
 /**
  * Tudo que a seleção adaptativa lê e grava — fora do domínio porque consulta
  * `Learner`, `Objective`, `SkillMastery`, `Activity` e `Attempt`, e o domínio
@@ -175,6 +181,31 @@ export interface RepositorioDeSlots {
     desde: Date,
     tx: Transacao,
   ): Promise<ReadonlySet<string>>;
+
+  /**
+   * As `limite` competências mais vencidas na fila de `ReviewCard` (dueAt ≤
+   * agora), ordenadas da mais vencida para a menos. Uma por competência —
+   * é o que garante que a Fila de Revisão não repita a mesma competência em
+   * dois slots da mesma sessão.
+   */
+  filaDeRevisaoVencida(
+    learnerId: string,
+    agora: Date,
+    limite: number,
+    tx: Transacao,
+  ): Promise<readonly ItemDaFilaDeRevisao[]>;
+
+  /**
+   * Atividades publicadas desta competência (de qualquer objetivo dela), no
+   * idioma pedido. Existe separada de `candidatas` porque a Fila de Revisão
+   * não sabe de qual objetivo específico a criança precisa — só da
+   * competência que o SM-2 marcou como vencida.
+   */
+  candidatasPorCompetencia(
+    skillId: string,
+    locale: string,
+    tx: Transacao,
+  ): Promise<readonly CandidataParaSlot[]>;
 
   /** Slots já preenchidos nesta jogada. Chave: `chaveDoSlot` (`stageId:order`). */
   slotsResolvidos(questRunId: string, tx: Transacao): Promise<ReadonlyMap<string, string>>;

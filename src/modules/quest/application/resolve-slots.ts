@@ -8,6 +8,7 @@ import {
   chaveDoSlot,
   faixaCompativel,
   mesclarAtividades,
+  slotsDeRevisaoPendentes,
 } from "../domain/slot-resolution";
 import type { RepositorioDeSlots, ResolucaoDeSlot } from "./ports";
 
@@ -29,6 +30,12 @@ import type { RepositorioDeSlots, ResolucaoDeSlot } from "./ports";
  * docs/08 §7.2 pede para não repetir o que a criança viu recentemente, não
  * banir para sempre: um acervo pequeno esgotaria candidata rápido se a
  * exclusão fosse permanente, e a criança acabaria sem nenhuma opção.
+ *
+ * ── Dois modos, duas fontes de candidata ──
+ * Slot `objetivo` vem do conteúdo (`slotRule.objectiveId`) e respeita a janela
+ * de 48h. Slot `revisao` vem da fila de `ReviewCard` vencida da própria
+ * criança e **não** respeita — revisar é voltar de propósito ao que já foi
+ * visto, e a mesma regra de docs/08 §7.2 que isenta esse caso.
  */
 
 const JANELA_DE_REPETICAO_HORAS = 48;
@@ -84,7 +91,6 @@ export function criarResolverSlots(deps: {
       ...jaResolvidos.values(),
     ]);
 
-    const excluir = [...vistasRecentemente, ...usadasNestaMissao];
     const novasResolucoes: ResolucaoDeSlot[] = [];
 
     for (const grupo of grupos) {
@@ -105,7 +111,7 @@ export function criarResolverSlots(deps: {
       const pedido: PedidoDeSelecao = {
         habilidade: habilidadeDaCompetencia + grupo.regra.difficultyDelta,
         objectiveId: grupo.regra.objectiveId,
-        excluir,
+        excluir: [...vistasRecentemente, ...usadasNestaMissao],
         tiposRecentes: [],
         quantidade: grupo.slots.length,
       };
@@ -126,6 +132,55 @@ export function criarResolverSlots(deps: {
           order: slot.order,
           activityId: escolhida.activityId,
         });
+        usadasNestaMissao.add(escolhida.activityId);
+      }
+    }
+
+    /*
+     * FILA DE REVISÃO — cada slot de revisão busca a próxima competência
+     * vencida, uma diferente por slot (`filaDeRevisaoVencida` já devolve uma
+     * linha por competência). Sem exclusão de 48h aqui: revisar É voltar ao
+     * que já foi visto — docs/08 §7.2 isenta explicitamente o item vencido.
+     */
+    const revisaoPendente = slotsDeRevisaoPendentes(pendentes);
+    if (revisaoPendente.length > 0) {
+      const fila = await deps.slots.filaDeRevisaoVencida(learnerId, agora, revisaoPendente.length, tx);
+
+      for (let i = 0; i < revisaoPendente.length; i += 1) {
+        const slot = revisaoPendente[i];
+        const item = fila[i];
+        // Fila mais curta que os slots disponíveis: nada vencido para pôr
+        // ali hoje. Os que sobram seguem pendentes, tentados de novo depois.
+        if (!slot || !item) continue;
+
+        const brutas = await deps.slots.candidatasPorCompetencia(item.skillId, contexto.locale, tx);
+        const candidatas: CandidataAtividade[] = brutas
+          .filter((candidata) =>
+            faixaCompativel(candidata.minAgeBand, candidata.maxAgeBand, contexto.ageBand),
+          )
+          .map((candidata) => ({
+            activityId: candidata.activityId,
+            type: candidata.type,
+            dificuldade: candidata.dificuldade,
+          }));
+
+        const pedido: PedidoDeSelecao = {
+          habilidade: item.ability,
+          objectiveId: item.skillId,
+          excluir: [...usadasNestaMissao],
+          tiposRecentes: [],
+          quantidade: 1,
+        };
+
+        const escolhida = deps.seletor.selecionar(pedido, candidatas)[0];
+        if (!escolhida) continue;
+
+        novasResolucoes.push({
+          stageId: slot.stageId,
+          order: slot.order,
+          activityId: escolhida.activityId,
+        });
+        usadasNestaMissao.add(escolhida.activityId);
       }
     }
 

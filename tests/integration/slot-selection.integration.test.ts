@@ -247,7 +247,7 @@ async function criarMissaoComSlot(sufixo: string) {
       stageId: stage.id,
       order: 1,
       activityId: null,
-      slotRule: { objectiveId: objective.id, difficultyDelta: 0 },
+      slotRule: { modo: "objetivo", objectiveId: objective.id, difficultyDelta: 0 },
     },
   });
 

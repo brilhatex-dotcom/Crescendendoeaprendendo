@@ -1,3 +1,4 @@
+import { ELO } from "@/modules/assessment";
 import { clienteDaTransacao } from "@/server/unit-of-work";
 import type { Transacao } from "@/shared/kernel";
 
@@ -87,6 +88,52 @@ export function criarRepositorioPrismaDeSlots(): RepositorioDeSlots {
       });
 
       return new Set(linhas.map((linha) => linha.activityId));
+    },
+
+    async filaDeRevisaoVencida(learnerId, agora, limite, transacao: Transacao) {
+      const tx = clienteDaTransacao(transacao);
+
+      const cartoes = await tx.reviewCard.findMany({
+        where: { learnerId, dueAt: { lte: agora } },
+        orderBy: { dueAt: "asc" },
+        take: limite,
+        select: { skillId: true },
+      });
+
+      if (cartoes.length === 0) return [];
+
+      // `ReviewCard` não tem relação com `SkillMastery` — são tabelas irmãs,
+      // cada uma com sua própria chave (learnerId, skillId). Duas consultas,
+      // não uma junção.
+      const masteries = await tx.skillMastery.findMany({
+        where: { learnerId, skillId: { in: cartoes.map((cartao) => cartao.skillId) } },
+        select: { skillId: true, ability: true },
+      });
+      const habilidadePorCompetencia = new Map(
+        masteries.map((mastery) => [mastery.skillId, Number(mastery.ability)]),
+      );
+
+      return cartoes.map((cartao) => ({
+        skillId: cartao.skillId,
+        ability: habilidadePorCompetencia.get(cartao.skillId) ?? ELO.centro,
+      }));
+    },
+
+    async candidatasPorCompetencia(skillId, locale, transacao: Transacao) {
+      const tx = clienteDaTransacao(transacao);
+
+      const atividades = await tx.activity.findMany({
+        where: { status: "PUBLISHED", locale, objective: { skillId } },
+        select: { id: true, type: true, difficulty: true, minAgeBand: true, maxAgeBand: true },
+      });
+
+      return atividades.map((atividade) => ({
+        activityId: atividade.id,
+        type: atividade.type,
+        dificuldade: Number(atividade.difficulty),
+        minAgeBand: atividade.minAgeBand,
+        maxAgeBand: atividade.maxAgeBand,
+      }));
     },
 
     async slotsResolvidos(questRunId, transacao: Transacao) {

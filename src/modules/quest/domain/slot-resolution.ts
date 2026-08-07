@@ -40,27 +40,33 @@ export function faixaCompativel(minima: string, maxima: string, daCrianca: strin
   return indice >= indiceDaFaixa(minima) && indice <= indiceDaFaixa(maxima);
 }
 
+/** Regra de slot restrita ao modo `objetivo` — o único que `agruparSlotsPendentes` agrupa. */
+export type RegraDeObjetivo = Extract<RegraDeSlot, { readonly modo: "objetivo" }>;
+
 export interface GrupoDeSlots {
-  readonly regra: RegraDeSlot;
+  readonly regra: RegraDeObjetivo;
   readonly slots: readonly SlotPendente[];
 }
 
 /**
- * Agrupa slots pendentes pelo mesmo pedido de seleção — mesmo objetivo e
- * mesmo `difficultyDelta`. É o que permite ao seletor escolher o lote de uma
- * vez e aplicar a variedade de tipo entre eles (docs/08 §7.4), em vez de cada
- * slot repetir a mesma consulta de candidatas isoladamente.
+ * Agrupa slots do modo `objetivo` pelo mesmo pedido de seleção — mesmo
+ * objetivo e mesmo `difficultyDelta`. É o que permite ao seletor escolher o
+ * lote de uma vez e aplicar a variedade de tipo entre eles (docs/08 §7.4), em
+ * vez de cada slot repetir a mesma consulta de candidatas isoladamente.
  *
- * Slot com regra irreconhecível (`null`) não entra em grupo nenhum: já não há
- * objetivo para buscar candidata, e `mesclarAtividades` o descarta no fim.
+ * Slot com regra irreconhecível (`null`) ou do modo `revisao` não entra em
+ * grupo nenhum — o segundo tem seu próprio caminho de resolução em
+ * `application/resolve-slots.ts`, porque cada slot de revisão busca uma
+ * competência diferente na fila, e não faz sentido "agrupar" pedidos que
+ * nunca compartilham candidata.
  */
 export function agruparSlotsPendentes(
   pendentes: readonly SlotPendente[],
 ): readonly GrupoDeSlots[] {
-  const grupos = new Map<string, { regra: RegraDeSlot; slots: SlotPendente[] }>();
+  const grupos = new Map<string, { regra: RegraDeObjetivo; slots: SlotPendente[] }>();
 
   for (const slot of pendentes) {
-    if (!slot.regra) continue;
+    if (!slot.regra || slot.regra.modo !== "objetivo") continue;
 
     const chave = `${slot.regra.objectiveId}:${slot.regra.difficultyDelta}`;
     const existente = grupos.get(chave);
@@ -72,6 +78,15 @@ export function agruparSlotsPendentes(
   }
 
   return [...grupos.values()];
+}
+
+/** Slots do modo `revisao`, em ordem de posição — cada um vira um item da fila vencida. */
+export function slotsDeRevisaoPendentes(
+  pendentes: readonly SlotPendente[],
+): readonly SlotPendente[] {
+  return pendentes
+    .filter((slot) => slot.regra?.modo === "revisao")
+    .sort((a, b) => a.order - b.order);
 }
 
 /**

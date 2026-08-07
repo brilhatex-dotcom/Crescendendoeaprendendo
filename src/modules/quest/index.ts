@@ -35,6 +35,7 @@ export {
   type CandidataParaSlot,
   type ContextoParaSlots,
   type DadosDoMapa,
+  type ItemDaFilaDeRevisao,
   type LeituraDoMapa,
   type MissaoNoMapa,
   type QuestDeps,
