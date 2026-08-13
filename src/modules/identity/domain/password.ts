@@ -21,13 +21,18 @@ export class PlainPassword {
    * **comprimento no lugar de composição obrigatória**. Exigir "uma maiúscula,
    * um número e um símbolo" produz `Senha@123` — previsível e mais fraco que
    * uma frase longa. Cobramos tamanho e barramos o óbvio.
+   *
+   * Mínimo em 6, não 10: decisão do dono, 2026-08-13, ciente do custo — 6
+   * dígitos numéricos têm só 1 milhão de combinações, contra os bilhões de uma
+   * frase de 10+ caracteres. `BLOQUEADAS` ganhou as sequências óbvias de 6
+   * dígitos por causa disso (docs/HANDOFF.md tem o registro da decisão).
    */
   static create(input: string, email?: string): Result<PlainPassword> {
-    if (input.length < 10) {
+    if (input.length < 6) {
       return err(
         validationError(
           "password.too_short",
-          "A senha precisa de pelo menos 10 caracteres. Uma frase curta funciona bem.",
+          "A senha precisa de pelo menos 6 caracteres.",
         ),
       );
     }
@@ -101,4 +106,13 @@ const BLOQUEADAS = new Set([
   "abcdefghij",
   "crescendoeaprendendo",
   "crescendo123",
+  // Sequências de 6 dígitos — só entraram na lista de risco quando o mínimo
+  // baixou de 10 para 6 (ver o comentário em `create`).
+  "123456",
+  "654321",
+  "111111",
+  "222222",
+  "333333",
+  "000000",
+  "121212",
 ]);

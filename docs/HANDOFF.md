@@ -587,9 +587,10 @@ pelo site — só `/criar-conta`, `/entrar`, `/verificar-email`.
 
 - `scripts/redefinir-senha.ts` (`npm run conta:redefinir-senha`) — mesmo padrão de
   `scripts/verificar-conta.ts`: exige `DATABASE_URL`, nunca é rota nem Server Action, registra
-  a ação em `AuditLog`. Reaproveita `PlainPassword.create` (mesma validação do cadastro,
-  mínimo 10 caracteres) e `Argon2Hasher` (mesmo hash) — login volta a funcionar exatamente como
-  se a troca tivesse sido feita pela tela. Revoga toda sessão ativa da conta.
+  a ação em `AuditLog`. Reaproveita `PlainPassword.create` (mesma validação do cadastro —
+  mínimo 6 caracteres, decisão do dono registrada na tabela da seção 6) e `Argon2Hasher` (mesmo
+  hash) — login volta a funcionar exatamente como se a troca tivesse sido feita pela tela.
+  Revoga toda sessão ativa da conta.
 - **Isto é um atalho, não substitui um fluxo de verdade.** O fluxo de verdade (token por
   e-mail, mesma arquitetura da verificação de cadastro) ainda não existe — ver item novo em
   "Ordem sugerida", seção 5.
@@ -745,6 +746,7 @@ ação que gerou o evento). Ver `app/api/outbox/route.ts` e `vercel.json`.
 | Cron do `/api/outbox` em 1x/dia, não a cada 5 min (limite do plano Hobby) | decisão do dono, 2026-08-13 |
 | **Figurinha é concedida `inline`, não `outbox`** (precisa aparecer na hora; outbox só roda 1x/dia) | `src/modules/collection/application/grant-collectibles.ts` |
 | **`Collectible.code` é a chave natural em toda parte — nunca o `id` opaco** (motor não sabe o que é figurinha) | `content/colecionaveis.json` · `src/modules/collection` |
+| **Senha da conta: mínimo 6 caracteres, não 10** — decisão do dono, ciente do custo de segurança (6 dígitos = 1 milhão de combinações) | `src/modules/identity/domain/password.ts` |
 
 ---
 
