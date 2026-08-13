@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-04 · **Etapa 3 em curso — o mundo visível e trancado**
+> Última atualização: 2026-08-13 · **Etapa 3, passo 3 em curso — o conteúdo encontra o motor**
 
 ---
 
@@ -137,6 +137,37 @@ importado trava a criança numa tela sem saída · é **idempotente** — reimpo
 `Activity.id`, e isso é o que protege o histórico de quem já jogou · nada é apagado —
 despublicar é decisão editorial separada.
 
+### Importação automática de conteúdo no deploy — concluída
+Resolve a decisão em aberto que existia desde a Etapa 2: `npm run content:import` continuava
+manual porque publicar em todo deploy escreveria no banco de produção a partir de deploy de
+*preview* — hoje não há banco efêmero por branch, `preview` e `production` apontam para o mesmo
+`DATABASE_URL` (`docs/01-arquitetura.md §7` descreve branch do Neon por ambiente como destino;
+não é a configuração real deste projeto na Vercel hoje).
+
+Foi um bug real que forçou a decisão: a tela de produção ficou meses mostrando uma pergunta sem
+as conchas que ela descreve — o código já tinha o conserto (commit `c1737d9`), mas ninguém rodou
+`content:import` contra produção depois de mudar o `content/`.
+
+- `scripts/import-content-em-producao.mjs` — só chama `npm run content:import` quando
+  `VERCEL_ENV === "production"`; qualquer outro valor (`preview`, `development`) ou ausência da
+  variável (build local, CI) **pula com um aviso explicado no log**, nunca falha o build por
+  causa disso
+- `package.json` — `vercel:steps` ganhou o passo entre `prisma migrate deploy` e `next build`
+
+**Propriedades travadas (não relitigar):**
+a falta de `VERCEL_ENV` **pula a importação**, nunca assume produção — a direção do erro que
+importa aqui é "na dúvida, não publica" (o oposto de `custoDeFolego`/`lerRegraDeDesbloqueio`, que
+preferem liberar na dúvida — lá o custo de errar é a criança perder algo grátis; aqui é escrever
+no banco real por engano) · falha do `content:import` em produção **derruba o build** — conteúdo
+quebrado não é publicado pela metade, o mesmo motivo de a importação já ser tudo-ou-nada · `npm
+run content:import` continua existindo e funcionando igual, para publicar fora do deploy (ex.:
+depois de uma migration de dados manual).
+
+**Armadilha:** `VERCEL_ENV` é injetada pela Vercel automaticamente, sem configuração — mas nunca
+foi vista, de dentro desta sessão, batendo contra um deploy de produção de verdade. Se depois do
+primeiro deploy o log mostrar "content:import pulado" **em produção**, é o primeiro lugar para
+olhar (Project Settings → Environment Variables, ou confirme com `vercel env ls` autenticado).
+
 ### Avaliação — concluída (Etapa 2, passo 2)
 A resposta da criança agora vira histórico, modelo e evento. O ciclo está fechado.
 
@@ -260,6 +291,154 @@ precisa de todos · **Colosso exige domínio nas competências do capítulo mesm
 sem registro conta **zero** na média, nunca é ignorada · a gramática vive **num lugar só**, e a
 autoria a importa.
 
+### Seleção adaptativa de slot — concluída (Etapa 3, passo 3, item 1)
+O primeiro dos três fios soltos da Etapa 3 passo 3 (`docs/08 §7`). `StageActivity` com
+`activityId` nulo agora se transforma numa atividade de verdade ao abrir a jogada — e continua
+sendo a mesma atividade em toda retomada.
+
+- `src/modules/quest/domain/slot-rule.ts` — `RegraDeSlot`, união discriminada por `modo`:
+  `{ modo: "objetivo", objectiveId, difficultyDelta }` (este item) e `{ modo: "revisao" }` (item 2,
+  abaixo). `src/modules/quest/infrastructure/slot-rule-json.ts` lê o `Json` da mesma forma que
+  `unlock-rule-json.ts`, mas a direção do erro é a oposta: regra irreconhecível **não libera
+  nada** — o slot só some da missão
+- `src/modules/quest/domain/quest-run.ts` — `DadosDaMissao.slotsPendentes` (vazio em toda missão
+  autorada de hoje, porque `content/` ainda não tem sintaxe para declarar um slot — ver §4)
+- `src/modules/quest/domain/slot-resolution.ts` — puro: `agruparSlotsPendentes` (só modo
+  `objetivo`; mesmo objetivo + mesmo `difficultyDelta` cai no mesmo pedido de seleção),
+  `slotsDeRevisaoPendentes` (só modo `revisao`), `faixaCompativel` (ordinal de `AgeBand`) e
+  `mesclarAtividades` (junta fixa e slot resolvido numa sequência só, qualquer que seja o modo)
+- `src/modules/quest/application/resolve-slots.ts` — `resolverSlotsDaMissao`: lê o que já foi
+  resolvido, resolve o que falta (um caminho por modo — ver item 2) chamando
+  `seletorPorProximidade` (`src/activities/difficulty.ts`), e grava. Chamado em `abrirJogada`,
+  `concluirJogada` e `criarAvancoDaCorrida` — as três leituras de `missao.atividades` que
+  precisavam do slot cheio
+- `src/modules/quest/application/ports.ts` — `RepositorioDeSlots` (contexto da criança, candidata
+  por objetivo, vistas nas últimas 48h, resolver e ler de volta — mais os dois métodos do item 2)
+- `src/modules/quest/infrastructure/prisma-slot-repository.ts` — a implementação; lê `Learner`,
+  `Objective`→`SkillMastery` (de `assessment`) e `Activity`, porque infraestrutura pode
+- **`QuestRunSlot`** (migration `20260806223110_slot_dinamico_de_missao`) — a resolução gravada,
+  chave `(questRunId, stageId, order)`
+- `src/modules/quest/domain/slot-resolution.test.ts`, `application/resolve-slots.test.ts` —
+  puros e com dublê. `tests/integration/slot-selection.integration.test.ts` — Postgres real, com
+  árvore de conteúdo própria (o acervo de demonstração não tem slot do modo `objetivo`)
+
+**Propriedades travadas (não relitigar):**
+a resolução é gravada na primeira abertura e **nunca recalculada** — retomar com a habilidade já
+diferente não pode trocar a atividade que a criança já estava vendo, senão a posição da retomada
+(que conta `Attempt` por `activityId`) perde o sentido · **habilidade ausente usa o centro da
+escala** (`ELO.centro`, 1000), nunca lança erro · `difficultyDelta` desloca a **habilidade** antes
+do alvo (`habilidade + 60` continua sendo o cálculo do seletor), na mesma unidade Elo de "reduzir
+alvo em 100" (`docs/08 §7.6`) · **decisão de mesclagem**: o slot resolvido entra ao final da fase,
+nunca na posição declarada em `StageActivity.order` — preservar a posição exata exigiria carregar
+a ordem de cada atividade fixa também, e nenhum conteúdo intercala hoje · slot com regra
+irreconhecível, sem criança encontrada ou sem candidata **nunca lança exceção** — só não entra na
+missão, e é tentado de novo na próxima abertura · duas abas resolvendo o mesmo slot ao mesmo
+tempo não é corrida perigosa: `createMany` com `skipDuplicates` mais leitura de volta garante que
+as duas saiam com a mesma resposta · a mesma atividade não repete dentro da mesma missão (fixa ou
+slot de outro grupo).
+
+> ⚠️ **Achado importante, dos dois itens acima**: o motor resolve o slot e grava certo — provado
+> pelos testes de integração —, mas **a tela de jogo ainda não consegue exibir uma atividade
+> resolvida por slot**. Ver o alerta grande em §4, "a UI real não toca em slot". Enquanto isso não
+> for corrigido, os dois modos só são jogáveis pela camada de aplicação (o que os testes de
+> integração exercitam), não pelo navegador.
+
+### Fila de revisão — concluída (Etapa 3, passo 3, item 2)
+`ReviewCard.dueAt` é escrito a cada tentativa desde a Etapa 2 e ninguém lia. Agora existe uma
+missão que lê: "Fila de Revisão", do modo `revisao` do slot, preenchida com a competência mais
+vencida da criança — e cada resposta ainda atualiza o SM-2 normalmente, fechando o ciclo.
+
+- `src/modules/quest/domain/slot-rule.ts` — modo `{ modo: "revisao" }`: sem objetivo declarado,
+  porque quem escolhe é a fila, não o conteúdo
+- `src/modules/quest/domain/slot-resolution.ts` — `slotsDeRevisaoPendentes`
+- `src/modules/quest/application/resolve-slots.ts` — cada slot de revisão pendente recebe uma
+  competência da fila vencida (`filaDeRevisaoVencida`, ordenada por `dueAt` — a mais vencida no
+  primeiro slot livre), busca candidata por **competência** (`candidatasPorCompetencia`, porque a
+  fila não sabe qual objetivo específico, só a competência) e **não aplica a exclusão de 48h**
+  (docs/08 §7.2 isenta o item vencido — é o próprio ponto de revisar)
+- `src/modules/quest/application/ports.ts` — `ItemDaFilaDeRevisao`, e os dois métodos novos de
+  `RepositorioDeSlots`: `filaDeRevisaoVencida` e `candidatasPorCompetencia`
+- **A missão "Fila de Revisão" não vem de `content/`** — vem de uma migration de dados
+  (`prisma/migrations/20260806234721_fila_de_revisao_fixture`): `Academy` "sistema" → `World` →
+  `Chapter` → `Quest` (`kind: REVIEW`, `sourceRef: "sistema/fila-de-revisao"`, 20 XP, 5 moedas) →
+  `Stage` → 5 `StageActivity` (todas slot, modo `revisao`). Não é conteúdo pedagógico autorado —
+  é dado de sistema, e por isso não segue o caminho do importador (docs/HANDOFF.md, esta seção)
+- `src/modules/quest/infrastructure/prisma-map-reader.ts` — a academia "sistema" é excluída da
+  lista de ilhas do mapa (`where: { academy: { slug: { not: "sistema" } } }`): é prateleira, não
+  ilha
+- `tests/integration/review-queue.integration.test.ts` — Postgres real. `garantirFixtureDeRevisao`
+  refaz a fixture por `upsert` no `beforeAll`, porque os outros arquivos de integração apagam a
+  tabela `Quest` inteira nos próprios `beforeAll`/`afterAll` (rebuild do acervo a partir de
+  `content/`) — e esta fixture, ao contrário do acervo, não é reimportável
+
+**Propriedades travadas (não relitigar):**
+custo de Fôlego continua 3 (`CUSTO_DE_FOLEGO.REVIEW`, docs/08 §4 "3 por revisão") — não criei um
+`QuestKind` novo para isto; **cada slot de revisão busca uma competência diferente da fila** —
+`filaDeRevisaoVencida` já devolve uma linha por competência, então dois slots nunca competem pela
+mesma · **slot de revisão e slot de objetivo compartilham a lista de atividades já usadas na
+missão** — a mesma atividade não sai duas vezes mesmo que os dois modos apontem para a mesma
+competência · fila mais curta que os slots disponíveis deixa slot sem dono, sem erro — o mesmo
+destino de sempre · fila vazia (nada vencido) abre a missão sem nenhuma atividade — ver a
+consequência disso, abaixo.
+
+**Decisões em aberto — precisam do dono:**
+1. **Tamanho da fila (5 slots) e recompensa (20 XP, 5 moedas)** são valores razoáveis, não
+   calibrados — não há especificação numérica em `docs/08` para uma sessão de revisão dedicada
+   (só para item individual: "5 XP" por item em dia). Ajustar é editar a migration com uma nova
+   migration de dados (`UPDATE`), já que a fixture não vem de `content/`.
+2. **Abrir a fila sem nada vencido cobra Fôlego e abre uma jogada sem nenhuma atividade**, que
+   nunca conclui (`missaoConcluida` exige `atividades.length > 0`). Não é bug do motor — é a
+   ausência do card de hub que só mostraria o botão quando a fila não estiver vazia (ver §4). Até
+   esse card existir, quem chamar `abrirJogada("sistema/fila-de-revisao")` precisa checar a fila
+   antes.
+
+### O conteúdo encontra a tela — concluído (Etapa 3, passo 3, item 0)
+O alerta que abria a seção 4 desde a etapa anterior: o motor resolvia o slot certo, mas a criança
+nunca via — `content-bridge.ts` só lia `content/` do disco, e a Fila de Revisão nem tinha onde
+ser encontrada. Verificado em navegador de verdade (Playwright, sessão completa: cadastro →
+verificação → criança → PIN → missão real do início ao fim → Fila de Revisão do início ao fim,
+com `ReviewCard` fechando o ciclo do SM-2 na tela — screenshots na sessão, não versionados).
+
+- `src/activities/content-bridge.ts` — `carregarMissaoParaSessao(slug, learnerId?)`. **`learnerId`
+  é opcional de propósito**: sem ele, a função nunca toca o banco — é o caminho que
+  `tests/motor/jornada-da-missao.test.ts` (suíte rápida, sem Postgres) continua exercitando, e é
+  a prova de que o motor não ganhou uma dependência nova. Com ele:
+  - busca a árvore `Quest`/`Stage`/`StageActivity` (por `sourceRef`, ou por sufixo de `slug`
+    quando a missão não existe em `content/`)
+  - sem slot pendente na árvore, devolve a missão de `content/` sem mudar nada (caminho rápido,
+    zero risco para as três atividades que já existem)
+  - com slot, busca a jogada mais recente da criança, lê `QuestRunSlot` e completa cada fase com
+    a atividade resolvida — **slug sintético** (`Activity.id`, porque nunca existiu slug de
+    autoria) e `ref` real (`Activity.sourceRef`, o que `submeterTentativa` precisa para achá-la)
+  - sem `content/` nenhum (a Fila de Revisão), monta a missão inteira do banco:
+    `narrative.introducao/conclusao` viram texto, cada `Stage` vira uma fase (sem slug/nome
+    próprios — `Stage` não guarda isso — sintéticos, nunca lidos por ninguém)
+- `app/(play)/missao/[slug]/page.tsx` — resolve a sessão (mesmo padrão de `/hub`) e passa
+  `learnerId` ao bridge
+- `app/(play)/missao/[slug]/actions.ts` — `abrirMissaoAction` relê a missão **depois** de
+  `abrirJogada` (é só aí que um slot criado agora tem atividade) e devolve `missao` no payload;
+  `concluirMissaoAction` e `responderAtividadeAction` passam `learnerId`
+- `app/(play)/missao/[slug]/missao-runner.tsx` — `missaoAtual` (estado) substitui a `missao`
+  (prop) assim que `abrirMissaoAction` devolve a versão resolvida; a ordem dos dois primeiros
+  `if` foi invertida — **abertura antes de "sem atividade"** — porque antes do primeiro
+  "Começar" `missaoAtual.fases` pode estar vazia (a Fila de Revisão sempre começa assim), e
+  checar isso primeiro mostraria "missão concluída" para quem nunca jogou
+
+**Propriedades travadas (não relitigar):**
+sem `learnerId`, `carregarMissaoParaSessao` **nunca** consulta o banco — é a garantia que mantém
+o motor testável sem infraestrutura · missão sem slot é **byte a byte** o que já existia antes
+desta mudança (testado: `comLearner` e `semLearner` são `toEqual`) · atividade resolvida por
+slot nunca ganha `recompensa` própria (o banco não guarda essa regra — é conceito só de
+autoria); a criança ainda ganha domínio (BKT/Elo/`ReviewCard`) e o prêmio de missão ao concluir,
+só não ganha XP por aquela resposta isolada · a resolução do slot acontece **dentro** de
+`abrirJogada` (chamado pela ação), nunca no render da página — `abrir é uma ação` continua valendo
+inteiro.
+
+**Armadilha nova, registrada em §9**: rodar `npm run test:integration` contra um Postgres que
+também tem a fixture da Fila de Revisão pode apagá-la — os arquivos de integração mais antigos
+limpam `Quest`/`Academy`/etc. sem filtro. Nunca aconteceria em produção (a suíte não roda no
+deploy), mas apagou a fixture deste ambiente de teste duas vezes durante esta sessão.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -281,14 +460,20 @@ autoria a importa.
 
 ## 4. O que NÃO existe ainda
 
+> ✅ **Resolvido:** a UI real já toca em slot — objetivo e revisão, os dois. Era o alerta desta
+> seção; agora é a seção 3, "O conteúdo encontra a tela". Verificado em navegador de verdade, não
+> só em teste.
+
 - **O mapa é uma lista, não um desenho.** `World.mapLayout` (nós, arestas, coordenadas) está no
   schema e o importador grava `{ schemaVersion: 1, nos: [], arestas: [] }` — vazio. O mapa atual
   agrupa por ilha e capítulo, com tranca e caminho, mas não tem geografia. Fazer o desenho exige
   autorar o layout em `content/`
-- **Slots dinâmicos são ignorados.** `StageActivity` com `activityId` nulo é descartado pelo
-  repositório de missões: uma missão só de slots não é jogável, e contar um slot como atividade
-  obrigatória tornaria a conclusão impossível. A seleção adaptativa (`docs/08 §7`) é quem os
-  preenche, e o `SeletorDeAtividades` já existe como porta em `src/activities/difficulty.ts`
+- **`content/` ainda não autora slot do modo `objetivo`.** O motor sabe preencher
+  `StageActivity.activityId` nulo, e a tela já sabe mostrar o resultado (seção 3, acima) — falta
+  só a autoria: o schema (`content/schema/`) não tem campo para declarar um slot, todo
+  `fase.atividades` de hoje é fixo. Escrever a primeira missão com slot desse modo exige estender
+  `content/schema/index.ts` e o importador (`domain/plan.ts`) para reconhecer o tipo "slot" e
+  gravar `slotRule` com o `Objective.id` já resolvido
 - **`Chapter`, `World` e `mapLayout`** — no banco, sem tela. A base lista missões em texto
 - **Desbloqueio por nível** (Academia da Inteligência no 10, Prosperidade no 15…) — a tabela de
   `docs/08 §1` não está implementada. O que funciona é o desbloqueio **declarado no conteúdo**
@@ -322,18 +507,10 @@ autoria a importa.
 O sistema está fechado: a criança abre uma missão, responde, o modelo aprende, a Luz sobe, a
 missão fecha e o mapa mostra o que vem. **O que falta agora é o motor usar tudo que ele já sabe.**
 
-Três peças estão prontas e desligadas — cada uma é uma porta que já existe, esperando quem a
-chame.
+Os itens 1 (seleção adaptativa), 2 (fila de revisão) e 0 (a tela sabe mostrar os dois) estão
+feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seção 3.
 
 ### Ordem sugerida
-1. **Seleção adaptativa** (`docs/08 §7`). `StageActivity` com `activityId` nulo é um slot, e hoje
-   é descartado. `SeletorDeAtividades` e `seletorPorProximidade` **já existem** em
-   `src/activities/difficulty.ts`, e `SkillMastery.ability` já é gravado a cada tentativa. Falta
-   preencher o slot ao carregar a missão: candidatas do `objectiveId`, alvo `habilidade + 60`,
-   sem repetir as vistas em 48h, sem o mesmo tipo três vezes seguidas.
-2. **Fila de revisão** (`ReviewCard.dueAt`). É escrito a cada tentativa desde a Etapa 2 e ninguém
-   lê. Uma missão `REVIEW` montada da fila vencida fecha o ciclo do SM-2 — e é a peça que faz o
-   que ela aprendeu em março ainda estar lá em julho.
 3. **Conquistas.** `Achievement.criteria` é regra declarativa avaliada por evento, como a de
    desbloqueio. O barramento e o outbox estão prontos: é escrever o manipulador (modo `outbox`,
    porque conquista pode esperar) e registrá-lo no composition root.
@@ -343,21 +520,19 @@ chame.
    e não é exibido com `confidence < 0.6`.
 
 ### Decisões em aberto — precisam do dono
-**1. A importação de conteúdo deve rodar no deploy?** Continua manual (`npm run content:import`).
-Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy — mas os deploys de *preview*
-compartilham o `DATABASE_URL` de produção, então uma branch em rascunho escreveria no banco real.
-**Jogar exige o acervo importado**: sem ele, abrir a missão responde `quest.not_published`.
-
-**2. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
+**1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
 gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 
-**3. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
+**2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**4. O gargalo agora é conteúdo, não código.** Uma missão, três atividades, dois tipos de
+**3. O gargalo agora é conteúdo, não código.** Uma missão, três atividades, dois tipos de
 atividade implementados. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
+
+> A antiga decisão nº 1 desta lista — "a importação de conteúdo deve rodar no deploy?" — está
+> resolvida. Ver seção 3, "Importação automática de conteúdo no deploy".
 
 ## 6. Decisões já tomadas — não relitigar
 
@@ -384,8 +559,14 @@ importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 | **`assessment` mede; quem credita reage ao evento** | `src/modules/assessment/domain/events.ts` |
 | **Telemetria e evento interno são tópicos separados** | `src/modules/assessment/domain/events.ts` |
 | **Iniciar e retomar uma missão são a mesma operação** | `src/modules/quest/application/play-quest.ts` |
+| **Slot resolvido entra ao final da fase, não na posição declarada** | `src/modules/quest/domain/slot-resolution.ts` |
+| **Resolução de slot é gravada na primeira abertura; retomada só lê** | `src/modules/quest/application/resolve-slots.ts` |
+| **Slot de revisão não exclui atividade vista nas últimas 48h** (revisar é o ponto) | `docs/08 §7.2` · `application/resolve-slots.ts` |
+| **Fila de Revisão é dado de sistema (migration), não conteúdo de `content/`** | `prisma/migrations/20260806234721_fila_de_revisao_fixture` |
+| **Custo de Fôlego da Fila de Revisão é o mesmo de qualquer `REVIEW`** (3, não criei kind novo) | `src/modules/quest/domain/energy-cost.ts` |
 | **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
 | **Desbloqueio devolve o caminho, não um cadeado** | `src/modules/quest/domain/unlock-rule.ts` |
+| **`content:import` só roda sozinho quando `VERCEL_ENV=production`; sem a variável, pula** | `scripts/import-content-em-producao.mjs` |
 
 ---
 
@@ -504,6 +685,18 @@ npx prisma migrate deploy && npm run test:integration
 - `npm audit` acusa 3 vulnerabilidades **altas** em dependências transitivas do Next
   (`sharp`/libvips, `postcss`). A correção exige Next 16 — mudança de major, fora do escopo
   desta etapa. Avaliar ao planejar a Etapa 1.
+- **`npm run test:integration` pode apagar a fixture da Fila de Revisão.** Os arquivos mais
+  antigos (`quest.integration.test.ts`, `slot-selection.integration.test.ts`) limpam `Academy`,
+  `Quest`, `Stage`, `StageActivity` **sem filtro** no próprio `beforeAll`/`afterAll`, para
+  reconstruir o acervo a partir de `content/`. Isso apaga `Academy` "sistema" e tudo debaixo dela
+  junto — e ela não volta sozinha, porque não é conteúdo reimportável. Cada arquivo que precisa da
+  fixture já se defende com `garantirFixtureDeRevisao` (upsert no próprio `beforeAll` — ver
+  `review-queue.integration.test.ts` e `content-bridge.integration.test.ts`), então a suíte
+  inteira passa mesmo assim; o que pode faltar é a fixture **depois** da suíte rodar, se algo de
+  fora dela (uma sessão manual, por exemplo) contar com ela ter sobrevivido. Nunca acontece em
+  produção — a suíte de integração não roda no deploy — mas aconteceu duas vezes rodando local
+  nesta sessão. Se precisar dela fora de teste, reaplique
+  `psql "$DATABASE_URL" -f prisma/migrations/20260806234721_fila_de_revisao_fixture/migration.sql`.
 
 ---
 

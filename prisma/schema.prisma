@@ -450,6 +450,7 @@ model Activity {
   pack       ContentPack?    @relation(fields: [packId], references: [id])
   stageLinks StageActivity[]
   attempts   Attempt[]
+  runSlots   QuestRunSlot[]
 
   @@index([objectiveId, status, difficulty])
   @@index([type, status])
@@ -601,12 +602,30 @@ model QuestRun {
   completedAt      DateTime?
   rewardsGrantedAt DateTime? // idempotência de recompensa (Bíblia Cap. 6 §6.5)
 
-  learner  Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
-  quest    Quest     @relation(fields: [questId], references: [id])
+  learner  Learner        @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  quest    Quest          @relation(fields: [questId], references: [id])
   attempts Attempt[]
+  slots    QuestRunSlot[]
 
   @@unique([learnerId, questId, startedAt])
   @@index([learnerId, status, startedAt(sort: Desc)])
+}
+
+/// Resolução de um slot dinâmico (docs/08 §7) — gravada uma vez, na primeira
+/// abertura da jogada, e nunca recalculada: é o que faz a retomada mostrar a
+/// mesma atividade que a criança já estava vendo.
+model QuestRunSlot {
+  questRunId String
+  stageId    String
+  order      Int
+  activityId String
+  resolvedAt DateTime @default(now())
+
+  questRun QuestRun @relation(fields: [questRunId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id])
+
+  @@id([questRunId, stageId, order])
+  @@index([activityId])
 }
 
 /// Particionada por RANGE(createdAt) mensal em produção (docs/04 §12).

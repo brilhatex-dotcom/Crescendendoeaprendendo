@@ -31,6 +31,18 @@ import { abrirMissaoAction, concluirMissaoAction, responderAtividadeAction } fro
  */
 export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   /**
+   * A missão que a tela usa para navegar. Começa como a `missao` que a página
+   * carregou, e é trocada pela versão que `abrirMissaoAction` relê depois de
+   * abrir a jogada (`comecar`, abaixo).
+   *
+   * Isso importa quando há slot dinâmico (docs/08 §7): a lista de atividades
+   * que a página monta antes do clique pode não ter todas ainda — a Fila de
+   * Revisão, por exemplo, começa sem nenhuma. Sem trocar de missão aqui, o
+   * índice que o servidor manda em `retomarNoIndice` apontaria para uma
+   * atividade que este componente nunca viu.
+   */
+  const [missaoAtual, setMissaoAtual] = useState(missao);
+  /**
    * A jogada em curso. `null` até a criança tocar em "Começar".
    *
    * É o que amarra cada tentativa a um `QuestRun` — e é por isso que a missão
@@ -81,18 +93,21 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     return () => clearTimeout(espera);
   }, [segurando, apresentacao.segurarSegundos]);
 
-  const atividade = atividadeEm(missao, posicao);
-  const total = totalDeAtividades(missao);
-  const numero = indiceAbsoluto(missao, posicao) + 1;
+  const atividade = atividadeEm(missaoAtual, posicao);
+  const total = totalDeAtividades(missaoAtual);
+  const numero = indiceAbsoluto(missaoAtual, posicao) + 1;
 
-  if (terminou || !atividade) {
-    return <TelaFinal missao={missao} premio={premioDaMissao} />;
-  }
-
+  /*
+   * A abertura vem antes de checar se há atividade. Antes do primeiro
+   * "Começar", `missaoAtual` pode não ter a lista completa ainda — de novo, a
+   * Fila de Revisão, que só sabe o que preencher depois de `abrirJogada`
+   * resolver o slot. Checar `!atividade` primeiro mostraria "missão concluída"
+   * para quem nunca começou.
+   */
   if (!jogada) {
     return (
       <TelaDeAbertura
-        missao={missao}
+        missao={missaoAtual}
         pendente={pendente}
         erro={erro}
         aoComecar={comecar}
@@ -100,22 +115,28 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     );
   }
 
+  if (terminou || !atividade) {
+    return <TelaFinal missao={missaoAtual} premio={premioDaMissao} />;
+  }
+
   const Renderer = obterRenderer(rendererDoTipo(atividade.tipo));
 
   function comecar(): void {
     setErro(null);
     const dados = new FormData();
-    dados.set("missaoSlug", missao.slug);
+    dados.set("missaoSlug", missaoAtual.slug);
 
     iniciarTransicao(async () => {
       const estado = await abrirMissaoAction({ status: "inicial" }, dados);
 
       if (estado.status === "sucesso") {
+        setMissaoAtual(estado.dados.missao);
         setJogada({ id: estado.dados.questRunId, retomada: estado.dados.retomada });
         // Retomar significa voltar exatamente onde parou. O índice vem do
         // servidor, contado das tentativas gravadas — não de estado do cliente,
-        // que não sobrevive a fechar o app.
-        setPosicao(posicaoDoIndice(missao, estado.dados.retomarNoIndice));
+        // que não sobrevive a fechar o app. E é contra `estado.dados.missao`
+        // que ele precisa bater, não contra a que a tela tinha antes de abrir.
+        setPosicao(posicaoDoIndice(estado.dados.missao, estado.dados.retomarNoIndice));
         setInicioMs(Date.now());
       } else if (estado.status === "erro") {
         setErro(estado.mensagem);
@@ -128,7 +149,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     setErro(null);
 
     const dados = new FormData();
-    dados.set("missaoSlug", missao.slug);
+    dados.set("missaoSlug", missaoAtual.slug);
     dados.set("atividadeSlug", atividade.slug);
     dados.set("resposta", JSON.stringify(resposta));
     dados.set("tentativa", String(tentativa));
@@ -154,7 +175,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
   }
 
   function avancar(): void {
-    const proxima = proximaPosicao(missao, posicao);
+    const proxima = proximaPosicao(missaoAtual, posicao);
     limparDevolutiva();
     setTentativa(1);
 
@@ -175,7 +196,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     }
 
     const dados = new FormData();
-    dados.set("missaoSlug", missao.slug);
+    dados.set("missaoSlug", missaoAtual.slug);
     dados.set("questRunId", corrida.id);
 
     iniciarTransicao(async () => {
@@ -223,7 +244,7 @@ export function MissaoRunner({ missao }: { missao: MissaoNaSessao }) {
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-8 px-6 py-8">
       <header className="flex flex-col gap-3">
         <div className="flex items-center justify-between text-sm text-slate-400">
-          <span className="font-display uppercase tracking-[0.15em]">{missao.nome}</span>
+          <span className="font-display uppercase tracking-[0.15em]">{missaoAtual.nome}</span>
           <span>
             {numero} de {total}
           </span>

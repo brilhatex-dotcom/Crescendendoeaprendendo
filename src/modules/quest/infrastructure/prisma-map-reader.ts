@@ -22,6 +22,14 @@ export function criarLeituraPrismaDoMapa(db: PrismaClient): LeituraDoMapa {
     async mapaDaCrianca(learnerId: string): Promise<DadosDoMapa> {
       const [mundos, corridas, masteries, progresso] = await Promise.all([
         db.world.findMany({
+          /*
+           * A academia "sistema" não é uma ilha — é a prateleira onde mora a
+           * Fila de Revisão (docs/HANDOFF.md, migration
+           * `fila_de_revisao_fixture`). Sem este filtro ela apareceria no
+           * mapa como um mundo qualquer, com uma "missão" sem narrativa de
+           * currículo nenhuma.
+           */
+          where: { academy: { slug: { not: "sistema" } } },
           orderBy: [{ academyId: "asc" }, { order: "asc" }],
           select: {
             slug: true,

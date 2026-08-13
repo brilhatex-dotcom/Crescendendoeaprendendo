@@ -1,3 +1,4 @@
+import type { RegraDeSlot } from "./slot-rule";
 import type { RegraDeDesbloqueio } from "./unlock-rule";
 
 /**
@@ -59,12 +60,28 @@ export interface DadosDaMissao {
    * linhas que `Attempt` aponta, e é contra elas que a conclusão é verificada.
    */
   readonly atividades: readonly AtividadeDaMissao[];
+  /**
+   * Slots dinâmicos (`StageActivity.activityId` nulo) ainda sem atividade
+   * escolhida. Vazio em toda missão que só tem atividade fixa — hoje, todas.
+   * Quem preenche é `resolverSlotsDaMissao` (docs/08 §7), nunca este arquivo:
+   * arquivo puro não consulta o banco para saber a habilidade da criança.
+   */
+  readonly slotsPendentes: readonly SlotPendente[];
 }
 
 export interface AtividadeDaMissao {
   readonly activityId: string;
   /** Índice da fase, começando em 0. */
   readonly fase: number;
+}
+
+export interface SlotPendente {
+  readonly stageId: string;
+  /** `StageActivity.order` — usado só para ordenar slots entre si (docs/13 nota de mesclagem). */
+  readonly order: number;
+  readonly fase: number;
+  /** `null` quando a regra em `slotRule` é irreconhecível — o slot nunca será preenchido. */
+  readonly regra: RegraDeSlot | null;
 }
 
 /**

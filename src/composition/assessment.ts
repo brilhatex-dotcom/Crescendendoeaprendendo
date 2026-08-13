@@ -1,3 +1,4 @@
+import { seletorPorProximidade } from "@/activities";
 import { criarSubmeterTentativa, type SubmeterTentativa } from "@/modules/assessment";
 import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@/modules/quest";
 import { criarLeituraPrismaDoMapa } from "@/modules/quest/infrastructure/prisma-map-reader";
 import { criarRepositorioPrismaDeMissoes } from "@/modules/quest/infrastructure/prisma-quest-repository";
+import { criarRepositorioPrismaDeSlots } from "@/modules/quest/infrastructure/prisma-slot-repository";
 import { db } from "@/server/db";
 import { criarBarramento } from "@/server/event-bus";
 import { criarDespachanteDoOutbox, type DespachanteDoOutbox } from "@/server/outbox";
@@ -52,6 +54,7 @@ import { systemClock } from "@/shared/kernel";
 const repositorioDeProgresso = criarRepositorioPrismaDeProgresso(db);
 const repositorioDeCarteira = criarRepositorioPrismaDeCarteira(db);
 const repositorioDeMissoes = criarRepositorioPrismaDeMissoes();
+const repositorioDeSlots = criarRepositorioPrismaDeSlots();
 const leituraDoMapa = criarLeituraPrismaDoMapa(db);
 
 const unidadeDeTrabalho = criarUnidadeDeTrabalho(db);
@@ -70,7 +73,12 @@ const MANIPULADORES: readonly EventHandler[] = [
   // assessment.attempt_evaluated
   criarCreditoDeTentativa({ repositorio: repositorioDeProgresso, clock: systemClock }),
   criarCreditoDeRecompensa({ repositorio: repositorioDeCarteira }),
-  criarAvancoDaCorrida({ repositorio: repositorioDeMissoes }),
+  criarAvancoDaCorrida({
+    repositorio: repositorioDeMissoes,
+    slots: repositorioDeSlots,
+    seletor: seletorPorProximidade,
+    clock: systemClock,
+  }),
 
   // quest.completed
   criarCreditoDeMissaoNaLuz({ repositorio: repositorioDeProgresso, clock: systemClock }),
@@ -85,6 +93,8 @@ const barramento = criarBarramento(MANIPULADORES);
 const depsDeMissao = {
   repositorio: repositorioDeMissoes,
   leitura: leituraDoMapa,
+  slots: repositorioDeSlots,
+  seletor: seletorPorProximidade,
   unidadeDeTrabalho,
   barramento,
   clock: systemClock,

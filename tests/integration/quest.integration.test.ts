@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { EvaluationResult, RegraDeRecompensa } from "@/activities";
+import { seletorPorProximidade } from "@/activities";
 import { carregarAcervo } from "@/content/loader";
 import { criarSubmeterTentativa } from "@/modules/assessment";
 import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
@@ -27,6 +28,7 @@ import {
 } from "@/modules/quest";
 import { criarLeituraPrismaDoMapa } from "@/modules/quest/infrastructure/prisma-map-reader";
 import { criarRepositorioPrismaDeMissoes } from "@/modules/quest/infrastructure/prisma-quest-repository";
+import { criarRepositorioPrismaDeSlots } from "@/modules/quest/infrastructure/prisma-slot-repository";
 import { criarBarramento } from "@/server/event-bus";
 import { criarUnidadeDeTrabalho } from "@/server/unit-of-work";
 import { FOLEGO } from "@/modules/progression";
@@ -48,13 +50,19 @@ const db = new PrismaClient();
 const progresso = criarRepositorioPrismaDeProgresso(db);
 const carteira = criarRepositorioPrismaDeCarteira(db);
 const missoes = criarRepositorioPrismaDeMissoes();
+const slots = criarRepositorioPrismaDeSlots();
 const leitura = criarLeituraPrismaDoMapa(db);
 
 const MANIPULADORES: readonly EventHandler[] = [
   criarCobrancaDeFolego({ repositorio: progresso, clock: systemClock }),
   criarCreditoDeTentativa({ repositorio: progresso, clock: systemClock }),
   criarCreditoDeRecompensa({ repositorio: carteira }),
-  criarAvancoDaCorrida({ repositorio: missoes }),
+  criarAvancoDaCorrida({
+    repositorio: missoes,
+    slots,
+    seletor: seletorPorProximidade,
+    clock: systemClock,
+  }),
   criarCreditoDeMissaoNaLuz({ repositorio: progresso, clock: systemClock }),
   criarCreditoDeMissaoNaCarteira({ repositorio: carteira }),
 ] as readonly EventHandler[];
@@ -62,7 +70,15 @@ const MANIPULADORES: readonly EventHandler[] = [
 const unidadeDeTrabalho = criarUnidadeDeTrabalho(db);
 const barramento = criarBarramento(MANIPULADORES);
 
-const deps = { repositorio: missoes, leitura, unidadeDeTrabalho, barramento, clock: systemClock };
+const deps = {
+  repositorio: missoes,
+  leitura,
+  slots,
+  seletor: seletorPorProximidade,
+  unidadeDeTrabalho,
+  barramento,
+  clock: systemClock,
+};
 
 const abrir = criarAbrirJogada(deps);
 const concluir = criarConcluirJogada(deps);

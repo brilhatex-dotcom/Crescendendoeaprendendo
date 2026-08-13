@@ -376,7 +376,7 @@ model Stage {
 model StageActivity {                           // atividade fixa OU slot dinâmico
   stageId    String
   activityId String?                            // null = slot preenchido por seleção adaptativa
-  slotRule   Json?                              // ex.: { objectiveId, difficultyDelta: 0.3 }
+  slotRule   Json?                              // { modo: "objetivo", objectiveId, difficultyDelta } | { modo: "revisao" }
   order      Int
   stage      Stage @relation(fields: [stageId], references: [id], onDelete: Cascade)
   activity   Activity? @relation(fields: [activityId], references: [id])

@@ -1,11 +1,13 @@
+import type { SeletorDeAtividades } from "@/activities";
 import {
   TOPICO_TENTATIVA_AVALIADA,
   type TentativaAvaliada,
 } from "@/modules/assessment";
-import type { DomainEvent, EventHandler, Transacao } from "@/shared/kernel";
+import type { Clock, DomainEvent, EventHandler, Transacao } from "@/shared/kernel";
 
 import { posicaoDaRetomada } from "../domain/quest-run";
-import type { RepositorioDeMissoes } from "./ports";
+import type { RepositorioDeMissoes, RepositorioDeSlots } from "./ports";
+import { criarResolverSlots } from "./resolve-slots";
 
 /**
  * Faz a corrida acompanhar as respostas.
@@ -25,7 +27,12 @@ import type { RepositorioDeMissoes } from "./ports";
  */
 export function criarAvancoDaCorrida(deps: {
   readonly repositorio: RepositorioDeMissoes;
+  readonly slots: RepositorioDeSlots;
+  readonly seletor: SeletorDeAtividades;
+  readonly clock: Clock;
 }): EventHandler<DomainEvent<typeof TOPICO_TENTATIVA_AVALIADA, TentativaAvaliada>> {
+  const resolverSlots = criarResolverSlots({ slots: deps.slots, seletor: deps.seletor });
+
   return {
     topico: TOPICO_TENTATIVA_AVALIADA,
     modo: "inline",
@@ -45,8 +52,15 @@ export function criarAvancoDaCorrida(deps: {
        * Por isso a contagem abaixo já a inclui, e a posição sai certa sem que
        * este manipulador precise saber qual atividade foi.
        */
-      const missao = await deps.repositorio.buscarMissaoPorQuestId(corrida.questId, tx);
-      if (!missao) return;
+      const missaoDeclarada = await deps.repositorio.buscarMissaoPorQuestId(corrida.questId, tx);
+      if (!missaoDeclarada) return;
+
+      // Missão já resolvida ao abrir a jogada — aqui só se lê o que já existe.
+      const missao = await resolverSlots(
+        missaoDeclarada,
+        { learnerId: corrida.learnerId, questRunId, agora: deps.clock.now() },
+        tx,
+      );
 
       const respondidas = await deps.repositorio.atividadesRespondidas(questRunId, tx);
       const posicao = posicaoDaRetomada(missao, respondidas);
