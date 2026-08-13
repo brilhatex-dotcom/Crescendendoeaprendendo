@@ -1,0 +1,273 @@
+{
+  "slug": "missao-03-o-recife-dos-peixinhos",
+  "nome": "O Recife dos Peixinhos",
+  "tipo": "STORY",
+  "ordem": 3,
+  "introducao": "Do outro lado da praia, um recife cheio de corais apareceu com a maré baixa. Os peixinhos se espalharam entre eles, e ORLA precisa contar rápido antes que a água volte a subir. Você ajuda?",
+  "conclusao": "O recife inteiro brilha agora! ORLA já vê a próxima ilha se formando no horizonte.",
+  "competenciasExigidas": [],
+  "desbloqueio": {
+    "questCompleted": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-02-os-caranguejos-da-mare"
+  },
+  "recompensaDaMissao": {
+    "porDesfecho": {
+      "CORRECT": {
+        "xp": 50,
+        "moedas": 18,
+        "colecionaveis": [
+          "peixinho-do-recife"
+        ]
+      },
+      "PARTIAL": {
+        "xp": 30,
+        "moedas": 10
+      },
+      "INCORRECT": {
+        "xp": 10
+      }
+    },
+    "aplicarFatorDeDificuldade": false
+  },
+  "fases": [
+    {
+      "slug": "fase-01-contar",
+      "nome": "Quantos peixinhos há no recife?",
+      "atividades": [
+        {
+          "slug": "contar-peixinhos-9",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "contar-ate-10",
+          "dificuldade": "DIFICIL",
+          "duracaoEstimadaSeg": 50,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Estes peixinhos nadam entre os corais. Quantos são?",
+            "enunciadoFalado": "Estes peixinhos nadam entre os corais. Quantos são?",
+            "opcoes": [
+              {
+                "id": "oito",
+                "texto": "8",
+                "correta": false,
+                "ensino": "Faltou um! Toque em cada peixinho e conte de novo, um de cada vez.",
+                "equivoco": "parou-antes-do-ultimo"
+              },
+              {
+                "id": "nove",
+                "texto": "9",
+                "correta": true
+              },
+              {
+                "id": "dez",
+                "texto": "10",
+                "correta": false,
+                "ensino": "Você contou um peixinho duas vezes. Vá da esquerda para a direita, uma de cada vez.",
+                "equivoco": "contou-em-dobro"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! São 9 peixinhos. O último número que você diz é a quantidade.",
+            "dicas": [
+              "Toque em cada peixinho enquanto conta em voz alta.",
+              "Comece pelo peixinho da esquerda e não volte atrás."
+            ],
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "entre os corais",
+              "grupos": [
+                {
+                  "simbolo": "🐠",
+                  "quantidade": 9,
+                  "nome": "peixinho"
+                }
+              ]
+            }
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 14,
+                "moedas": 6
+              },
+              "PARTIAL": {
+                "xp": 8,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-02-comparar",
+      "nome": "Peixinhos ou corais?",
+      "atividades": [
+        {
+          "slug": "comparar-peixinhos-e-corais",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "comparar-quantidades",
+          "dificuldade": "DIFICIL",
+          "duracaoEstimadaSeg": 55,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "EXPLORER",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "ORLA tem mais peixinhos ou mais corais?",
+            "opcoes": [
+              {
+                "id": "peixinhos",
+                "texto": "Peixinhos",
+                "correta": true
+              },
+              {
+                "id": "corais",
+                "texto": "Corais",
+                "correta": false,
+                "ensino": "Conte de novo: são 9 peixinhos e 5 corais. O 9 vem depois do 5 quando contamos.",
+                "equivoco": "inverteu-a-comparacao"
+              },
+              {
+                "id": "iguais",
+                "texto": "As duas têm a mesma quantidade",
+                "correta": false,
+                "ensino": "Não são iguais: 9 é diferente de 5. Tente juntar um peixinho com um coral e veja o que sobra.",
+                "equivoco": "nao-comparou-as-quantidades"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! São 9 peixinhos e 5 corais. Sobraram peixinhos sem par.",
+            "dicas": [
+              "Junte um peixinho com um coral. O que sobrar tem mais.",
+              "Conte cada grupo separado e veja qual número vem depois."
+            ],
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "no recife",
+              "grupos": [
+                {
+                  "simbolo": "🐠",
+                  "quantidade": 9,
+                  "nome": "peixinho",
+                  "rotulo": "peixinhos"
+                },
+                {
+                  "simbolo": "🪸",
+                  "quantidade": 5,
+                  "nome": "coral",
+                  "rotulo": "corais"
+                }
+              ]
+            }
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 14,
+                "moedas": 6
+              },
+              "PARTIAL": {
+                "xp": 8,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-03-organizar-o-recife",
+      "nome": "Organizar o recife",
+      "atividades": [
+        {
+          "slug": "ordenar-5-numeros",
+          "tipo": "ORDER_SEQUENCE",
+          "objetivo": "ordenar-numeros-ate-10",
+          "dificuldade": "DIFICIL",
+          "duracaoEstimadaSeg": 90,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Ponha estes números em ordem, do menor para o maior.",
+            "itens": [
+              {
+                "id": "n2",
+                "texto": "2"
+              },
+              {
+                "id": "n10",
+                "texto": "10"
+              },
+              {
+                "id": "n5",
+                "texto": "5"
+              },
+              {
+                "id": "n7",
+                "texto": "7"
+              },
+              {
+                "id": "n1",
+                "texto": "1"
+              }
+            ],
+            "ordemCorreta": [
+              "n1",
+              "n2",
+              "n5",
+              "n7",
+              "n10"
+            ],
+            "mensagemDeAcerto": "Perfeito! Do menor para o maior: 1, 2, 5, 7 e 10.",
+            "ensino": "Procure sempre o menor número que ainda sobrou e coloque na frente. Comece pelo 1.",
+            "ensinoParcial": "Você já organizou boa parte! Olhe qual número saiu do lugar e compare com o vizinho.",
+            "equivoco": "ordem-crescente-incompleta",
+            "dicas": [
+              "Qual é o menor de todos?",
+              "Depois do 1, qual é o menor que sobrou?"
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 22,
+                "moedas": 9
+              },
+              "PARTIAL": {
+                "xp": 13,
+                "moedas": 5
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

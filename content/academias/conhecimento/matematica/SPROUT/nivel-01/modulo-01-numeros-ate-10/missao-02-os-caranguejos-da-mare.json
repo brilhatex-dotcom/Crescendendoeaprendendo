@@ -1,0 +1,268 @@
+{
+  "slug": "missao-02-os-caranguejos-da-mare",
+  "nome": "Os Caranguejos da Maré",
+  "tipo": "STORY",
+  "ordem": 2,
+  "introducao": "A maré trouxe caranguejos e estrelas-do-mar para o próximo trecho da praia. ORLA precisa contar e organizar tudo antes que a água volte a subir. Você ajuda?",
+  "conclusao": "Mais um trecho da costa brilhando! ORLA já aponta para o próximo desafio, um pouco mais adiante.",
+  "competenciasExigidas": [],
+  "desbloqueio": {
+    "questCompleted": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-01-a-contagem-da-orla"
+  },
+  "recompensaDaMissao": {
+    "porDesfecho": {
+      "CORRECT": {
+        "xp": 45,
+        "moedas": 16,
+        "colecionaveis": [
+          "caranguejo-da-mare"
+        ]
+      },
+      "PARTIAL": {
+        "xp": 28,
+        "moedas": 9
+      },
+      "INCORRECT": {
+        "xp": 10
+      }
+    },
+    "aplicarFatorDeDificuldade": false
+  },
+  "fases": [
+    {
+      "slug": "fase-01-contar",
+      "nome": "Quantos caranguejos chegaram?",
+      "atividades": [
+        {
+          "slug": "contar-caranguejos-6",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "contar-ate-10",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 45,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "A maré trouxe estes caranguejos até a areia. Quantos são?",
+            "enunciadoFalado": "A maré trouxe estes caranguejos até a areia. Quantos são?",
+            "opcoes": [
+              {
+                "id": "cinco",
+                "texto": "5",
+                "correta": false,
+                "ensino": "Faltou um! Toque em cada caranguejo e conte de novo, um de cada vez.",
+                "equivoco": "parou-antes-do-ultimo"
+              },
+              {
+                "id": "seis",
+                "texto": "6",
+                "correta": true
+              },
+              {
+                "id": "sete",
+                "texto": "7",
+                "correta": false,
+                "ensino": "Você contou um caranguejo duas vezes. Vá da esquerda para a direita, uma de cada vez.",
+                "equivoco": "contou-em-dobro"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! São 6 caranguejos. Contar um de cada vez garante a resposta certa.",
+            "dicas": [
+              "Toque em cada caranguejo enquanto conta em voz alta.",
+              "Comece pelo caranguejo da esquerda e não volte atrás."
+            ],
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "chegando com a maré",
+              "grupos": [
+                {
+                  "simbolo": "🦀",
+                  "quantidade": 6,
+                  "nome": "caranguejo"
+                }
+              ]
+            }
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 7,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-02-comparar",
+      "nome": "Caranguejos ou estrelas?",
+      "atividades": [
+        {
+          "slug": "comparar-caranguejos-e-estrelas",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "comparar-quantidades",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 50,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "EXPLORER",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "ORLA tem mais caranguejos ou mais estrelas-do-mar?",
+            "opcoes": [
+              {
+                "id": "caranguejos",
+                "texto": "Caranguejos",
+                "correta": true
+              },
+              {
+                "id": "estrelas",
+                "texto": "Estrelas-do-mar",
+                "correta": false,
+                "ensino": "Conte de novo: são 6 caranguejos e 3 estrelas. O 6 vem depois do 3 quando contamos.",
+                "equivoco": "inverteu-a-comparacao"
+              },
+              {
+                "id": "iguais",
+                "texto": "As duas têm a mesma quantidade",
+                "correta": false,
+                "ensino": "Não são iguais: 6 é diferente de 3. Tente juntar um caranguejo com uma estrela e veja o que sobra.",
+                "equivoco": "nao-comparou-as-quantidades"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! São 6 caranguejos e 3 estrelas. Sobraram caranguejos sem par.",
+            "dicas": [
+              "Junte um caranguejo com uma estrela. O que sobrar tem mais.",
+              "Conte cada grupo separado e veja qual número vem depois."
+            ],
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "o que a maré deixou",
+              "grupos": [
+                {
+                  "simbolo": "🦀",
+                  "quantidade": 6,
+                  "nome": "caranguejo",
+                  "rotulo": "caranguejos"
+                },
+                {
+                  "simbolo": "⭐",
+                  "quantidade": 3,
+                  "nome": "estrela-do-mar",
+                  "rotulo": "estrelas-do-mar"
+                }
+              ]
+            }
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 7,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-03-a-mare-desce",
+      "nome": "A maré desce",
+      "atividades": [
+        {
+          "slug": "ordenar-4-numeros-decrescente",
+          "tipo": "ORDER_SEQUENCE",
+          "objetivo": "ordenar-numeros-ate-10",
+          "dificuldade": "DIFICIL",
+          "duracaoEstimadaSeg": 75,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Agora a maré desce. Ponha os números em ordem: do maior para o menor.",
+            "itens": [
+              {
+                "id": "n8",
+                "texto": "8"
+              },
+              {
+                "id": "n3",
+                "texto": "3"
+              },
+              {
+                "id": "n6",
+                "texto": "6"
+              },
+              {
+                "id": "n1",
+                "texto": "1"
+              }
+            ],
+            "ordemCorreta": [
+              "n8",
+              "n6",
+              "n3",
+              "n1"
+            ],
+            "mensagemDeAcerto": "Perfeito! Do maior para o menor: 8, 6, 3 e 1.",
+            "ensino": "Procure sempre o maior número que ainda sobrou e coloque na frente. Comece pelo 8.",
+            "ensinoParcial": "Você já organizou boa parte! Olhe qual número saiu do lugar e compare com o vizinho.",
+            "equivoco": "ordem-decrescente-incompleta",
+            "dicas": [
+              "Qual é o maior de todos?",
+              "Depois do 8, qual é o maior que sobrou?"
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 18,
+                "moedas": 8
+              },
+              "PARTIAL": {
+                "xp": 11,
+                "moedas": 5
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
