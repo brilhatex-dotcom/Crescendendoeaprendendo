@@ -93,6 +93,13 @@ export class PrismaAccountRepository implements AccountRepository {
     });
   }
 
+  async updatePasswordHash(accountId: string, passwordHash: string): Promise<void> {
+    await this.#db.account.update({
+      where: { id: accountId },
+      data: { passwordHash },
+    });
+  }
+
   async registerLogin(accountId: string, quando: Date): Promise<void> {
     await this.#db.account.update({
       where: { id: accountId },

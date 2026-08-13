@@ -9,6 +9,8 @@ import {
   entrar,
   iniciarSessaoDeCrianca,
   listarFamilia,
+  pedirRedefinicaoDeSenha,
+  redefinirSenha,
   registrarResponsavel,
   resolverSessao,
   verificarEmail,
@@ -22,7 +24,11 @@ import { PrismaAuditTrail } from "@/modules/identity/infrastructure/prisma-audit
 import { PrismaLearnerRepository } from "@/modules/identity/infrastructure/prisma-learner-repository";
 import { PrismaSessionRepository } from "@/modules/identity/infrastructure/prisma-session-repository";
 import { PrismaVerificationTokenRepository } from "@/modules/identity/infrastructure/prisma-verification-token-repository";
-import type { EmailDeVerificacao, IdentityMailer } from "@/modules/identity/application/ports";
+import type {
+  EmailDeRedefinicao,
+  EmailDeVerificacao,
+  IdentityMailer,
+} from "@/modules/identity/application/ports";
 
 /**
  * Teste de integração — Postgres de verdade, Argon2 de verdade.
@@ -46,6 +52,7 @@ const ctx: RequestContext = {
 /** Captura o link de verificação sem enviar e-mail de verdade. */
 class MailerDeTeste implements IdentityMailer {
   readonly enviados: EmailDeVerificacao[] = [];
+  readonly redefinicoes: EmailDeRedefinicao[] = [];
 
   async enviarVerificacao(dados: EmailDeVerificacao): Promise<Result<void>> {
     this.enviados.push(dados);
@@ -56,9 +63,20 @@ class MailerDeTeste implements IdentityMailer {
     return { ok: true, value: undefined };
   }
 
+  async enviarRedefinicaoDeSenha(dados: EmailDeRedefinicao): Promise<Result<void>> {
+    this.redefinicoes.push(dados);
+    return { ok: true, value: undefined };
+  }
+
   get ultimoToken(): string {
     const ultimo = this.enviados.at(-1);
     if (!ultimo) throw new Error("nenhum e-mail enviado");
+    return new URL(ultimo.url).searchParams.get("token") ?? "";
+  }
+
+  get ultimoTokenDeRedefinicao(): string {
+    const ultimo = this.redefinicoes.at(-1);
+    if (!ultimo) throw new Error("nenhum e-mail de redefinição enviado");
     return new URL(ultimo.url).searchParams.get("token") ?? "";
   }
 }
@@ -250,5 +268,67 @@ describe("jornada completa da Etapa 0", () => {
     // Resposta idêntica à do caminho feliz — e nenhuma conta a mais.
     expect((await registrarResponsavel(deps, CADASTRO, ctx)).ok).toBe(true);
     expect(await db.account.count()).toBe(1);
+  });
+});
+
+describe("esqueci minha senha", () => {
+  async function contaAtiva() {
+    await registrarResponsavel(deps, CADASTRO, ctx);
+    await verificarEmail(deps, mailer.ultimoToken, ctx);
+    return db.account.findFirstOrThrow();
+  }
+
+  it("troca o hash da senha e revoga as sessões abertas, de ponta a ponta", async () => {
+    const conta = await contaAtiva();
+    const login = unwrap(
+      await entrar(deps, { email: CADASTRO.email, senha: CADASTRO.senha }, ctx),
+    );
+    const hashAntigo = (await db.account.findFirstOrThrow()).passwordHash;
+
+    expect((await pedirRedefinicaoDeSenha(deps, CADASTRO.email, ctx)).ok).toBe(true);
+    const resultado = await redefinirSenha(
+      deps,
+      mailer.ultimoTokenDeRedefinicao,
+      "uma senha bem diferente da antiga",
+      ctx,
+    );
+    expect(resultado.ok).toBe(true);
+
+    const linha = await db.account.findFirstOrThrow();
+    expect(linha.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(linha.passwordHash).not.toBe(hashAntigo);
+
+    // A sessão aberta antes da troca não vale mais.
+    expect(await resolverSessao(deps, login.sessionToken)).toBeNull();
+
+    // A senha nova já entra: um login com ela abre sessão normalmente.
+    const novoLogin = await entrar(
+      deps,
+      { email: CADASTRO.email, senha: "uma senha bem diferente da antiga" },
+      ctx,
+    );
+    expect(novoLogin.ok).toBe(true);
+
+    const trilha = await db.auditLog.findMany({ orderBy: { id: "asc" } });
+    expect(trilha.map((linha) => linha.action)).toContain("identity.password_reset");
+    expect(conta.id).toBe(linha.id);
+  });
+
+  it("token de verificação de e-mail e token de redefinição convivem sem colidir", async () => {
+    // Ambos moram na mesma tabela `VerificationToken` (identificador com
+    // prefixo diferente) — esta é a prova de que emitir um não apaga o outro.
+    await registrarResponsavel(deps, CADASTRO, ctx);
+    const tokenDeVerificacao = mailer.ultimoToken;
+
+    await pedirRedefinicaoDeSenha(deps, CADASTRO.email, ctx);
+    expect(await db.verificationToken.count()).toBe(2);
+
+    expect((await verificarEmail(deps, tokenDeVerificacao, ctx)).ok).toBe(true);
+    expect(await db.verificationToken.count()).toBe(1); // só o de redefinição sobrou
+
+    expect(
+      (await redefinirSenha(deps, mailer.ultimoTokenDeRedefinicao, "uma senha nova e boa", ctx)).ok,
+    ).toBe(true);
+    expect(await db.verificationToken.count()).toBe(0);
   });
 });

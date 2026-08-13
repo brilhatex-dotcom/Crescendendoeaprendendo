@@ -597,13 +597,40 @@ pelo site — só `/criar-conta`, `/entrar`, `/verificar-email`.
 - Testado contra Postgres local: senha trocada, sessões revogadas, log de auditoria gravado, e
   login confirmado em navegador real com a senha nova.
 
+### Fluxo de verdade de "esqueci minha senha" — concluído
+Pedido do dono: quem joga sozinho, sem VS Code nem terminal, não consegue usar o script de
+operador acima. Fecha o item 7 da "Ordem sugerida" (seção 5).
+
+- Reaproveita `VerificationTokenRepository`/tabela `VerificationToken` em vez de criar modelo e
+  migração próprios — o identificador ganha o prefixo `pwreset:` (`accountId` puro continua sendo
+  o de verificação de e-mail). Como `issue()` só apaga tokens do **mesmo** identificador, pedir
+  redefinição de senha não invalida um link de verificação pendente, e vice-versa — coberto por
+  teste de integração (`identity.integration.test.ts`, "token de verificação de e-mail e token de
+  redefinição convivem sem colidir").
+- `pedirRedefinicaoDeSenha` (`use-cases/reset-password.ts`) segue exatamente o padrão de
+  `reenviarVerificacao`: resposta idêntica para e-mail existente, inexistente e conta só-OAuth
+  (`hasPassword: false` — nada a redefinir), rate limit de 3/h por conta, `fakeVerify` não é
+  necessário porque nenhum hash é comparado neste caminho.
+- Link vale **1 hora**, não 24 como o de verificação — quem consegue ler o e-mail do responsável
+  nas últimas 24h já poderia trocar a senha; a janela mais curta reduz essa superfície.
+- `redefinirSenha` grava o hash novo (`AccountRepository.updatePasswordHash`, método novo),
+  **revoga toda sessão ativa da conta** e consome o token — mesmíssimo comportamento do script de
+  operador, agora acessível pela própria pessoa.
+- Telas novas em `(auth)`: `/esqueci-a-senha` (pede o e-mail) e `/redefinir-senha?token=...`
+  (escolhe a senha nova; sem token na URL, manda pedir um link novo). `/entrar` ganhou o link
+  "Esqueceu sua senha?".
+- Verificado de ponta a ponta em navegador real: cadastro → pedir redefinição → capturar o link no
+  e-mail simulado (console, sem `RESEND_API_KEY`) → trocar a senha → sessão antiga derrubada →
+  login com a senha nova funciona, com a antiga é recusado → reusar o mesmo link falha
+  ("uso único").
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
 
 ### Rotas
 - `(marketing)` — `/`, `/para-pais` (CTA de cadastro **recolocado**)
-- `(auth)` — `/criar-conta`, `/entrar`, `/verificar-email`
+- `(auth)` — `/criar-conta`, `/entrar`, `/verificar-email`, `/esqueci-a-senha`, `/redefinir-senha`
 - `(guardian)` — `/familia` (seletor, criar criança, definir PIN)
 - `(play)` — `/hub` (lista as missões do acervo) e `/missao/[slug]` (jogável)
 
@@ -655,7 +682,6 @@ pelo site — só `/criar-conta`, `/entrar`, `/verificar-email`.
 - `prisma/seed/` — sem seeds
 - `tests/e2e/` — sem Playwright
 - OAuth (Google/Apple) — `OAuthAccount` existe no schema, sem implementação
-- Recuperação de senha (`/recuperar`) — o fluxo não existe
 - Redis — o rate limiter é em memória; ver §9
 
 ---
@@ -680,12 +706,8 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`)~~ — **concluído nesta sessão**. Ver seção
    3, "Plugin DRAG_MATCH (parear)". Falta ainda `FILL_BLANK`, `MULTI_SELECT`, `TRUE_FALSE` e o
    resto da lista de `docs/12` — mesmo caminho, plugin novo sem tocar no núcleo.
-7. **Fluxo de verdade de "esqueci minha senha".** Hoje só existe o atalho de operador
-   (`scripts/redefinir-senha.ts`, seção 3) — exige `DATABASE_URL` e não é self-service. O certo
-   é token por e-mail, mesma arquitetura de `verifyEmail` (`VerificationToken`, já existe no
-   schema): página `/esqueci-minha-senha` pede o e-mail, `Resend` manda o link, uma página
-   `/redefinir-senha?token=...` deixa escolher a senha nova. Mesmas garantias da verificação de
-   cadastro — resposta idêntica para e-mail existente/inexistente, token de uso único.
+7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
+   "Fluxo de verdade de 'esqueci minha senha'".
 
 ### Decisões em aberto — precisam do dono
 **1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
