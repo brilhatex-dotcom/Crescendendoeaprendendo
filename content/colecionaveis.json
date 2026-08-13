@@ -14,6 +14,11 @@
       "code": "peixinho-do-recife",
       "nome": "Peixinho do Recife",
       "simbolo": "🐠"
+    },
+    {
+      "code": "bau-da-orla",
+      "nome": "Baú da Orla",
+      "simbolo": "🗝️"
     }
   ]
 }
