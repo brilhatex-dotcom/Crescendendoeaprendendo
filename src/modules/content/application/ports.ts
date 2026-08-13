@@ -31,6 +31,7 @@ export interface ResumoDaEscrita {
   readonly fases: number;
   readonly atividades: number;
   readonly vinculos: number;
+  readonly colecionaveis: number;
 }
 
 export const RESUMO_VAZIO: ResumoDaEscrita = {
@@ -46,4 +47,5 @@ export const RESUMO_VAZIO: ResumoDaEscrita = {
   fases: 0,
   atividades: 0,
   vinculos: 0,
+  colecionaveis: 0,
 };

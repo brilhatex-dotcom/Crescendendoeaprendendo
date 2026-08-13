@@ -1,6 +1,8 @@
 import { seletorPorProximidade } from "@/activities";
 import { criarSubmeterTentativa, type SubmeterTentativa } from "@/modules/assessment";
 import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
+import { criarConcessaoPorMissao, criarConcessaoPorTentativa } from "@/modules/collection";
+import { criarRepositorioPrismaDeColecionaveis } from "@/modules/collection/infrastructure/prisma-collection-repository";
 import {
   criarCreditoDeMissao as criarCreditoDeMissaoNaCarteira,
   criarCreditoDeRecompensa,
@@ -42,8 +44,8 @@ import { systemClock } from "@/shared/kernel";
  * | evento                       | quem reage                                  |
  * |------------------------------|---------------------------------------------|
  * | `quest.started`              | progressão cobra o Fôlego                    |
- * | `assessment.attempt_evaluated` | progressão credita Luz · economia credita Fagulha · missão avança a corrida |
- * | `quest.completed`            | progressão credita a recompensa e avança a Trilha · economia credita a moeda |
+ * | `assessment.attempt_evaluated` | progressão credita Luz · economia credita Fagulha · missão avança a corrida · coleção concede figurinha |
+ * | `quest.completed`            | progressão credita a recompensa e avança a Trilha · economia credita a moeda · coleção concede figurinha |
  * | `learning.attempt_recorded`  | telemetria (pelo outbox)                     |
  *
  * Acrescentar um efeito — conquista ao dominar uma competência, aviso ao
@@ -53,6 +55,7 @@ import { systemClock } from "@/shared/kernel";
 
 const repositorioDeProgresso = criarRepositorioPrismaDeProgresso(db);
 const repositorioDeCarteira = criarRepositorioPrismaDeCarteira(db);
+const repositorioDeColecionaveis = criarRepositorioPrismaDeColecionaveis(db);
 const repositorioDeMissoes = criarRepositorioPrismaDeMissoes();
 const repositorioDeSlots = criarRepositorioPrismaDeSlots();
 const leituraDoMapa = criarLeituraPrismaDoMapa(db);
@@ -73,6 +76,7 @@ const MANIPULADORES: readonly EventHandler[] = [
   // assessment.attempt_evaluated
   criarCreditoDeTentativa({ repositorio: repositorioDeProgresso, clock: systemClock }),
   criarCreditoDeRecompensa({ repositorio: repositorioDeCarteira }),
+  criarConcessaoPorTentativa({ repositorio: repositorioDeColecionaveis }),
   criarAvancoDaCorrida({
     repositorio: repositorioDeMissoes,
     slots: repositorioDeSlots,
@@ -83,6 +87,7 @@ const MANIPULADORES: readonly EventHandler[] = [
   // quest.completed
   criarCreditoDeMissaoNaLuz({ repositorio: repositorioDeProgresso, clock: systemClock }),
   criarCreditoDeMissaoNaCarteira({ repositorio: repositorioDeCarteira }),
+  criarConcessaoPorMissao({ repositorio: repositorioDeColecionaveis }),
 
   // learning.attempt_recorded
   criarTelemetriaDeTentativa(),
@@ -107,6 +112,7 @@ interface ContainerDaJogada {
   readonly montarMapa: MontarMapa;
   readonly progresso: typeof repositorioDeProgresso;
   readonly carteira: typeof repositorioDeCarteira;
+  readonly colecao: typeof repositorioDeColecionaveis;
   readonly despachante: DespachanteDoOutbox;
 }
 
@@ -126,6 +132,7 @@ export function containerDeAvaliacao(): ContainerDaJogada {
     montarMapa: criarMontarMapa({ leitura: leituraDoMapa }),
     progresso: repositorioDeProgresso,
     carteira: repositorioDeCarteira,
+    colecao: repositorioDeColecionaveis,
     despachante: criarDespachanteDoOutbox(db, MANIPULADORES),
   };
   return cache;

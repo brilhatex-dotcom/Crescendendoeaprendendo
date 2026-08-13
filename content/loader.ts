@@ -1,10 +1,11 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { ActivityRegistry } from "@/activities";
+import type { ActivityRegistry, RegraDeRecompensa } from "@/activities";
 
 import {
   academiaSchema,
+  catalogoDeColecionaveisSchema,
   disciplinaCurricularSchema,
   disciplinaSchema,
   missaoSchema,
@@ -12,6 +13,7 @@ import {
   nivelSchema,
   type Academia,
   type AtividadeAutorada,
+  type Colecionavel,
   type Disciplina,
   type DisciplinaCurricular,
   type Missao,
@@ -63,6 +65,7 @@ export interface Acervo {
   readonly niveis: readonly Nivel[];
   readonly modulos: readonly Modulo[];
   readonly missoes: readonly MissaoCarregada[];
+  readonly colecionaveis: readonly Colecionavel[];
 }
 
 export interface ProblemaDeConteudo {
@@ -88,6 +91,7 @@ export async function carregarAcervo(
   const niveis: Nivel[] = [];
   const modulos: Modulo[] = [];
   const missoes: MissaoCarregada[] = [];
+  let colecionaveis: readonly Colecionavel[] = [];
 
   /** Lê e valida um JSON. Problema vira relatório, nunca exceção. */
   async function ler<T>(
@@ -147,6 +151,19 @@ export async function carregarAcervo(
     if (curriculo) curriculos.push(curriculo);
   }
 
+  // ── Catálogo de colecionáveis ────────────────────────────────────────────
+  // Arquivo único, não uma pasta: o catálogo não é escopado por academia. Ausente
+  // é um acervo válido sem figurinhas — não um erro (mesmo espírito de `pastas`).
+  const caminhoDoCatalogo = join(raiz, "colecionaveis.json");
+  if (
+    await stat(caminhoDoCatalogo)
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    const catalogo = await ler(caminhoDoCatalogo, catalogoDeColecionaveisSchema);
+    if (catalogo) colecionaveis = catalogo.colecionaveis;
+  }
+
   // ── Academias e o que está abaixo delas ────────────────────────────────────
   const dirAcademias = join(raiz, "academias");
 
@@ -195,7 +212,7 @@ export async function carregarAcervo(
   }
 
   return {
-    acervo: { curriculos, academias, disciplinas, niveis, modulos, missoes },
+    acervo: { curriculos, academias, disciplinas, niveis, modulos, missoes, colecionaveis },
     problemas,
   };
 }
@@ -244,6 +261,18 @@ export function validarReferenciasEConfigs(
     }
   }
 
+  // Código repetido no catálogo colidiria em `Collectible.code`, único no banco.
+  const colecionaveisConhecidos = new Set<string>();
+  for (const colecionavel of acervo.colecionaveis) {
+    if (colecionaveisConhecidos.has(colecionavel.code)) {
+      problemas.push({
+        arquivo: "colecionaveis.json",
+        mensagem: `Código de colecionável repetido: "${colecionavel.code}".`,
+      });
+    }
+    colecionaveisConhecidos.add(colecionavel.code);
+  }
+
   const slugsDeMissao = new Set<string>();
 
   for (const carregada of acervo.missoes) {
@@ -253,6 +282,15 @@ export function validarReferenciasEConfigs(
       problemas.push({ arquivo: caminho, mensagem: `Slug de missão repetido: "${missao.slug}".` });
     }
     slugsDeMissao.add(missao.slug);
+
+    problemas.push(
+      ...validarColecionaveisDaRecompensa(
+        missao.recompensaDaMissao,
+        colecionaveisConhecidos,
+        caminho,
+        "recompensaDaMissao",
+      ),
+    );
 
     const slugsDeAtividade = new Set<string>();
 
@@ -273,6 +311,14 @@ export function validarReferenciasEConfigs(
         }
 
         problemas.push(...validarConfigDaAtividade(atividade, registro, caminho, rotulo));
+        problemas.push(
+          ...validarColecionaveisDaRecompensa(
+            atividade.recompensa,
+            colecionaveisConhecidos,
+            caminho,
+            rotulo,
+          ),
+        );
 
         if (fase.minimoParaPassar !== undefined && fase.minimoParaPassar > fase.atividades.length) {
           problemas.push({
@@ -284,6 +330,34 @@ export function validarReferenciasEConfigs(
     }
   }
 
+  return problemas;
+}
+
+/**
+ * Todo código em `colecionaveis` (missão ou atividade) precisa existir no
+ * catálogo — senão a criança ganha um prêmio que a galeria não sabe mostrar,
+ * e o código nunca vira figurinha nenhuma (`Collectible.code` não bate).
+ */
+function validarColecionaveisDaRecompensa(
+  regra: RegraDeRecompensa | null | undefined,
+  colecionaveisConhecidos: ReadonlySet<string>,
+  arquivo: string,
+  rotulo: string,
+): readonly ProblemaDeConteudo[] {
+  if (!regra) return [];
+
+  const problemas: ProblemaDeConteudo[] = [];
+  for (const [desfecho, premio] of Object.entries(regra.porDesfecho)) {
+    if (!premio) continue;
+    for (const code of premio.colecionaveis) {
+      if (!colecionaveisConhecidos.has(code)) {
+        problemas.push({
+          arquivo,
+          mensagem: `${rotulo} (${desfecho}): colecionável "${code}" não existe em content/colecionaveis.json.`,
+        });
+      }
+    }
+  }
   return problemas;
 }
 

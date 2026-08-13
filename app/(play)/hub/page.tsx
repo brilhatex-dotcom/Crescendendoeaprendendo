@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { containerDeAvaliacao } from "@/composition/assessment";
@@ -73,6 +74,13 @@ export default async function HubPage() {
       <PainelDeProgresso progresso={painel.progresso} carteira={painel.carteira} />
 
       <Mapa mundos={mundos} />
+
+      <Link
+        href="/colecao"
+        className="font-display min-h-[var(--touch-target-play)] rounded-[var(--radius-xl)] border-2 border-[var(--glass-border)] px-8 py-3 text-lg font-bold transition-colors duration-[var(--duration-quick)] hover:border-[var(--color-corrente)]"
+      >
+        Sua coleção
+      </Link>
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <SairDaAreaForm />

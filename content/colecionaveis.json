@@ -1,0 +1,19 @@
+{
+  "colecionaveis": [
+    {
+      "code": "concha-da-orla",
+      "nome": "Concha da Orla",
+      "simbolo": "🐚"
+    },
+    {
+      "code": "caranguejo-da-mare",
+      "nome": "Caranguejo da Maré",
+      "simbolo": "🦀"
+    },
+    {
+      "code": "peixinho-do-recife",
+      "nome": "Peixinho do Recife",
+      "simbolo": "🐠"
+    }
+  ]
+}
