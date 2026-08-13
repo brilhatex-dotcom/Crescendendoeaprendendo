@@ -20,6 +20,8 @@ import {
   encerrarSessaoDeCrianca,
   entrar,
   iniciarSessaoDeCrianca,
+  pedirRedefinicaoDeSenha,
+  redefinirSenha,
   registrarResponsavel,
   reenviarVerificacao,
   sair,
@@ -85,6 +87,36 @@ export const entrarAction = createAction({
       );
     }
     return resultado;
+  },
+});
+
+// ── Esqueci minha senha ──────────────────────────────────────────────────────
+
+export const pedirRedefinicaoDeSenhaAction = createAction({
+  nome: "identity.request_password_reset",
+  escopo: "publica",
+  entrada: z.object({
+    email: z.string().min(1, "Informe seu e-mail.").max(320),
+  }),
+  executar: async ({ entrada, ctx }) =>
+    pedirRedefinicaoDeSenha(identityDeps(), entrada.email, ctx),
+});
+
+export const redefinirSenhaAction = createAction({
+  nome: "identity.reset_password",
+  escopo: "publica",
+  entrada: z.object({
+    token: z.string().min(1, "Link inválido.").max(200),
+    senha: z.string().min(1, "Escolha uma senha.").max(200),
+    confirmacao: z.string().min(1, "Confirme a senha nova.").max(200),
+  }),
+  executar: async ({ entrada, ctx }) => {
+    if (entrada.senha !== entrada.confirmacao) {
+      return err(
+        forbidden("password.mismatch", "As duas senhas digitadas não são iguais."),
+      );
+    }
+    return redefinirSenha(identityDeps(), entrada.token, entrada.senha, ctx);
   },
 });
 

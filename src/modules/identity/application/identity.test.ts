@@ -8,6 +8,7 @@ import type { IdentityDeps, RequestContext } from "./deps";
 import type {
   AccountRepository,
   AuditTrail,
+  EmailDeRedefinicao,
   EmailDeVerificacao,
   IdentityMailer,
   LearnerRepository,
@@ -29,6 +30,7 @@ import {
   iniciarSessaoDeCrianca,
 } from "./use-cases/learner-session";
 import { registrarResponsavel } from "./use-cases/register-guardian";
+import { pedirRedefinicaoDeSenha, redefinirSenha } from "./use-cases/reset-password";
 import { resolverSessao } from "./use-cases/resolve-session";
 import { entrar, sair } from "./use-cases/sign-in";
 import { reenviarVerificacao, verificarEmail } from "./use-cases/verify-email";
@@ -135,6 +137,11 @@ class ContasFake implements AccountRepository {
   async updateParentPin(accountId: string, pinHash: string): Promise<void> {
     const linha = this.linhas.get(accountId);
     if (linha) linha.parentPinHash = pinHash;
+  }
+
+  async updatePasswordHash(accountId: string, passwordHash: string): Promise<void> {
+    const linha = this.linhas.get(accountId);
+    if (linha) linha.passwordHash = passwordHash;
   }
 
   async registerLogin(accountId: string, quando: Date): Promise<void> {
@@ -271,6 +278,7 @@ class HasherFake implements PasswordHasher {
 class MailerFake implements IdentityMailer {
   readonly verificacoes: EmailDeVerificacao[] = [];
   readonly avisosDeContaExistente: { para: string; nome: string }[] = [];
+  readonly redefinicoes: EmailDeRedefinicao[] = [];
 
   async enviarVerificacao(dados: EmailDeVerificacao): Promise<Result<void>> {
     this.verificacoes.push(dados);
@@ -286,10 +294,22 @@ class MailerFake implements IdentityMailer {
     return ok(undefined);
   }
 
+  async enviarRedefinicaoDeSenha(dados: EmailDeRedefinicao): Promise<Result<void>> {
+    this.redefinicoes.push(dados);
+    return ok(undefined);
+  }
+
   /** Token em claro do último link enviado — o teste lê o que o usuário leria. */
   get ultimoToken(): string {
     const ultimo = this.verificacoes.at(-1);
     if (!ultimo) throw new Error("nenhum e-mail de verificação foi enviado");
+    return new URL(ultimo.url).searchParams.get("token") ?? "";
+  }
+
+  /** Idem, para o link de redefinição de senha. */
+  get ultimoTokenDeRedefinicao(): string {
+    const ultimo = this.redefinicoes.at(-1);
+    if (!ultimo) throw new Error("nenhum e-mail de redefinição foi enviado");
     return new URL(ultimo.url).searchParams.get("token") ?? "";
   }
 }
@@ -462,6 +482,9 @@ describe("registrarResponsavel", () => {
         async enviarAvisoDeContaExistente() {
           return ok(undefined);
         },
+        async enviarRedefinicaoDeSenha() {
+          return ok(undefined);
+        },
       },
     };
 
@@ -538,6 +561,123 @@ describe("verificarEmail", () => {
     expect(resultado.ok).toBe(true);
     expect(unwrap(resultado).emailMascarado).toBe("ni•••••@exemplo.com");
     expect(mailer.verificacoes).toHaveLength(1); // só o do cadastro
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Esqueci minha senha
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("pedirRedefinicaoDeSenha e redefinirSenha", () => {
+  beforeEach(() => {
+    contas.semear({ email: "mariana@exemplo.com", passwordHash: "hash:senha-antiga" });
+  });
+
+  it("emite o link e permite trocar a senha", async () => {
+    const pedido = await pedirRedefinicaoDeSenha(deps, "mariana@exemplo.com", CTX);
+    expect(pedido.ok).toBe(true);
+    expect(mailer.redefinicoes).toHaveLength(1);
+    expect(auditoria.acoes()).toContain("identity.password_reset_requested");
+
+    const token = mailer.ultimoTokenDeRedefinicao;
+    const resultado = await redefinirSenha(
+      deps,
+      token,
+      "uma senha nova e boa",
+      CTX,
+    );
+
+    expect(resultado.ok).toBe(true);
+    const linha = [...contas.linhas.values()][0];
+    expect(linha?.passwordHash).toBe(await hasher.hash("uma senha nova e boa"));
+    expect(auditoria.acoes()).toContain("identity.password_reset");
+  });
+
+  it("revoga todas as sessões da conta ao trocar a senha", async () => {
+    const login = unwrap(
+      await entrar(deps, { email: "mariana@exemplo.com", senha: "senha-antiga" }, CTX),
+    );
+    await pedirRedefinicaoDeSenha(deps, "mariana@exemplo.com", CTX);
+    await redefinirSenha(deps, mailer.ultimoTokenDeRedefinicao, "uma senha nova e boa", CTX);
+
+    expect(await resolverSessao(deps, login.sessionToken)).toBeNull();
+  });
+
+  it("consome o token — o mesmo link não serve duas vezes", async () => {
+    await pedirRedefinicaoDeSenha(deps, "mariana@exemplo.com", CTX);
+    const token = mailer.ultimoTokenDeRedefinicao;
+    await redefinirSenha(deps, token, "uma senha nova e boa", CTX);
+
+    expect(codigo(await redefinirSenha(deps, token, "outra senha boa", CTX))).toBe(
+      "auth.reset_token_invalid",
+    );
+  });
+
+  it("recusa token expirado", async () => {
+    await pedirRedefinicaoDeSenha(deps, "mariana@exemplo.com", CTX);
+    const token = mailer.ultimoTokenDeRedefinicao;
+    relogio.advanceDays(1);
+
+    expect(codigo(await redefinirSenha(deps, token, "uma senha nova e boa", CTX))).toBe(
+      "auth.reset_token_invalid",
+    );
+  });
+
+  it("recusa senha nova que não passa na política do domínio", async () => {
+    await pedirRedefinicaoDeSenha(deps, "mariana@exemplo.com", CTX);
+    const token = mailer.ultimoTokenDeRedefinicao;
+
+    expect(codigo(await redefinirSenha(deps, token, "curta", CTX))).toBe(
+      "password.too_short",
+    );
+  });
+
+  it("não deixa um token de verificação de e-mail ser usado como redefinição de senha", async () => {
+    contas.linhas.clear();
+    await registrarResponsavel(deps, CADASTRO_VALIDO, CTX);
+    const tokenDeVerificacao = mailer.ultimoToken;
+
+    expect(codigo(await redefinirSenha(deps, tokenDeVerificacao, "uma senha nova e boa", CTX))).toBe(
+      "auth.reset_token_invalid",
+    );
+  });
+
+  it("pedir redefinição não invalida um token de verificação de e-mail pendente", async () => {
+    contas.linhas.clear();
+    await registrarResponsavel(deps, CADASTRO_VALIDO, CTX);
+    const tokenDeVerificacao = mailer.ultimoToken;
+
+    await pedirRedefinicaoDeSenha(deps, CADASTRO_VALIDO.email, CTX);
+
+    expect((await verificarEmail(deps, tokenDeVerificacao, CTX)).ok).toBe(true);
+  });
+
+  it("responde igual para e-mail inexistente, sem enviar nada", async () => {
+    const resultado = await pedirRedefinicaoDeSenha(deps, "ninguem@exemplo.com", CTX);
+    expect(resultado.ok).toBe(true);
+    expect(mailer.redefinicoes).toHaveLength(0);
+  });
+
+  it("responde igual para conta só-OAuth, sem senha para redefinir", async () => {
+    contas.linhas.clear();
+    contas.semear({ email: "oauth@exemplo.com", passwordHash: null });
+
+    const resultado = await pedirRedefinicaoDeSenha(deps, "oauth@exemplo.com", CTX);
+    expect(resultado.ok).toBe(true);
+    expect(mailer.redefinicoes).toHaveLength(0);
+  });
+
+  it("recusa token inventado sem dizer o motivo real", async () => {
+    expect(codigo(await redefinirSenha(deps, "token-que-nunca-existiu", "uma senha nova e boa", CTX))).toBe(
+      "auth.reset_token_invalid",
+    );
+  });
+
+  it("respeita o limite de pedidos por conta", async () => {
+    rateLimiter.bloquearTudo();
+    expect(codigo(await pedirRedefinicaoDeSenha(deps, "mariana@exemplo.com", CTX))).toBe(
+      "auth.reset_rate_limited",
+    );
   });
 });
 

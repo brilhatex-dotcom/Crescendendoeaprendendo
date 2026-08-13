@@ -2,7 +2,11 @@ import type { Mailer } from "@/server/mailer";
 import type { Result } from "@/shared/kernel";
 
 import type { Email } from "../domain";
-import type { EmailDeVerificacao, IdentityMailer } from "../application/ports";
+import type {
+  EmailDeRedefinicao,
+  EmailDeVerificacao,
+  IdentityMailer,
+} from "../application/ports";
 
 /**
  * Conteúdo dos e-mails de identidade.
@@ -86,6 +90,39 @@ export class TransactionalIdentityMailer implements IdentityMailer {
           "<p>Alguém preencheu o formulário de cadastro com este e-mail, que já tem conta aqui. <strong>Nenhuma conta nova foi criada</strong> e nada mudou na sua.</p>",
           botao(dados.urlEntrar, "Entrar na minha conta"),
           '<p style="color:#6b7280;font-size:14px">Se não foi você, não precisa fazer nada. Sua senha continua valendo e ninguém teve acesso à conta.</p>',
+        ].join(""),
+      }),
+    });
+  }
+
+  async enviarRedefinicaoDeSenha(dados: EmailDeRedefinicao): Promise<Result<void>> {
+    const minutos = Math.round(
+      (dados.expiraEm.getTime() - Date.now()) / (60 * 1000),
+    );
+
+    return this.#mailer.send({
+      to: dados.para.value,
+      subject: "Redefinir sua senha — Crescendo e Aprendendo",
+      text: [
+        `Olá, ${dados.nome}.`,
+        "",
+        "Pediram para trocar a senha desta conta. Se foi você, escolha uma senha nova aqui:",
+        dados.url,
+        "",
+        `O link vale por ${minutos} minutos e só pode ser usado uma vez.`,
+        "",
+        "Se não foi você quem pediu, ignore esta mensagem — sua senha continua a mesma.",
+        "",
+        "— Crescendo e Aprendendo",
+      ].join("\n"),
+      html: layout({
+        titulo: "Redefinir sua senha",
+        corpo: [
+          `<p>Olá, ${escapar(dados.nome)}.</p>`,
+          "<p>Pediram para trocar a senha desta conta. Se foi você, escolha uma senha nova pelo botão abaixo.</p>",
+          botao(dados.url, "Escolher senha nova"),
+          `<p style="color:#6b7280;font-size:14px">O link vale por ${minutos} minutos e só pode ser usado uma vez.</p>`,
+          '<p style="color:#6b7280;font-size:14px">Se não foi você quem pediu, ignore esta mensagem — sua senha continua a mesma.</p>',
         ].join(""),
       }),
     });

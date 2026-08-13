@@ -28,6 +28,7 @@ export interface AccountRepository {
   create(dados: NovaConta): Promise<Account>;
   markEmailVerified(accountId: string, quando: Date): Promise<void>;
   updateParentPin(accountId: string, pinHash: string): Promise<void>;
+  updatePasswordHash(accountId: string, passwordHash: string): Promise<void>;
   registerLogin(accountId: string, quando: Date): Promise<void>;
 }
 
@@ -123,6 +124,13 @@ export interface EmailDeVerificacao {
   readonly expiraEm: Date;
 }
 
+export interface EmailDeRedefinicao {
+  readonly para: Email;
+  readonly nome: string;
+  readonly url: string;
+  readonly expiraEm: Date;
+}
+
 export interface IdentityMailer {
   enviarVerificacao(dados: EmailDeVerificacao): Promise<Result<void>>;
   /**
@@ -138,6 +146,7 @@ export interface IdentityMailer {
     readonly nome: string;
     readonly urlEntrar: string;
   }): Promise<Result<void>>;
+  enviarRedefinicaoDeSenha(dados: EmailDeRedefinicao): Promise<Result<void>>;
 }
 
 export interface RateLimiter {

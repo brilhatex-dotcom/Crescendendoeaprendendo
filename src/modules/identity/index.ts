@@ -41,6 +41,12 @@ export type {
 
 export { reenviarVerificacao, verificarEmail } from "./application/use-cases/verify-email";
 
+export { pedirRedefinicaoDeSenha, redefinirSenha } from "./application/use-cases/reset-password";
+export type {
+  PedirRedefinicaoOutput,
+  RedefinirSenhaOutput,
+} from "./application/use-cases/reset-password";
+
 export { entrar, sair } from "./application/use-cases/sign-in";
 export type { EntrarInput, EntrarOutput } from "./application/use-cases/sign-in";
 

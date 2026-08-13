@@ -53,6 +53,13 @@ export function EntrarForm() {
         erro={campos?.senha}
       />
 
+      <Link
+        href="/esqueci-a-senha"
+        className="-mt-2 self-end text-sm text-slate-400 underline-offset-4 hover:underline"
+      >
+        Esqueceu sua senha?
+      </Link>
+
       <BotaoDeEnvio sucesso={estado.status === "sucesso"} />
 
       <p className="text-center text-sm text-slate-400">

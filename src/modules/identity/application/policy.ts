@@ -20,6 +20,12 @@ export const DURACAO = {
   sessaoCrianca: 4 * HORA,
   /** Link de verificação de e-mail: 24 horas. */
   tokenDeVerificacao: 24 * HORA,
+  /**
+   * Link de redefinição de senha: 1 hora, não 24. Quem pode ler o e-mail que
+   * chegou nas últimas 24h já pode trocar a senha da conta — janela mais curta
+   * reduz esse risco sem incomodar quem clica logo depois de pedir.
+   */
+  tokenDeRedefinicaoSenha: 1 * HORA,
 } as const;
 
 export const LIMITES = {
@@ -29,6 +35,8 @@ export const LIMITES = {
   criacaoDeConta: { limite: 3, janelaMs: HORA },
   /** Reenvio de verificação: 3/h por conta. Evita usar o produto como spam-cannon. */
   reenvioDeVerificacao: { limite: 3, janelaMs: HORA },
+  /** Pedido de redefinição de senha: 3/h por conta — mesmo raciocínio do reenvio. */
+  pedidoDeRedefinicao: { limite: 3, janelaMs: HORA },
   /** PIN: 5 tentativas por hora. O adversário é uma criança curiosa, não um botnet. */
   pin: { limite: 5, janelaMs: HORA },
   /** Teto de crianças por conta familiar — número de família, não de escola. */
