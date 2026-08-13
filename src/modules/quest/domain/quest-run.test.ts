@@ -18,7 +18,7 @@ const missao: DadosDaMissao = {
   questId: "q1",
   tipo: "STORY",
   nome: "A Contagem da Orla",
-  premio: { xp: 40, moedas: 10, cristais: 0 },
+  premio: { xp: 40, moedas: 10, cristais: 0, colecionaveis: [] },
   competenciasExigidas: [],
   desbloqueio: null,
   atividades: [

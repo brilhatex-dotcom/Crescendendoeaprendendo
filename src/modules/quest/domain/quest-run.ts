@@ -42,6 +42,8 @@ export interface PremioDaMissao {
   readonly xp: number;
   readonly moedas: number;
   readonly cristais: number;
+  /** `code` de `Collectible` — o motor só concede o código (docs/08 §6). */
+  readonly colecionaveis: readonly string[];
 }
 
 export interface DadosDaMissao {

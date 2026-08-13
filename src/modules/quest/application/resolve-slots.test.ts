@@ -36,7 +36,7 @@ const MISSAO_SEM_SLOT: DadosDaMissao = {
   questId: "q1",
   tipo: "STORY",
   nome: "Sem slot",
-  premio: { xp: 10, moedas: 0, cristais: 0 },
+  premio: { xp: 10, moedas: 0, cristais: 0, colecionaveis: [] },
   competenciasExigidas: [],
   desbloqueio: null,
   atividades: [{ activityId: "fixa-1", fase: 0 }],

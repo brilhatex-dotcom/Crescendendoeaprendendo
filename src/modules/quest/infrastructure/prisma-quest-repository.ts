@@ -117,6 +117,7 @@ const SELECAO_DA_MISSAO = {
   rewardXp: true,
   rewardCoins: true,
   rewardCrystals: true,
+  rewardCollectibles: true,
   requiredSkills: true,
   unlockRule: true,
   stages: {
@@ -159,6 +160,7 @@ function paraDadosDaMissao(quest: QuestSelecionada): DadosDaMissao {
       xp: quest.rewardXp,
       moedas: quest.rewardCoins,
       cristais: quest.rewardCrystals,
+      colecionaveis: quest.rewardCollectibles,
     },
     competenciasExigidas: quest.requiredSkills,
     desbloqueio: lerRegraDeDesbloqueio(quest.unlockRule),

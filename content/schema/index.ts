@@ -160,6 +160,31 @@ export const missaoSchema = z.object({
   fases: z.array(faseSchema).min(1),
 });
 
+// ── Catálogo de colecionáveis ("figurinhas") ─────────────────────────────────
+
+/**
+ * Uma figurinha do álbum da criança.
+ *
+ * `code` é o mesmo texto que uma `regraDeRecompensaSchema.colecionaveis`
+ * declara em qualquer missão ou atividade — o motor de atividades só concede
+ * o código (`src/activities/rewards.ts`); é este catálogo que diz o que ele
+ * significa. `simbolo` é emoji, não upload de imagem, mesma decisão de
+ * `stimulus.ts` para o apoio visual: sem `assetId`, a figurinha existe assim
+ * que o arquivo é revisado em pull request.
+ */
+export const colecionavelSchema = z.object({
+  code: slugSchema,
+  nome: z.string().min(2).max(80),
+  simbolo: z.string().min(1).max(8),
+});
+
+export const catalogoDeColecionaveisSchema = z.object({
+  colecionaveis: z.array(colecionavelSchema).min(1),
+});
+
+export type Colecionavel = z.infer<typeof colecionavelSchema>;
+export type CatalogoDeColecionaveis = z.infer<typeof catalogoDeColecionaveisSchema>;
+
 // ── Estrutura acima da missão ────────────────────────────────────────────────
 
 export const moduloSchema = z.object({

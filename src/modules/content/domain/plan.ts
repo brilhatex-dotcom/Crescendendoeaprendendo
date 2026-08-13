@@ -135,6 +135,7 @@ export interface LinhaMissao {
   readonly xp: number;
   readonly moedas: number;
   readonly cristais: number;
+  readonly colecionaveis: readonly string[];
   readonly competenciasExigidas: readonly string[];
   readonly regraDeDesbloqueio: RegraDeDesbloqueio | null;
   readonly ordem: number;
@@ -166,6 +167,12 @@ export interface LinhaVinculo {
   readonly atividadeRef: string;
 }
 
+export interface LinhaColecionavel {
+  readonly code: string;
+  readonly nome: string;
+  readonly simbolo: string;
+}
+
 export interface PlanoDeImportacao {
   readonly academias: readonly LinhaAcademia[];
   readonly disciplinas: readonly LinhaDisciplina[];
@@ -179,6 +186,7 @@ export interface PlanoDeImportacao {
   readonly fases: readonly LinhaFase[];
   readonly atividades: readonly LinhaAtividade[];
   readonly vinculos: readonly LinhaVinculo[];
+  readonly colecionaveis: readonly LinhaColecionavel[];
 }
 
 export interface ProblemaDePlano {
@@ -205,12 +213,14 @@ function premioDaMissao(missao: MissaoCarregada["missao"]): {
   xp: number;
   moedas: number;
   cristais: number;
+  colecionaveis: readonly string[];
 } {
   const base = missao.recompensaDaMissao?.porDesfecho.CORRECT;
   return {
     xp: base?.xp ?? 0,
     moedas: base?.moedas ?? 0,
     cristais: base?.cristais ?? 0,
+    colecionaveis: base?.colecionaveis ?? [],
   };
 }
 
@@ -415,6 +425,7 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
       xp: premio.xp,
       moedas: premio.moedas,
       cristais: premio.cristais,
+      colecionaveis: premio.colecionaveis,
       competenciasExigidas: carregada.missao.competenciasExigidas,
       regraDeDesbloqueio: carregada.missao.desbloqueio ?? null,
       ordem: carregada.missao.ordem,
@@ -466,6 +477,12 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
     });
   }
 
+  const colecionaveis: LinhaColecionavel[] = acervo.colecionaveis.map((c) => ({
+    code: c.code,
+    nome: c.nome,
+    simbolo: c.simbolo,
+  }));
+
   return {
     plano: {
       academias,
@@ -480,6 +497,7 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
       fases,
       atividades,
       vinculos,
+      colecionaveis,
     },
     problemas,
   };

@@ -243,6 +243,7 @@ export function criarEscritorPrismaDeConteudo(db: PrismaClient): EscritorDeConte
               rewardXp: linha.xp,
               rewardCoins: linha.moedas,
               rewardCrystals: linha.cristais,
+              rewardCollectibles: [...linha.colecionaveis],
               requiredSkills: [...linha.competenciasExigidas],
               /*
                * A gramática de desbloqueio é avaliada pelo módulo `quest`, que
@@ -331,6 +332,18 @@ export function criarEscritorPrismaDeConteudo(db: PrismaClient): EscritorDeConte
             vinculosGravados += 1;
           }
 
+          // ── Colecionável (Collectible) ────────────────────────────────────
+          let colecionaveisGravados = 0;
+
+          for (const linha of plano.colecionaveis) {
+            await tx.collectible.upsert({
+              where: { code: linha.code },
+              create: { code: linha.code, name: linha.nome, symbol: linha.simbolo },
+              update: { name: linha.nome, symbol: linha.simbolo },
+            });
+            colecionaveisGravados += 1;
+          }
+
           return {
             academias: idPorAcademia.size,
             disciplinas: idPorDisciplina.size,
@@ -344,6 +357,7 @@ export function criarEscritorPrismaDeConteudo(db: PrismaClient): EscritorDeConte
             fases: idPorFase.size,
             atividades: idPorAtividade.size,
             vinculos: vinculosGravados,
+            colecionaveis: colecionaveisGravados,
           };
         },
         { timeout: TIMEOUT_DA_TRANSACAO_MS },

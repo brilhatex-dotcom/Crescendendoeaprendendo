@@ -217,6 +217,7 @@ model Learner {
   ledgerEntries   LedgerEntry[]
   inventory       InventoryItem[]
   achievements    LearnerAchievement[]
+  collectibles    LearnerCollectible[]
   tutorSessions   TutorSession[]
   recommendations Recommendation[]
   enrollments     ClassroomEnrollment[]
@@ -519,19 +520,21 @@ model Chapter {
 }
 
 model Quest {
-  id             String    @id @default(cuid(2))
-  chapterId      String
-  kind           QuestKind
-  name           String
-  narrative      Json
-  rewardXp       Int
-  rewardCoins    Int
-  rewardCrystals Int       @default(0)
-  requiredSkills String[] // ids de Skill que o Colosso cobra
-  unlockRule     Json // regra declarativa avaliada pelo motor
-  order          Int
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                 String    @id @default(cuid(2))
+  chapterId          String
+  kind               QuestKind
+  name               String
+  narrative          Json
+  rewardXp           Int
+  rewardCoins        Int
+  rewardCrystals     Int       @default(0)
+  /// `code` de Collectible, não o id — mesma chave natural que o conteúdo declara.
+  rewardCollectibles String[]  @default([])
+  requiredSkills     String[] // ids de Skill que o Colosso cobra
+  unlockRule         Json // regra declarativa avaliada pelo motor
+  order              Int
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   /// Caminho de origem em `content/`. Chave de reimportação — ver Activity.
   sourceRef String? @unique
@@ -849,6 +852,31 @@ model LearnerAchievement {
   achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
 
   @@id([learnerId, achievementId])
+  @@index([learnerId, unlockedAt])
+}
+
+/// A "figurinha": catálogo autorado em `content/colecionaveis.json`, código
+/// opaco resolvido a partir do `Premio.colecionaveis` que o motor de
+/// atividades concede (src/activities/rewards.ts). Sem upload de asset —
+/// `symbol` é emoji, mesma decisão de `stimulus.ts` para o apoio visual.
+model Collectible {
+  id     String @id @default(cuid(2))
+  code   String @unique
+  name   String
+  symbol String
+
+  learners LearnerCollectible[]
+}
+
+model LearnerCollectible {
+  learnerId     String
+  collectibleId String
+  unlockedAt    DateTime @default(now())
+
+  learner     Learner     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  collectible Collectible @relation(fields: [collectibleId], references: [id], onDelete: Cascade)
+
+  @@id([learnerId, collectibleId])
   @@index([learnerId, unlockedAt])
 }
 

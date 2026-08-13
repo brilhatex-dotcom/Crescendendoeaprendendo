@@ -464,6 +464,54 @@ Maré") — o comentário no código já reconhece isso ("slug de arquivo não �
 Corrigir exige o avaliador de desbloqueio carregar o `nome` da `Quest` referenciada, não só o
 `ref`; ficou visível agora porque antes só havia uma missão, então a pendência nunca aparecia.
 
+### Sistema de figurinhas — concluído
+Pedido do dono, continuação do mesmo "mais lúdico": `Premio.colecionaveis` (`src/activities/
+rewards.ts`) já existia desde a sessão anterior, mas era um código opaco que não ia a lugar
+nenhum — nada persistia, nada mostrava. Agora existe de ponta a ponta.
+
+- **`prisma/migrations/…_colecionaveis`** + **`…_colecionaveis_na_missao`** — `Collectible`
+  (catálogo) + `LearnerCollectible` (posse, chave composta `learnerId, collectibleId` — é ela
+  que garante a idempotência, não uma checagem em código) espelhando exatamente o par
+  `Achievement`/`LearnerAchievement` que já existia. `Quest` ganhou `rewardCollectibles
+  String[]`.
+- **`content/colecionaveis.json`** — catálogo autorado (`code`, `nome`, `simbolo` emoji — mesma
+  decisão de `stimulus.ts`: zero upload de asset). Validado em `content/loader.ts`: todo `code`
+  citado numa `colecionaveis` de missão ou atividade **precisa** existir aqui, senão
+  `content:validate` falha. Publicado por `content:import` como qualquer outro conteúdo.
+- **`src/modules/collection`** — módulo novo. `domain/gallery.ts` (puro): `montarGaleria`
+  cruza catálogo com o que a criança já ganhou, e **esconde nome e símbolo de quem ainda não foi
+  descoberto** (o tipo é união discriminada por `descoberta`; não sobra nem `undefined` de nome
+  no objeto). `application/grant-collectibles.ts` — dois manipuladores **inline**
+  (`assessment.attempt_evaluated` e `quest.completed`), registrados em
+  `src/composition/assessment.ts` junto dos de progressão/economia.
+- **`app/(play)/colecao`** — a tela. Link a partir do `/hub` ("Sua coleção"). Grade com a
+  figurinha revelada (emoji + nome) ou um "❔ Ainda não descoberta" para quem falta.
+
+**Por que inline, e não outbox (como conquista, que ainda nem existe).** O outbox agora só
+desperta 1x/dia (`vercel.json`, decisão desta mesma sessão — ver "Cron do outbox" em §5). Um
+efeito que a criança precisa ver *na hora* — a figurinha aparecendo depois de vencer o desafio —
+não pode esperar até 24h. Achievements (`Achievement`/`LearnerAchievement`, item 3 da seção 5)
+podem continuar `outbox` quando forem escritos: reconhecimento que chega um pouco depois ainda é
+reconhecimento; figurinha que demora um dia inteiro para "aparecer" não é o que a criança
+experimentou ao ganhar.
+
+**Achado corrigido no caminho, não cosmético:** `recompensaDaMissao.colecionaveis` (autoria) nunca
+tinha chegado ao banco — `plan.ts`/`prisma-content-writer.ts` só extraíam `xp`/`moedas`/`cristais`
+de `Quest`, e `PremioDaMissao` (o evento `quest.completed`) nem tinha o campo. As três missões
+desta sessão declaram colecionável **na missão**, não na atividade — sem esse conserto, "Concha
+da Orla", "Caranguejo da Maré" e "Peixinho do Recife" nunca teriam sido concedidos a ninguém, silenciosamente. `Quest.rewardCollectibles` fecha esse caminho.
+
+**Verificado em navegador de verdade** (Playwright): álbum com as 3 figurinhas como "❔" antes de
+jogar → missão 1 completa → `/colecao` mostra "1 de 3" com "Concha da Orla" revelada (emoji +
+nome).
+
+**Propriedades travadas:** `Collectible.code` é a mesma chave natural declarada em `content/` —
+nunca o `id` opaco do banco, para o motor de atividades continuar sem saber o que é uma
+figurinha · conceder um `code` que não existe no catálogo não falha a resposta nem grava nada
+(o validador de conteúdo já impede isso de chegar à `main`) · a galeria nunca mostra número
+inventado — sem figurinha nenhuma, "0 de 3" é a verdade, mesmo padrão do resto do produto
+(ver `hub/page.tsx`).
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -538,11 +586,15 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 ### Ordem sugerida
 3. **Conquistas.** `Achievement.criteria` é regra declarativa avaliada por evento, como a de
    desbloqueio. O barramento e o outbox estão prontos: é escrever o manipulador (modo `outbox`,
-   porque conquista pode esperar) e registrá-lo no composition root.
+   porque conquista pode esperar — ver a seção 3, "Sistema de figurinhas", para o raciocínio de
+   quando `inline` é obrigatório e quando `outbox` serve) e registrá-lo no composition root.
 4. **Mapa desenhado** — `World.mapLayout` autorado em `content/`, com nós e arestas.
 5. **Perfil de talentos** (`docs/08 §9`) — recalculado a cada 50 tentativas. Tem regra ética
    própria: teto de 40% de sugestões do talento dominante, mínimo 1 fora do perfil por dia,
    e não é exibido com `confidence < 0.6`.
+6. **Novo tipo de atividade mais lúdico** (ex.: `DRAG_MATCH`, arrastar-e-combinar). Hoje o motor
+   só tem `MULTIPLE_CHOICE` e `ORDER_SEQUENCE` (`docs/12` já previa 4 desde a Etapa 1). Pedido do
+   dono, ainda não iniciado nesta sessão.
 
 ### Decisões em aberto — precisam do dono
 **1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
@@ -599,6 +651,9 @@ ação que gerou o evento). Ver `app/api/outbox/route.ts` e `vercel.json`.
 | **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
 | **Desbloqueio devolve o caminho, não um cadeado** | `src/modules/quest/domain/unlock-rule.ts` |
 | **`content:import` só roda sozinho quando `VERCEL_ENV=production`; sem a variável, pula** | `scripts/import-content-em-producao.mjs` |
+| Cron do `/api/outbox` em 1x/dia, não a cada 5 min (limite do plano Hobby) | decisão do dono, 2026-08-13 |
+| **Figurinha é concedida `inline`, não `outbox`** (precisa aparecer na hora; outbox só roda 1x/dia) | `src/modules/collection/application/grant-collectibles.ts` |
+| **`Collectible.code` é a chave natural em toda parte — nunca o `id` opaco** (motor não sabe o que é figurinha) | `content/colecionaveis.json` · `src/modules/collection` |
 
 ---
 

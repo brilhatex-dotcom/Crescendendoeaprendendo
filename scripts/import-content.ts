@@ -85,6 +85,7 @@ async function main(): Promise<number> {
     ["fases", resumo.fases],
     ["atividades", resumo.atividades],
     ["vínculos", resumo.vinculos],
+    ["colecionáveis", resumo.colecionaveis],
   ];
 
   for (const [rotulo, quantidade] of linhas) {

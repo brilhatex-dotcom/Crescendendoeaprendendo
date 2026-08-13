@@ -57,6 +57,7 @@ const ACERVO_MINIMO: Acervo = {
   ],
   niveis: [{ slug: "nivel-01", nome: "Primeiros Passos", ordem: 0, nivelMinimo: 1 }],
   modulos: [{ slug: "modulo-01", nome: "Números até 10", ordem: 0 }],
+  colecionaveis: [],
   missoes: [
     {
       academia: "conhecimento",
@@ -122,6 +123,18 @@ describe("planejarImportacao", () => {
     expect(plano.fases).toHaveLength(1);
     expect(plano.atividades).toHaveLength(2);
     expect(plano.vinculos).toHaveLength(2);
+    expect(plano.colecionaveis).toHaveLength(0);
+  });
+
+  it("mapeia o catálogo de colecionáveis 1:1", () => {
+    const { plano } = planejarImportacao({
+      ...ACERVO_MINIMO,
+      colecionaveis: [{ code: "concha-da-orla", nome: "Concha da Orla", simbolo: "🐚" }],
+    });
+
+    expect(plano.colecionaveis).toEqual([
+      { code: "concha-da-orla", nome: "Concha da Orla", simbolo: "🐚" },
+    ]);
   });
 
   it("leva o código BNCC do objetivo para a competência", () => {
