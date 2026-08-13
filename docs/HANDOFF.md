@@ -541,6 +541,61 @@ mostrando "4 de 4" com a chave revelada.
 o `id` nunca aparece na tela, só `esquerda`/`direita`, então a correção é `pareamento[id] === id`
 sem indireção nenhuma e sem vazar a resposta na inspeção do DOM.
 
+### Segunda disciplina: Português — concluída
+Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
+nova dentro da mesma Academia do Conhecimento** (não uma academia própria) — é assim que a
+Bíblia já descrevia a Praça das Letras, um distrito ao lado da Ladeira dos Números (`docs/
+biblia/volume-1/04-as-sete-academias.md §4.1`).
+
+- `content/curriculo/portugues.json` — competência "Alfabetização", 3 objetivos (reconhecer
+  letras, identificar letra inicial, contar sílabas). **`codigoBncc` foi omitido em todos**: o
+  campo é opcional de propósito (`content/schema/index.ts`), e adivinhar um código BNCC errado
+  seria pior que não declarar nenhum — uma alegação de conformidade curricular falsa é mais
+  grave que a ausência da alegação.
+- `content/academias/conhecimento/portugues/` — `disciplina.json` (aponta pro currículo
+  acima), `SPROUT/nivel-01/nivel.json` ("A Praça Muda"), `modulo-01-alfabeto/`.
+- `missao-01-o-alfabeto-da-virgula.json` — primeira missão de Português, com VÍRGULA (a gata
+  da Praça das Letras, já descrita na Bíblia). Três atividades, uma de cada tipo de plugin que
+  o motor tem hoje: `MULTIPLE_CHOICE` (letra inicial), `MULTIPLE_CHOICE` (contar sílabas),
+  `DRAG_MATCH` (combinar letra com palavra). Colecionável novo: "Pegada da Vírgula" (🐾).
+
+**Bug real encontrado e corrigido no caminho — nível/módulo colidindo entre disciplinas.**
+`plan.ts` montava `nivelPorSlug`/`moduloPorSlug` como mapas chaveados só pelo `slug` do
+`nivel.json`/`modulo.json` (ex.: `"nivel-01"`). Como toda disciplina naturalmente chama seu
+primeiro nível de "nivel-01" (é a convenção esperada, não um erro de autoria), a SEGUNDA
+disciplina importada pisava no mapa da primeira — e o nome do mundo de Matemática no `/hub`
+passou a mostrar "A Praça Muda" (o nome do nível de Português) em vez de "A Orla Apagada". Só
+apareceu agora porque antes desta sessão só existia uma disciplina.
+
+- `content/loader.ts` — `Acervo.niveis`/`Acervo.modulos` agora carregam `NivelCarregado`/
+  `ModuloCarregado` (o `nivel.json`/`modulo.json` acompanhado de academia/disciplina/faixa e do
+  nome da pasta), não mais o objeto cru.
+- `plan.ts` — os mapas de lookup usam a chave completa
+  (`academia/disciplina/faixa/pastaDoNivel[/pastaDoModulo]`), igual ao que `MissaoCarregada` já
+  fazia. Duas disciplinas com "nivel-01" cada não colidem mais.
+- Teste de regressão em `plan.test.ts`: duas disciplinas com o mesmo slug de nível, cada mundo
+  fica com o nome certo.
+
+**Verificado em navegador de verdade** (Playwright): hub mostra os dois mundos com o nome
+correto cada um (confirmado o bug ANTES da correção, e a correção DEPOIS) · as três atividades
+de Português jogadas até o fim, incluindo o pareamento por toque · galeria mostrando a Pegada
+da Vírgula revelada.
+
+### Script de operador: redefinir senha — concluído
+Pedido do dono ao perceber, jogando em produção, que não existe fluxo de "esqueci minha senha"
+pelo site — só `/criar-conta`, `/entrar`, `/verificar-email`.
+
+- `scripts/redefinir-senha.ts` (`npm run conta:redefinir-senha`) — mesmo padrão de
+  `scripts/verificar-conta.ts`: exige `DATABASE_URL`, nunca é rota nem Server Action, registra
+  a ação em `AuditLog`. Reaproveita `PlainPassword.create` (mesma validação do cadastro,
+  mínimo 10 caracteres) e `Argon2Hasher` (mesmo hash) — login volta a funcionar exatamente como
+  se a troca tivesse sido feita pela tela. Revoga toda sessão ativa da conta.
+- **Isto é um atalho, não substitui um fluxo de verdade.** O fluxo de verdade (token por
+  e-mail, mesma arquitetura da verificação de cadastro) ainda não existe — ver item novo em
+  "Ordem sugerida", seção 5.
+- Testado contra Postgres local: senha trocada, sessões revogadas, log de auditoria gravado, e
+  login confirmado em navegador real com a senha nova.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -624,6 +679,12 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`)~~ — **concluído nesta sessão**. Ver seção
    3, "Plugin DRAG_MATCH (parear)". Falta ainda `FILL_BLANK`, `MULTI_SELECT`, `TRUE_FALSE` e o
    resto da lista de `docs/12` — mesmo caminho, plugin novo sem tocar no núcleo.
+7. **Fluxo de verdade de "esqueci minha senha".** Hoje só existe o atalho de operador
+   (`scripts/redefinir-senha.ts`, seção 3) — exige `DATABASE_URL` e não é self-service. O certo
+   é token por e-mail, mesma arquitetura de `verifyEmail` (`VerificationToken`, já existe no
+   schema): página `/esqueci-minha-senha` pede o e-mail, `Resend` manda o link, uma página
+   `/redefinir-senha?token=...` deixa escolher a senha nova. Mesmas garantias da verificação de
+   cadastro — resposta idêntica para e-mail existente/inexistente, token de uso único.
 
 ### Decisões em aberto — precisam do dono
 **1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é

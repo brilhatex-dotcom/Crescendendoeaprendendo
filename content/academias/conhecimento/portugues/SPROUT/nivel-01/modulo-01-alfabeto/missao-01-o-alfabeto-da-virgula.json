@@ -1,0 +1,236 @@
+{
+  "slug": "missao-01-o-alfabeto-da-virgula",
+  "nome": "O Alfabeto da Vírgula",
+  "tipo": "STORY",
+  "ordem": 1,
+  "introducao": "VÍRGULA, a gata da Praça das Letras, derrubou todas as placas com as letras do alfabeto. Sem elas, ninguém consegue ler os nomes das ruas. Você ajuda a organizar tudo de novo?",
+  "conclusao": "As placas voltam ao lugar! VÍRGULA ronrona satisfeita — a Praça das Letras já não está mais muda.",
+  "competenciasExigidas": [],
+  "recompensaDaMissao": {
+    "porDesfecho": {
+      "CORRECT": {
+        "xp": 45,
+        "moedas": 16,
+        "colecionaveis": [
+          "pegada-da-virgula"
+        ]
+      },
+      "PARTIAL": {
+        "xp": 28,
+        "moedas": 9
+      },
+      "INCORRECT": {
+        "xp": 10
+      }
+    },
+    "aplicarFatorDeDificuldade": false
+  },
+  "fases": [
+    {
+      "slug": "fase-01-som-inicial",
+      "nome": "Qual é o som?",
+      "atividades": [
+        {
+          "slug": "letra-inicial-gato",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "identificar-letra-inicial",
+          "dificuldade": "FACIL",
+          "duracaoEstimadaSeg": 40,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "🐱 GATO — com qual letra essa palavra começa?",
+            "enunciadoFalado": "Gato. Com qual letra essa palavra começa?",
+            "opcoes": [
+              {
+                "id": "g",
+                "texto": "G",
+                "correta": true
+              },
+              {
+                "id": "t",
+                "texto": "T",
+                "correta": false,
+                "ensino": "T aparece em GATO, mas não é a primeira letra. Fale a palavra bem devagar: 'Gggg-ato'.",
+                "equivoco": "nao-e-a-primeira-letra"
+              },
+              {
+                "id": "a",
+                "texto": "A",
+                "correta": false,
+                "ensino": "A também está em GATO, mas no meio, não no começo. Escute o primeiro som: 'Gggg-ato'.",
+                "equivoco": "nao-e-a-primeira-letra"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! GATO começa com o som de G.",
+            "dicas": [
+              "Fale a palavra bem devagar e escute o primeiro som.",
+              "O primeiro som de 'gato' é 'guh'."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 7,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-02-silabas",
+      "nome": "Quantas partes tem essa palavra?",
+      "atividades": [
+        {
+          "slug": "contar-silabas-borboleta",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "contar-silabas",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 50,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "🦋 BORBOLETA — quantas sílabas (partes) tem essa palavra?",
+            "enunciadoFalado": "Borboleta. Quantas sílabas tem essa palavra?",
+            "opcoes": [
+              {
+                "id": "tres",
+                "texto": "3",
+                "correta": false,
+                "ensino": "Faltou uma parte! Bata palma de novo, bem devagar: bor-bo-le-ta.",
+                "equivoco": "parou-antes-do-ultimo"
+              },
+              {
+                "id": "quatro",
+                "texto": "4",
+                "correta": true
+              },
+              {
+                "id": "cinco",
+                "texto": "5",
+                "correta": false,
+                "ensino": "Você bateu palma demais. Vá devagar e escute cada parte: bor-bo-le-ta.",
+                "equivoco": "contou-em-dobro"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! BOR-BO-LE-TA tem 4 partes.",
+            "dicas": [
+              "Bata palma a cada parte que você fala.",
+              "Fale bem devagar: bor... bo... le... ta."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 7,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-03-combinar",
+      "nome": "Cada letra com sua palavra",
+      "atividades": [
+        {
+          "slug": "combinar-letra-e-palavra",
+          "tipo": "DRAG_MATCH",
+          "objetivo": "reconhecer-letras-do-alfabeto",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 80,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Combine cada letra com a palavra que começa com ela.",
+            "enunciadoFalado": "Combine cada letra com a palavra que começa com ela.",
+            "pares": [
+              {
+                "id": "b",
+                "esquerda": "B",
+                "direita": "🦋 Borboleta"
+              },
+              {
+                "id": "g",
+                "esquerda": "G",
+                "direita": "🐱 Gato"
+              },
+              {
+                "id": "p",
+                "esquerda": "P",
+                "direita": "🐟 Peixe"
+              },
+              {
+                "id": "s",
+                "esquerda": "S",
+                "direita": "☀️ Sol"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! Cada letra encontrou sua palavra.",
+            "ensino": "Fale cada palavra devagar e escute o primeiro som — ele é o nome da letra.",
+            "ensinoParcial": "Alguns pares já estão certos! Escute de novo o primeiro som dos que faltam.",
+            "equivoco": "nao-ouviu-o-primeiro-som",
+            "dicas": [
+              "Fale a palavra bem devagar.",
+              "O primeiro som que você ouve é o nome da letra."
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 20,
+                "moedas": 8
+              },
+              "PARTIAL": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -366,8 +366,21 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
   const atividades: LinhaAtividade[] = [];
   const vinculos: LinhaVinculo[] = [];
 
-  const nivelPorSlug = new Map(acervo.niveis.map((n) => [n.slug, n]));
-  const moduloPorSlug = new Map(acervo.modulos.map((m) => [m.slug, m]));
+  /*
+   * Chave completa (academia/disciplina/faixa/pasta), não só o slug: duas
+   * disciplinas naturalmente têm cada uma seu próprio "nivel-01" (é a
+   * convenção esperada de autoria), e um mapa chaveado só por slug faria a
+   * segunda importada pisar no nome/ordem da primeira ao montar o mundo.
+   */
+  const nivelPorChave = new Map(
+    acervo.niveis.map((n) => [`${n.academia}/${n.disciplina}/${n.faixa}/${n.pasta}`, n.nivel]),
+  );
+  const moduloPorChave = new Map(
+    acervo.modulos.map((m) => [
+      `${m.academia}/${m.disciplina}/${m.faixa}/${m.nivelPasta}/${m.pasta}`,
+      m.modulo,
+    ]),
+  );
 
   for (const carregada of acervo.missoes) {
     const codigoDisciplina = codigoPorDisciplinaDaArvore.get(
@@ -384,7 +397,9 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
 
     const indice = indicePorDisciplina.get(codigoDisciplina) ?? new Map<string, string>();
 
-    const nivel = nivelPorSlug.get(carregada.nivel);
+    const nivel = nivelPorChave.get(
+      `${carregada.academia}/${carregada.disciplina}/${carregada.faixa}/${carregada.nivel}`,
+    );
     const mundoSlug = slugDeMundo(carregada.disciplina, carregada.faixa, carregada.nivel);
 
     if (!mundos.has(mundoSlug)) {
@@ -398,7 +413,9 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
     }
 
     const capituloRef = refDeCapitulo(carregada);
-    const modulo = moduloPorSlug.get(carregada.modulo);
+    const modulo = moduloPorChave.get(
+      `${carregada.academia}/${carregada.disciplina}/${carregada.faixa}/${carregada.nivel}/${carregada.modulo}`,
+    );
 
     if (!capitulos.has(capituloRef)) {
       capitulos.set(capituloRef, {

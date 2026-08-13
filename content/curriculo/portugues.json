@@ -1,0 +1,29 @@
+{
+  "slug": "portugues",
+  "nome": "Português",
+  "area": "Linguagens",
+  "competencias": [
+    {
+      "slug": "alfabetizacao",
+      "nome": "Alfabetização",
+      "descricao": "Reconhecer as letras, os sons que elas fazem e as sílabas que formam as palavras — a base da leitura e da escrita.",
+      "objetivos": [
+        {
+          "slug": "reconhecer-letras-do-alfabeto",
+          "descricao": "Reconhecer as letras do alfabeto, maiúsculas e minúsculas, e o som que cada uma faz.",
+          "preRequisitos": []
+        },
+        {
+          "slug": "identificar-letra-inicial",
+          "descricao": "Identificar com qual letra uma palavra começa, a partir do som dela.",
+          "preRequisitos": ["reconhecer-letras-do-alfabeto"]
+        },
+        {
+          "slug": "contar-silabas",
+          "descricao": "Contar quantas sílabas tem uma palavra, batendo palma a cada parte falada.",
+          "preRequisitos": []
+        }
+      ]
+    }
+  ]
+}

@@ -58,12 +58,39 @@ export interface MissaoCarregada {
   readonly missao: Missao;
 }
 
+/**
+ * `nivel.json` acompanhado da pasta onde foi encontrado.
+ *
+ * `pasta` é o nome do diretório (o que `MissaoCarregada.nivel` referencia) —
+ * não necessariamente igual a `nivel.slug`. Sem esse contexto, duas
+ * disciplinas com um "nivel-01" cada (convenção natural: todo primeiro nível
+ * se chama assim) colidiriam num mapa chaveado só por slug, e uma pisaria no
+ * nome/ordem da outra na hora de montar o mundo (`plan.ts`).
+ */
+export interface NivelCarregado {
+  readonly academia: string;
+  readonly disciplina: string;
+  readonly faixa: string;
+  readonly pasta: string;
+  readonly nivel: Nivel;
+}
+
+/** `modulo.json` acompanhado da pasta — mesmo raciocínio de `NivelCarregado`. */
+export interface ModuloCarregado {
+  readonly academia: string;
+  readonly disciplina: string;
+  readonly faixa: string;
+  readonly nivelPasta: string;
+  readonly pasta: string;
+  readonly modulo: Modulo;
+}
+
 export interface Acervo {
   readonly curriculos: readonly DisciplinaCurricular[];
   readonly academias: readonly Academia[];
   readonly disciplinas: readonly { readonly academia: string; readonly disciplina: Disciplina }[];
-  readonly niveis: readonly Nivel[];
-  readonly modulos: readonly Modulo[];
+  readonly niveis: readonly NivelCarregado[];
+  readonly modulos: readonly ModuloCarregado[];
   readonly missoes: readonly MissaoCarregada[];
   readonly colecionaveis: readonly Colecionavel[];
 }
@@ -88,8 +115,8 @@ export async function carregarAcervo(
   const curriculos: DisciplinaCurricular[] = [];
   const academias: Academia[] = [];
   const disciplinas: { academia: string; disciplina: Disciplina }[] = [];
-  const niveis: Nivel[] = [];
-  const modulos: Modulo[] = [];
+  const niveis: NivelCarregado[] = [];
+  const modulos: ModuloCarregado[] = [];
   const missoes: MissaoCarregada[] = [];
   let colecionaveis: readonly Colecionavel[] = [];
 
@@ -183,12 +210,29 @@ export async function carregarAcervo(
         for (const nomeNivel of await pastas(dirFaixa)) {
           const dirNivel = join(dirFaixa, nomeNivel);
           const nivel = await ler(join(dirNivel, "nivel.json"), nivelSchema);
-          if (nivel) niveis.push(nivel);
+          if (nivel) {
+            niveis.push({
+              academia: nomeAcademia,
+              disciplina: nomeDisciplina,
+              faixa,
+              pasta: nomeNivel,
+              nivel,
+            });
+          }
 
           for (const nomeModulo of await pastas(dirNivel)) {
             const dirModulo = join(dirNivel, nomeModulo);
             const modulo = await ler(join(dirModulo, "modulo.json"), moduloSchema);
-            if (modulo) modulos.push(modulo);
+            if (modulo) {
+              modulos.push({
+                academia: nomeAcademia,
+                disciplina: nomeDisciplina,
+                faixa,
+                nivelPasta: nomeNivel,
+                pasta: nomeModulo,
+                modulo,
+              });
+            }
 
             for (const arquivo of await arquivosJson(dirModulo, "missao-")) {
               const caminho = join(dirModulo, arquivo);
