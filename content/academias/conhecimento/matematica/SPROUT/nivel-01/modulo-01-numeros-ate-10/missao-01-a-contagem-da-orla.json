@@ -112,7 +112,7 @@
           "faixaMaxima": "EXPLORER",
           "config": {
             "schemaVersion": 1,
-            "enunciado": "ORLA juntou conchas e pedrinhas. De qual ela tem mais?",
+            "enunciado": "ORLA tem mais conchas ou mais pedrinhas?",
             "opcoes": [
               {
                 "id": "conchas",
@@ -196,7 +196,7 @@
           "faixaMaxima": "SPROUT",
           "config": {
             "schemaVersion": 1,
-            "enunciado": "As marés chegam do menor para o maior. Coloque os números na ordem certa.",
+            "enunciado": "ORLA quer ver a maré subindo aos poucos. Ponha os números em ordem: do menor para o maior.",
             "itens": [
               {
                 "id": "n7",
