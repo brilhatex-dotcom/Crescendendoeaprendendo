@@ -137,6 +137,37 @@ importado trava a criança numa tela sem saída · é **idempotente** — reimpo
 `Activity.id`, e isso é o que protege o histórico de quem já jogou · nada é apagado —
 despublicar é decisão editorial separada.
 
+### Importação automática de conteúdo no deploy — concluída
+Resolve a decisão em aberto que existia desde a Etapa 2: `npm run content:import` continuava
+manual porque publicar em todo deploy escreveria no banco de produção a partir de deploy de
+*preview* — hoje não há banco efêmero por branch, `preview` e `production` apontam para o mesmo
+`DATABASE_URL` (`docs/01-arquitetura.md §7` descreve branch do Neon por ambiente como destino;
+não é a configuração real deste projeto na Vercel hoje).
+
+Foi um bug real que forçou a decisão: a tela de produção ficou meses mostrando uma pergunta sem
+as conchas que ela descreve — o código já tinha o conserto (commit `c1737d9`), mas ninguém rodou
+`content:import` contra produção depois de mudar o `content/`.
+
+- `scripts/import-content-em-producao.mjs` — só chama `npm run content:import` quando
+  `VERCEL_ENV === "production"`; qualquer outro valor (`preview`, `development`) ou ausência da
+  variável (build local, CI) **pula com um aviso explicado no log**, nunca falha o build por
+  causa disso
+- `package.json` — `vercel:steps` ganhou o passo entre `prisma migrate deploy` e `next build`
+
+**Propriedades travadas (não relitigar):**
+a falta de `VERCEL_ENV` **pula a importação**, nunca assume produção — a direção do erro que
+importa aqui é "na dúvida, não publica" (o oposto de `custoDeFolego`/`lerRegraDeDesbloqueio`, que
+preferem liberar na dúvida — lá o custo de errar é a criança perder algo grátis; aqui é escrever
+no banco real por engano) · falha do `content:import` em produção **derruba o build** — conteúdo
+quebrado não é publicado pela metade, o mesmo motivo de a importação já ser tudo-ou-nada · `npm
+run content:import` continua existindo e funcionando igual, para publicar fora do deploy (ex.:
+depois de uma migration de dados manual).
+
+**Armadilha:** `VERCEL_ENV` é injetada pela Vercel automaticamente, sem configuração — mas nunca
+foi vista, de dentro desta sessão, batendo contra um deploy de produção de verdade. Se depois do
+primeiro deploy o log mostrar "content:import pulado" **em produção**, é o primeiro lugar para
+olhar (Project Settings → Environment Variables, ou confirme com `vercel env ls` autenticado).
+
 ### Avaliação — concluída (Etapa 2, passo 2)
 A resposta da criança agora vira histórico, modelo e evento. O ciclo está fechado.
 
@@ -489,21 +520,19 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
    e não é exibido com `confidence < 0.6`.
 
 ### Decisões em aberto — precisam do dono
-**1. A importação de conteúdo deve rodar no deploy?** Continua manual (`npm run content:import`).
-Colocá-la no `vercel:steps` publicaria o conteúdo a cada deploy — mas os deploys de *preview*
-compartilham o `DATABASE_URL` de produção, então uma branch em rascunho escreveria no banco real.
-**Jogar exige o acervo importado**: sem ele, abrir a missão responde `quest.not_published`.
-
-**2. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
+**1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
 gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 
-**3. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
+**2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**4. O gargalo agora é conteúdo, não código.** Uma missão, três atividades, dois tipos de
+**3. O gargalo agora é conteúdo, não código.** Uma missão, três atividades, dois tipos de
 atividade implementados. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
+
+> A antiga decisão nº 1 desta lista — "a importação de conteúdo deve rodar no deploy?" — está
+> resolvida. Ver seção 3, "Importação automática de conteúdo no deploy".
 
 ## 6. Decisões já tomadas — não relitigar
 
@@ -537,6 +566,7 @@ importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 | **Custo de Fôlego da Fila de Revisão é o mesmo de qualquer `REVIEW`** (3, não criei kind novo) | `src/modules/quest/domain/energy-cost.ts` |
 | **Quem decide que a missão acabou é o servidor** | `src/modules/quest/domain/quest-run.ts` |
 | **Desbloqueio devolve o caminho, não um cadeado** | `src/modules/quest/domain/unlock-rule.ts` |
+| **`content:import` só roda sozinho quando `VERCEL_ENV=production`; sem a variável, pula** | `scripts/import-content-em-producao.mjs` |
 
 ---
 
