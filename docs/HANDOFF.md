@@ -440,6 +440,30 @@ também tem a fixture da Fila de Revisão pode apagá-la — os arquivos de inte
 limpam `Quest`/`Academy`/etc. sem filtro. Nunca aconteceria em produção (a suíte não roda no
 deploy), mas apagou a fixture deste ambiente de teste duas vezes durante esta sessão.
 
+### Mais conteúdo em Números até 10 — duas missões novas
+Pedido do dono: mais tarefas, mais lúdico. `modulo-01-numeros-ate-10` tinha só uma missão (3
+atividades) — agora tem três (9 atividades), encadeadas por `desbloqueio: { questCompleted }` na
+mesma ordem em que a criança joga, dando continuidade à história da ORLA pela praia.
+
+- `missao-02-os-caranguejos-da-mare.json` — contar (🦀 × 6), comparar (🦀 vs ⭐) e **ordenar
+  decrescente** (novidade: a missão 1 só tinha ordem crescente; `ordenar-numeros-ate-10` cobre os
+  dois sentidos desde o currículo).
+- `missao-03-o-recife-dos-peixinhos.json` — mesma estrutura, números mais altos (até 10) e 5 itens
+  na ordenação em vez de 4.
+- Cada `desbloqueio` aponta para o `sourceRef` da missão anterior
+  (`conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-0N-...`).
+
+**Verificado em navegador de verdade** (Playwright): cadastro → criança → as três missões jogadas
+em sequência, confirmando que a 2 e a 3 aparecem bloqueadas no mapa até a anterior terminar, que
+o apoio visual renderiza em cada uma, e que a tela final mostra a recompensa certa.
+
+**Achado, não corrigido (fora de escopo desta mudança):** a mensagem de bloqueio no mapa
+(`app/(play)/hub/mapa.tsx`, `descrever()`) mostra o *slug* da missão pendente deslugificado
+("termine antes: missao 02 os caranguejos da mare"), não o `nome` autorado ("Os Caranguejos da
+Maré") — o comentário no código já reconhece isso ("slug de arquivo não é texto de criança").
+Corrigir exige o avaliador de desbloqueio carregar o `nome` da `Quest` referenciada, não só o
+`ref`; ficou visível agora porque antes só havia uma missão, então a pendência nunca aparecia.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
