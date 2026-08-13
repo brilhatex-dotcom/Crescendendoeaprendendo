@@ -1,0 +1,105 @@
+{
+  "slug": "missao-04-o-bau-da-orla",
+  "nome": "O Baú da Orla",
+  "tipo": "STORY",
+  "ordem": 4,
+  "introducao": "A maré empurrou um baú velho até a areia. Ele só abre se cada número encontrar a quantidade certa de conchas. ORLA precisa da sua ajuda para combinar os pares.",
+  "conclusao": "O baú se abre! Dentro dele, uma chave brilhante — o próximo mistério da ilha já está esperando.",
+  "competenciasExigidas": [],
+  "desbloqueio": {
+    "questCompleted": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-03-o-recife-dos-peixinhos"
+  },
+  "recompensaDaMissao": {
+    "porDesfecho": {
+      "CORRECT": {
+        "xp": 55,
+        "moedas": 20,
+        "colecionaveis": [
+          "bau-da-orla"
+        ]
+      },
+      "PARTIAL": {
+        "xp": 32,
+        "moedas": 11
+      },
+      "INCORRECT": {
+        "xp": 10
+      }
+    },
+    "aplicarFatorDeDificuldade": false
+  },
+  "fases": [
+    {
+      "slug": "fase-01-combinar",
+      "nome": "A fechadura do baú",
+      "atividades": [
+        {
+          "slug": "combinar-numero-e-quantidade",
+          "tipo": "DRAG_MATCH",
+          "objetivo": "contar-ate-10",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 80,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Combine cada número com a quantidade certa de conchas.",
+            "enunciadoFalado": "Combine cada número com a quantidade certa de conchas.",
+            "pares": [
+              {
+                "id": "um",
+                "esquerda": "1",
+                "direita": "🐚"
+              },
+              {
+                "id": "dois",
+                "esquerda": "2",
+                "direita": "🐚🐚"
+              },
+              {
+                "id": "tres",
+                "esquerda": "3",
+                "direita": "🐚🐚🐚"
+              },
+              {
+                "id": "quatro",
+                "esquerda": "4",
+                "direita": "🐚🐚🐚🐚"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! Cada número encontrou sua quantidade certa.",
+            "ensino": "Conte as conchas de cada grupo, uma de cada vez, e procure o número igual à contagem.",
+            "ensinoParcial": "Alguns pares já estão certos! Olhe os que ainda não combinam e conte de novo.",
+            "equivoco": "pareamento-por-posicao",
+            "dicas": [
+              "Toque num número e depois no grupo de conchas que combina com ele.",
+              "Conte as conchas devagar antes de escolher o par."
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 24,
+                "moedas": 10
+              },
+              "PARTIAL": {
+                "xp": 14,
+                "moedas": 5
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

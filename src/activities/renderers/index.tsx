@@ -56,6 +56,11 @@ const RENDERERS: Readonly<Record<string, ComponentType<ActivityRendererProps>>> 
       ),
     { loading: () => <EsqueletoDeAtividade /> },
   ),
+
+  "drag-match": dynamic<ActivityRendererProps>(
+    () => import("./drag-match-renderer").then((m) => selarRenderer(m.DragMatchRenderer)),
+    { loading: () => <EsqueletoDeAtividade /> },
+  ),
 };
 
 export function obterRenderer(

@@ -92,8 +92,9 @@ e-mail existente responde igual e avisa o dono por e-mail · isolamento entre fa
 
 - `src/activities/` — núcleo puro e isomórfico: `contracts.ts`, `registry.ts`, `difficulty.ts`,
   `rewards.ts`, `presentation.ts`, `session.ts`, `telemetry.ts`
-- `plugins/multiple-choice/` e `plugins/order-sequence/` — o segundo prova a extensibilidade
-  (resposta em lista, crédito parcial) sem ter tocado no núcleo
+- `plugins/multiple-choice/`, `plugins/order-sequence/` e `plugins/drag-match/` — o segundo prova
+  extensibilidade de resposta em lista com crédito parcial; o terceiro prova correspondência
+  um-para-um (pareamento) — nenhum tocou no núcleo (ver "Plugin DRAG_MATCH", nesta seção)
 - `plugins/index.ts` e `renderers/index.tsx` — **os dois únicos manifestos** que ganham uma linha
   por tipo novo
 - `renderers/` — telas carregadas sob demanda (`next/dynamic`), fora do núcleo
@@ -512,6 +513,34 @@ figurinha · conceder um `code` que não existe no catálogo não falha a respos
 inventado — sem figurinha nenhuma, "0 de 3" é a verdade, mesmo padrão do resto do produto
 (ver `hub/page.tsx`).
 
+### Plugin DRAG_MATCH (parear) — concluído
+Terceira frente do mesmo pedido do dono ("mais lúdico"). `DRAG_MATCH` já estava reservado em
+`ACTIVITY_TYPES` (`contracts.ts`) e no enum do banco desde o desenho original — só faltava o
+plugin. Zero migration, zero alteração no núcleo: a prova viva de `docs/13`.
+
+- `src/activities/plugins/drag-match/` — `schema.ts` (pares `{id, esquerda, direita}`, ambos
+  os lados texto/emoji, sem upload de asset), `evaluate.ts` (crédito parcial por fração de pares
+  certos, mesma lógica de `ORDER_SEQUENCE`; probabilidade de chute `1/n!`, mesma matemática —
+  **duplicada**, não importada, porque "plugin não importa plugin").
+- `src/activities/renderers/drag-match-renderer.tsx` — **toque-e-toque, não arrastar de
+  verdade**: mesma decisão de acessibilidade do `order-sequence-renderer` (arrastar não funciona
+  por teclado nem leitor de tela, e uma criança de seis anos perde o item no meio do caminho).
+  Tocar um item da esquerda, depois um da direita, forma o par; tocar um par já feito desfaz.
+- Registrado nos dois manifestos (`plugins/index.ts`, `renderers/index.tsx`) e coberto pela
+  política PP5 (`tests/policy/motor-de-atividades.test.ts` — todo plugin precisa declarar como
+  errar nele, ou o build quebra).
+- **Conteúdo real**: `missao-04-o-bau-da-orla.json` — combinar número (1–4) com a quantidade de
+  conchas certa, encadeada depois da missão 3. Colecionável novo: "Baú da Orla" (🗝️), em
+  `content/colecionaveis.json`.
+
+**Verificado em navegador de verdade** (Playwright): as quatro missões jogadas em sequência,
+pareamento por toque testado par a par (todos corretos), mensagem de acerto exibida, e a galeria
+mostrando "4 de 4" com a chave revelada.
+
+**Propriedades travadas:** os dois lados de um par certo compartilham o mesmo `id` no conteúdo —
+o `id` nunca aparece na tela, só `esquerda`/`direita`, então a correção é `pareamento[id] === id`
+sem indireção nenhuma e sem vazar a resposta na inspeção do DOM.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -592,9 +621,9 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 5. **Perfil de talentos** (`docs/08 §9`) — recalculado a cada 50 tentativas. Tem regra ética
    própria: teto de 40% de sugestões do talento dominante, mínimo 1 fora do perfil por dia,
    e não é exibido com `confidence < 0.6`.
-6. **Novo tipo de atividade mais lúdico** (ex.: `DRAG_MATCH`, arrastar-e-combinar). Hoje o motor
-   só tem `MULTIPLE_CHOICE` e `ORDER_SEQUENCE` (`docs/12` já previa 4 desde a Etapa 1). Pedido do
-   dono, ainda não iniciado nesta sessão.
+6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`)~~ — **concluído nesta sessão**. Ver seção
+   3, "Plugin DRAG_MATCH (parear)". Falta ainda `FILL_BLANK`, `MULTI_SELECT`, `TRUE_FALSE` e o
+   resto da lista de `docs/12` — mesmo caminho, plugin novo sem tocar no núcleo.
 
 ### Decisões em aberto — precisam do dono
 **1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
@@ -603,8 +632,9 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Uma missão, três atividades, dois tipos de
-atividade implementados. Todo o resto do sistema está pronto para receber muito mais — e
+**3. O gargalo agora é conteúdo, não código.** Quatro missões, dez atividades, três tipos de
+atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`) — todas no mesmo
+módulo (Números até 10). Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 

@@ -53,6 +53,18 @@ const RESPOSTAS_ERRADAS: Readonly<Record<string, (config: unknown) => unknown[]>
       { ordem: [c.ordemCorreta[c.ordemCorreta.length - 1], ...c.ordemCorreta.slice(0, -1)] },
     ];
   },
+  DRAG_MATCH: (config) => {
+    const c = config as { pares: { id: string }[] };
+    const ids = c.pares.map((p) => p.id);
+    // Desloca cada esquerda uma posição à frente na direita: com ids
+    // distintos (garantido pelo schema) e ao menos 2 pares, nenhum par
+    // combina consigo mesmo — todo par erra.
+    const deslocado = Object.fromEntries(ids.map((id, i) => [id, ids[(i + 1) % ids.length]]));
+    // Troca só o primeiro par com o segundo — os demais, se houver, ficam
+    // certos; prova que crédito parcial também nunca sai sem ensino.
+    const trocaParcial = { ...Object.fromEntries(ids.map((id) => [id, id])), [ids[0]!]: ids[1]!, [ids[1]!]: ids[0]! };
+    return [{ pareamentos: deslocado }, { pareamentos: trocaParcial }];
+  },
 };
 
 describe("PP5 · Erro sempre ensina (docs/08 §12.3)", () => {
