@@ -217,7 +217,8 @@ O ciclo fecha na tela: a criança responde, a Luz sobe, as Fagulhas entram na ca
   Manipulador `inline`. Chave derivada da chave da tentativa.
 - **`src/server/outbox.ts`** — despachante at-least-once, com backoff e teto de tentativas.
 - **`src/server/telemetry.ts`** — `LearningEvent` a partir do tópico pseudonimizado. `outbox`.
-- **`app/api/outbox/route.ts`** + `vercel.json` — Cron Job a cada 5 min, **fail-closed**.
+- **`app/api/outbox/route.ts`** + `vercel.json` — Cron Job 1x/dia (plano Hobby; ver seção 5, item
+  4), **fail-closed**.
 - **`app/(play)/hub/painel-de-progresso.tsx`** — Luz, nível, Fagulhas, Fôlego e Trilha na base.
 - `tests/policy/progressao-e-economia.test.ts` — §1, §4, §5, §11 e §12 quebram o build.
 
@@ -530,6 +531,13 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 atividade implementados. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
+
+**4. ⚠️ Cron do `/api/outbox` está em 1x/dia — plano Hobby da Vercel não permite mais frequente.**
+Decisão do dono, 2026-08-13: como só há uma pessoa usando o site, telemetria com até 24h de
+atraso é aceitável, e um upgrade de plano não se justifica ainda. **Quando o site for exposto
+para mais gente, revisitar isto** — ou fazer upgrade pra Vercel Pro (libera cron a cada minuto),
+ou tirar o despacho de dentro do pulso do cron (chamar `despachante.despachar()` direto após a
+ação que gerou o evento). Ver `app/api/outbox/route.ts` e `vercel.json`.
 
 > A antiga decisão nº 1 desta lista — "a importação de conteúdo deve rodar no deploy?" — está
 > resolvida. Ver seção 3, "Importação automática de conteúdo no deploy".

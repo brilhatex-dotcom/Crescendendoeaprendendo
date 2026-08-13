@@ -8,8 +8,14 @@ import { serverEnv } from "@/config/env";
  * aqui**: aquilo roda dentro da transação (docs/08 §11). Esta rota entrega o
  * resto — telemetria hoje; relatório, notificação e IA depois.
  *
- * Chamada pelo Cron Job da Vercel a cada 5 minutos (`vercel.json`). Não há
- * processo longo numa plataforma sem servidor: o modelo é pulso, não daemon.
+ * Chamada pelo Cron Job da Vercel, hoje 1x/dia (`vercel.json`) — o plano
+ * Hobby não permite frequência maior, e como o único efeito em produção
+ * ainda é telemetria (ver acima), a folga é aceitável por enquanto. Quando
+ * o site tiver mais gente e o despacho carregar algo sensível a atraso
+ * (notificação, e-mail), isto pede ou plano Pro (libera cron a cada minuto)
+ * ou passar a chamar `despachante.despachar()` fora do pulso do cron — por
+ * exemplo, direto depois da ação que gerou o evento. Não há processo longo
+ * numa plataforma sem servidor: o modelo é pulso, não daemon.
  *
  * `force-dynamic` porque a rota tem efeito; uma resposta em cache aqui faria o
  * cron "rodar" sem processar nada, e a fila cresceria em silêncio.
