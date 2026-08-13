@@ -19,6 +19,11 @@
       "code": "bau-da-orla",
       "nome": "Baú da Orla",
       "simbolo": "🗝️"
+    },
+    {
+      "code": "pegada-da-virgula",
+      "nome": "Pegada da Vírgula",
+      "simbolo": "🐾"
     }
   ]
 }

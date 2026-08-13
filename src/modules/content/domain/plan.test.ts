@@ -55,8 +55,25 @@ const ACERVO_MINIMO: Acervo = {
       disciplina: { slug: "matematica", nome: "Matemática", curriculo: "matematica" },
     },
   ],
-  niveis: [{ slug: "nivel-01", nome: "Primeiros Passos", ordem: 0, nivelMinimo: 1 }],
-  modulos: [{ slug: "modulo-01", nome: "Números até 10", ordem: 0 }],
+  niveis: [
+    {
+      academia: "conhecimento",
+      disciplina: "matematica",
+      faixa: "SPROUT",
+      pasta: "nivel-01",
+      nivel: { slug: "nivel-01", nome: "Primeiros Passos", ordem: 0, nivelMinimo: 1 },
+    },
+  ],
+  modulos: [
+    {
+      academia: "conhecimento",
+      disciplina: "matematica",
+      faixa: "SPROUT",
+      nivelPasta: "nivel-01",
+      pasta: "modulo-01",
+      modulo: { slug: "modulo-01", nome: "Números até 10", ordem: 0 },
+    },
+  ],
   colecionaveis: [],
   missoes: [
     {
@@ -271,5 +288,118 @@ describe("planejarImportacao", () => {
     const { plano } = planejarImportacao(ACERVO_MINIMO);
 
     expect(plano.mundos[0]?.slug).toBe("matematica-sprout-nivel-01");
+  });
+
+  /**
+   * Regressão: duas disciplinas com "nivel-01" cada — a convenção natural de
+   * autoria, já que todo primeiro nível se chama assim — colidiam num mapa
+   * chaveado só pelo slug do nível. A segunda disciplina importada pisava no
+   * nome e na ordem do mundo da primeira (o nome de Português vazava para o
+   * mundo de Matemática no mapa da criança).
+   */
+  it("duas disciplinas com o mesmo slug de nível não colidem", () => {
+    const comPortugues: Acervo = {
+      ...ACERVO_MINIMO,
+      curriculos: [
+        ...ACERVO_MINIMO.curriculos,
+        {
+          slug: "portugues",
+          nome: "Português",
+          competencias: [
+            {
+              slug: "alfabetizacao",
+              nome: "Alfabetização",
+              descricao: "Reconhecer letras e sílabas.",
+              objetivos: [
+                { slug: "reconhecer-letras", descricao: "Reconhecer as letras.", preRequisitos: [] },
+              ],
+            },
+          ],
+        },
+      ],
+      disciplinas: [
+        ...ACERVO_MINIMO.disciplinas,
+        {
+          academia: "conhecimento",
+          disciplina: { slug: "portugues", nome: "Português", curriculo: "portugues" },
+        },
+      ],
+      niveis: [
+        ...ACERVO_MINIMO.niveis,
+        {
+          academia: "conhecimento",
+          disciplina: "portugues",
+          faixa: "SPROUT",
+          pasta: "nivel-01",
+          nivel: { slug: "nivel-01", nome: "A Praça Muda", ordem: 0, nivelMinimo: 1 },
+        },
+      ],
+      modulos: [
+        ...ACERVO_MINIMO.modulos,
+        {
+          academia: "conhecimento",
+          disciplina: "portugues",
+          faixa: "SPROUT",
+          nivelPasta: "nivel-01",
+          pasta: "modulo-01",
+          modulo: { slug: "modulo-01", nome: "Alfabeto", ordem: 0 },
+        },
+      ],
+      missoes: [
+        ...ACERVO_MINIMO.missoes,
+        {
+          academia: "conhecimento",
+          disciplina: "portugues",
+          faixa: "SPROUT",
+          nivel: "nivel-01",
+          modulo: "modulo-01",
+          caminho: "content/…/missao-pt-01.json",
+          missao: {
+            slug: "missao-pt-01",
+            nome: "O Alfabeto",
+            tipo: "PRACTICE",
+            introducao: "Vamos encontrar as letras.",
+            conclusao: "As letras foram encontradas.",
+            ordem: 0,
+            competenciasExigidas: [],
+            fases: [
+              {
+                slug: "fase-01",
+                nome: "Letras",
+                atividades: [
+                  {
+                    slug: "atividade-01",
+                    tipo: "MULTIPLE_CHOICE",
+                    objetivo: "reconhecer-letras",
+                    dificuldade: "FACIL",
+                    duracaoEstimadaSeg: 30,
+                    faixaMinima: "SPROUT",
+                    faixaMaxima: "SPROUT",
+                    config: { pergunta: "Qual letra?" },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const { plano, problemas } = planejarImportacao(comPortugues);
+    expect(problemas).toEqual([]);
+
+    const mundoMatematica = plano.mundos.find((m) => m.slug === "matematica-sprout-nivel-01");
+    const mundoPortugues = plano.mundos.find((m) => m.slug === "portugues-sprout-nivel-01");
+
+    expect(mundoMatematica?.nome).toBe("Primeiros Passos");
+    expect(mundoPortugues?.nome).toBe("A Praça Muda");
+
+    const capituloMatematica = plano.capitulos.find((c) =>
+      c.ref.includes("matematica"),
+    );
+    const capituloPortugues = plano.capitulos.find((c) => c.ref.includes("portugues"));
+
+    expect(capituloMatematica?.nome).toBe("Números até 10");
+    expect(capituloPortugues?.nome).toBe("Alfabeto");
   });
 });
