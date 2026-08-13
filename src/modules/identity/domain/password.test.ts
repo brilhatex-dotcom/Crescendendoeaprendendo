@@ -14,7 +14,16 @@ describe("PlainPassword", () => {
   });
 
   it("recusa senha curta mesmo com composição 'forte'", () => {
-    expect(codigoDoErro("Aa1@bcd")).toBe("password.too_short");
+    expect(codigoDoErro("Aa1@b")).toBe("password.too_short");
+  });
+
+  it("aceita o mínimo novo: 6 caracteres, inclusive só dígitos", () => {
+    expect(PlainPassword.create("482917").ok).toBe(true);
+  });
+
+  it("recusa sequência óbvia de 6 dígitos", () => {
+    expect(codigoDoErro("123456")).toBe("password.too_common");
+    expect(codigoDoErro("111111")).toBe("password.too_common");
   });
 
   it("recusa senha absurdamente longa (custo de hash)", () => {

@@ -72,7 +72,7 @@ export function CriarContaForm() {
         autoComplete="new-password"
         required
         erro={campos?.senha}
-        dica="Pelo menos 10 caracteres. Uma frase curta que só você lembra funciona melhor que símbolos."
+        dica="Pelo menos 6 caracteres."
       />
 
       <p className="text-sm text-slate-400">
