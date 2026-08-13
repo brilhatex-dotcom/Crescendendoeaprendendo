@@ -43,18 +43,34 @@ export const abrirMissaoAction = createAction({
       return err(internalError("quest.invalid_context", "Contexto de jogada incompleto."));
     }
 
-    const missao = await carregarMissaoParaSessao(entrada.missaoSlug);
+    const missao = await carregarMissaoParaSessao(entrada.missaoSlug, ator.activeLearnerId);
     if (!missao) {
       return err(notFound("quest.not_found", "Esta missão não existe."));
     }
 
     const { abrirJogada } = containerDeAvaliacao();
 
-    return abrirJogada({
+    const resultado = await abrirJogada({
       learnerId: ator.activeLearnerId,
       refDaMissao: missao.ref,
       traceId: ctx.traceId,
     });
+    if (!resultado.ok) return resultado;
+
+    /*
+     * Relida depois de abrir: é só agora que um slot dinâmico (docs/08 §7)
+     * pode ter atividade de verdade — a versão que a página montou antes do
+     * clique podia não ter todas ainda (a Fila de Revisão, por exemplo,
+     * começa sem nenhuma). O cliente troca a missão que está usando por esta,
+     * e os índices que `abrirJogada` devolveu passam a apontar para o lugar
+     * certo nela.
+     */
+    const missaoResolvida = (await carregarMissaoParaSessao(
+      entrada.missaoSlug,
+      ator.activeLearnerId,
+    )) ?? missao;
+
+    return ok({ ...resultado.value, missao: missaoResolvida });
   },
 });
 
@@ -78,7 +94,7 @@ export const concluirMissaoAction = createAction({
       return err(internalError("quest.invalid_context", "Contexto de jogada incompleto."));
     }
 
-    const missao = await carregarMissaoParaSessao(entrada.missaoSlug);
+    const missao = await carregarMissaoParaSessao(entrada.missaoSlug, ator.activeLearnerId);
     if (!missao) {
       return err(notFound("quest.not_found", "Esta missão não existe."));
     }
@@ -136,7 +152,7 @@ export const responderAtividadeAction = createAction({
       return err(internalError("activity.invalid_context", "Contexto de jogada incompleto."));
     }
 
-    const missao = await carregarMissaoParaSessao(entrada.missaoSlug);
+    const missao = await carregarMissaoParaSessao(entrada.missaoSlug, ator.activeLearnerId);
     if (!missao) {
       return err(notFound("quest.not_found", "Esta missão não existe."));
     }

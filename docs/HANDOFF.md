@@ -4,7 +4,7 @@
 > Ele existe para que uma nova sessão continue exatamente de onde a anterior parou,
 > sem refazer trabalho e sem contradizer decisões já tomadas.
 >
-> Última atualização: 2026-08-07 · **Etapa 3, passo 3 em curso — o conteúdo encontra o motor**
+> Última atualização: 2026-08-13 · **Etapa 3, passo 3 em curso — o conteúdo encontra o motor**
 
 ---
 
@@ -361,6 +361,53 @@ consequência disso, abaixo.
    esse card existir, quem chamar `abrirJogada("sistema/fila-de-revisao")` precisa checar a fila
    antes.
 
+### O conteúdo encontra a tela — concluído (Etapa 3, passo 3, item 0)
+O alerta que abria a seção 4 desde a etapa anterior: o motor resolvia o slot certo, mas a criança
+nunca via — `content-bridge.ts` só lia `content/` do disco, e a Fila de Revisão nem tinha onde
+ser encontrada. Verificado em navegador de verdade (Playwright, sessão completa: cadastro →
+verificação → criança → PIN → missão real do início ao fim → Fila de Revisão do início ao fim,
+com `ReviewCard` fechando o ciclo do SM-2 na tela — screenshots na sessão, não versionados).
+
+- `src/activities/content-bridge.ts` — `carregarMissaoParaSessao(slug, learnerId?)`. **`learnerId`
+  é opcional de propósito**: sem ele, a função nunca toca o banco — é o caminho que
+  `tests/motor/jornada-da-missao.test.ts` (suíte rápida, sem Postgres) continua exercitando, e é
+  a prova de que o motor não ganhou uma dependência nova. Com ele:
+  - busca a árvore `Quest`/`Stage`/`StageActivity` (por `sourceRef`, ou por sufixo de `slug`
+    quando a missão não existe em `content/`)
+  - sem slot pendente na árvore, devolve a missão de `content/` sem mudar nada (caminho rápido,
+    zero risco para as três atividades que já existem)
+  - com slot, busca a jogada mais recente da criança, lê `QuestRunSlot` e completa cada fase com
+    a atividade resolvida — **slug sintético** (`Activity.id`, porque nunca existiu slug de
+    autoria) e `ref` real (`Activity.sourceRef`, o que `submeterTentativa` precisa para achá-la)
+  - sem `content/` nenhum (a Fila de Revisão), monta a missão inteira do banco:
+    `narrative.introducao/conclusao` viram texto, cada `Stage` vira uma fase (sem slug/nome
+    próprios — `Stage` não guarda isso — sintéticos, nunca lidos por ninguém)
+- `app/(play)/missao/[slug]/page.tsx` — resolve a sessão (mesmo padrão de `/hub`) e passa
+  `learnerId` ao bridge
+- `app/(play)/missao/[slug]/actions.ts` — `abrirMissaoAction` relê a missão **depois** de
+  `abrirJogada` (é só aí que um slot criado agora tem atividade) e devolve `missao` no payload;
+  `concluirMissaoAction` e `responderAtividadeAction` passam `learnerId`
+- `app/(play)/missao/[slug]/missao-runner.tsx` — `missaoAtual` (estado) substitui a `missao`
+  (prop) assim que `abrirMissaoAction` devolve a versão resolvida; a ordem dos dois primeiros
+  `if` foi invertida — **abertura antes de "sem atividade"** — porque antes do primeiro
+  "Começar" `missaoAtual.fases` pode estar vazia (a Fila de Revisão sempre começa assim), e
+  checar isso primeiro mostraria "missão concluída" para quem nunca jogou
+
+**Propriedades travadas (não relitigar):**
+sem `learnerId`, `carregarMissaoParaSessao` **nunca** consulta o banco — é a garantia que mantém
+o motor testável sem infraestrutura · missão sem slot é **byte a byte** o que já existia antes
+desta mudança (testado: `comLearner` e `semLearner` são `toEqual`) · atividade resolvida por
+slot nunca ganha `recompensa` própria (o banco não guarda essa regra — é conceito só de
+autoria); a criança ainda ganha domínio (BKT/Elo/`ReviewCard`) e o prêmio de missão ao concluir,
+só não ganha XP por aquela resposta isolada · a resolução do slot acontece **dentro** de
+`abrirJogada` (chamado pela ação), nunca no render da página — `abrir é uma ação` continua valendo
+inteiro.
+
+**Armadilha nova, registrada em §9**: rodar `npm run test:integration` contra um Postgres que
+também tem a fixture da Fila de Revisão pode apagá-la — os arquivos de integração mais antigos
+limpam `Quest`/`Academy`/etc. sem filtro. Nunca aconteceria em produção (a suíte não roda no
+deploy), mas apagou a fixture deste ambiente de teste duas vezes durante esta sessão.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -382,41 +429,20 @@ consequência disso, abaixo.
 
 ## 4. O que NÃO existe ainda
 
-> ⚠️ **A UI real não toca em slot — leia isto antes de autorar ou de tentar jogar um.**
->
-> `carregarMissaoParaSessao` (`src/activities/content-bridge.ts`) monta a sessão que o navegador
-> recebe **lendo só `content/` no disco**, com `slug` fixo — nunca o banco. Isso quer dizer que
-> nenhuma atividade resolvida por slot (modo `objetivo` ou `revisao`) aparece na tela: o
-> `MissaoRunner` recebe `missao.fases` já pronto, do arquivo, e uma atividade de slot nunca esteve
-> em arquivo nenhum. A "Fila de Revisão" nem tem `content/` para achar — `carregarMissaoParaSessao`
-> devolveria `null` e a página cairia em 404.
->
-> Tem mais uma camada por baixo dessa: mesmo que o bridge passasse a ler do banco, `abrirJogada`
-> (que resolve o slot) só é chamado pelo clique em "Começar" — depois que a página já carregou a
-> lista de atividades. `MissaoRunner` usa essa lista, carregada uma vez, para o resto da sessão
-> inteira (`atividadeEm`, `posicaoDoIndice`). Se o slot resolver *depois* da lista ter sido montada,
-> os índices que o servidor manda (`retomarNoIndice`) não combinam com o que o cliente tem.
->
-> As duas partes têm resposta e nenhuma foi escrita: (1) o bridge precisa de um caminho que leia do
-> banco quando a missão não estiver em `content/`, ou quando houver slot resolvido para aquele
-> `questRunId`; (2) a resolução do slot precisa acontecer antes da página entregar a lista de
-> atividades ao cliente — não no clique em "Começar". O comentário em `content-bridge.ts` já dizia
-> "quando o conteúdo passar a vir do banco, só esta função muda" — é essa migração, e ela ainda não
-> aconteceu. Até acontecer, os dois modos de slot só são exercitáveis pela camada de aplicação
-> (`abrirJogada`/`submeterTentativa`/`concluirJogada` chamados direto, como os testes de
-> integração fazem), nunca por um clique de verdade.
+> ✅ **Resolvido:** a UI real já toca em slot — objetivo e revisão, os dois. Era o alerta desta
+> seção; agora é a seção 3, "O conteúdo encontra a tela". Verificado em navegador de verdade, não
+> só em teste.
 
 - **O mapa é uma lista, não um desenho.** `World.mapLayout` (nós, arestas, coordenadas) está no
   schema e o importador grava `{ schemaVersion: 1, nos: [], arestas: [] }` — vazio. O mapa atual
   agrupa por ilha e capítulo, com tranca e caminho, mas não tem geografia. Fazer o desenho exige
   autorar o layout em `content/`
 - **`content/` ainda não autora slot do modo `objetivo`.** O motor sabe preencher
-  `StageActivity.activityId` nulo (seção 3, acima), mas o schema de autoria (`content/schema/`)
-  não tem campo para declarar um slot — todo `fase.atividades` de hoje é fixo. Escrever a primeira
-  missão com slot desse modo exige estender `content/schema/index.ts` e o importador
-  (`domain/plan.ts`) para reconhecer o tipo "slot" e gravar `slotRule` com o `Objective.id` já
-  resolvido — **e resolver o alerta acima primeiro**, senão a missão fica injogável do mesmo jeito
-  que a Fila de Revisão fica hoje
+  `StageActivity.activityId` nulo, e a tela já sabe mostrar o resultado (seção 3, acima) — falta
+  só a autoria: o schema (`content/schema/`) não tem campo para declarar um slot, todo
+  `fase.atividades` de hoje é fixo. Escrever a primeira missão com slot desse modo exige estender
+  `content/schema/index.ts` e o importador (`domain/plan.ts`) para reconhecer o tipo "slot" e
+  gravar `slotRule` com o `Objective.id` já resolvido
 - **`Chapter`, `World` e `mapLayout`** — no banco, sem tela. A base lista missões em texto
 - **Desbloqueio por nível** (Academia da Inteligência no 10, Prosperidade no 15…) — a tabela de
   `docs/08 §1` não está implementada. O que funciona é o desbloqueio **declarado no conteúdo**
@@ -450,20 +476,10 @@ consequência disso, abaixo.
 O sistema está fechado: a criança abre uma missão, responde, o modelo aprende, a Luz sobe, a
 missão fecha e o mapa mostra o que vem. **O que falta agora é o motor usar tudo que ele já sabe.**
 
-Os itens 1 (seleção adaptativa) e 2 (fila de revisão) estão feitos no banco e na aplicação — ver
-seção 3. **Nenhum dos dois é jogável no navegador ainda** — leia o alerta no topo da seção 4 antes
-de continuar. Por isso o item 0 abaixo vem antes de qualquer coisa nova: sem ele, toda peça de
-slot construída a partir daqui repete o mesmo problema.
+Os itens 1 (seleção adaptativa), 2 (fila de revisão) e 0 (a tela sabe mostrar os dois) estão
+feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seção 3.
 
 ### Ordem sugerida
-0. **Fechar o alerta da seção 4 — o bridge de conteúdo precisa saber ler o banco.**
-   `carregarMissaoParaSessao` (`src/activities/content-bridge.ts`) só lê `content/`; precisa de um
-   caminho que monte `MissaoNaSessao` a partir de `Quest`/`Stage`/`StageActivity`/`QuestRunSlot`
-   quando a missão não existir em disco (a Fila de Revisão) ou quando existir e tiver slot
-   resolvido (futuro modo `objetivo` em conteúdo autorado). E a resolução do slot precisa acontecer
-   **antes** da página entregar a lista de atividades ao cliente, não no clique em "Começar" — hoje
-   `abrirMissaoAction` resolve depois que `MissaoRunner` já fixou a lista. Sem isto, uma criança de
-   verdade nunca vê a Fila de Revisão nem qualquer missão com slot.
 3. **Conquistas.** `Achievement.criteria` é regra declarativa avaliada por evento, como a de
    desbloqueio. O barramento e o outbox estão prontos: é escrever o manipulador (modo `outbox`,
    porque conquista pode esperar) e registrá-lo no composition root.
@@ -639,6 +655,18 @@ npx prisma migrate deploy && npm run test:integration
 - `npm audit` acusa 3 vulnerabilidades **altas** em dependências transitivas do Next
   (`sharp`/libvips, `postcss`). A correção exige Next 16 — mudança de major, fora do escopo
   desta etapa. Avaliar ao planejar a Etapa 1.
+- **`npm run test:integration` pode apagar a fixture da Fila de Revisão.** Os arquivos mais
+  antigos (`quest.integration.test.ts`, `slot-selection.integration.test.ts`) limpam `Academy`,
+  `Quest`, `Stage`, `StageActivity` **sem filtro** no próprio `beforeAll`/`afterAll`, para
+  reconstruir o acervo a partir de `content/`. Isso apaga `Academy` "sistema" e tudo debaixo dela
+  junto — e ela não volta sozinha, porque não é conteúdo reimportável. Cada arquivo que precisa da
+  fixture já se defende com `garantirFixtureDeRevisao` (upsert no próprio `beforeAll` — ver
+  `review-queue.integration.test.ts` e `content-bridge.integration.test.ts`), então a suíte
+  inteira passa mesmo assim; o que pode faltar é a fixture **depois** da suíte rodar, se algo de
+  fora dela (uma sessão manual, por exemplo) contar com ela ter sobrevivido. Nunca acontece em
+  produção — a suíte de integração não roda no deploy — mas aconteceu duas vezes rodando local
+  nesta sessão. Se precisar dela fora de teste, reaplique
+  `psql "$DATABASE_URL" -f prisma/migrations/20260806234721_fila_de_revisao_fixture/migration.sql`.
 
 ---
 
