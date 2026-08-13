@@ -25,6 +25,7 @@
     "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run test && npm run content:validate",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "conta:verificar": "tsx scripts/verificar-conta.ts",
+    "conta:redefinir-senha": "tsx scripts/redefinir-senha.ts",
     "content:validate": "tsx scripts/validate-content.ts",
     "content:import": "tsx scripts/import-content.ts"
   },
