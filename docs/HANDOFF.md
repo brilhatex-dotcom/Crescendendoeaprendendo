@@ -597,6 +597,36 @@ a fase de pareamento (`DRAG_MATCH`) seguida da nova fase `TRUE_FALSE`, os 2 bot�
 o `aria-checked` conferido diretamente, mensagem de acerto exibida, botões desabilitados após
 revelar.
 
+### Plugin FILL_BLANK (completar a lacuna) — concluído
+Sexta e última frente de plugin desta sessão, mesmo caminho zero-mudança-no-núcleo. Uma frase com
+um espaço vazio (`enunciado` precisa conter o marcador `___`) e um banco de palavras para tocar —
+**nunca digitação livre**: quem ainda está aprendendo a ler não pode ser avaliado pela própria
+datilografia, o produto testa se a criança sabe qual palavra completa a frase.
+
+- `src/activities/plugins/fill-blank/` — `schema.ts` (mesma forma de `MULTIPLE_CHOICE`: banco de
+  opções com exatamente uma correta, cada errada com `ensino` obrigatório — **duplicado, não
+  importado**, porque "plugin não importa plugin"; `superRefine` extra recusa conteúdo sem o
+  marcador `___`), `evaluate.ts` (mesma lógica de crédito de `MULTIPLE_CHOICE`; probabilidade de
+  chute `1/n` opções do banco).
+- `src/activities/renderers/fill-blank-renderer.tsx` — a frase aparece inteira, com a lacuna
+  numa caixa tracejada que se preenche com a palavra escolhida **antes** de responder — a criança
+  lê a frase completa para conferir se faz sentido, o que uma lista de opções solta não oferece.
+  A escolha em si continua um `radiogroup`/`radio` de verdade no banco de palavras.
+- Registrado nos dois manifestos e coberto pela política PP5.
+- **Conteúdo real**: nova quarta fase em `missao-03-o-recife-dos-peixinhos.json` ("O relatório
+  do recife") — completar "Aqui tem ___ corais.", dentro do objetivo já existente
+  `contar-ate-10`.
+
+**Verificado em navegador de verdade** (Playwright): missões 1 e 2 até o fim, as quatro fases da
+missão 3 jogadas em sequência (incluindo a nova `FILL_BLANK`), a lacuna conferida vazia (`___`)
+antes de escolher e preenchida com "cinco" depois de tocar na opção — **antes** de responder —,
+mensagem de acerto exibida, banco de palavras desabilitado após revelar.
+
+Com este plugin, todos os cinco tipos de atividade da lista original de `docs/12`
+(`MULTIPLE_CHOICE`, `MULTI_SELECT`, `TRUE_FALSE`, `DRAG_MATCH`, `ORDER_SEQUENCE`, `FILL_BLANK` —
+seis, na verdade) estão implementados, exceto `WORD_BUILD` e o resto da "Fases seguintes" de
+`docs/01 §3`.
+
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
 nova dentro da mesma Academia do Conhecimento** (não uma academia própria) — é assim que a
@@ -878,11 +908,11 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 5. **Perfil de talentos** (`docs/08 §9`) — **investigado nesta sessão, não iniciado de propósito**.
    Ver decisão nº 5 abaixo: ao contrário de Conquistas e Mapa, este item não tem como ser
    escopado sem inventar regra de produto que não está documentada em lugar nenhum.
-6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, depois `MULTI_SELECT`, depois
-   `TRUE_FALSE`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH (parear)",
-   "Plugin MULTI_SELECT (seleção múltipla)" e "Plugin TRUE_FALSE (verdadeiro ou falso)". Falta
-   ainda `FILL_BLANK` e o resto da lista de `docs/12` — mesmo caminho, plugin novo sem tocar no
-   núcleo.
+6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, `MULTI_SELECT`, `TRUE_FALSE`,
+   `FILL_BLANK`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH (parear)",
+   "Plugin MULTI_SELECT (seleção múltipla)", "Plugin TRUE_FALSE (verdadeiro ou falso)" e "Plugin
+   FILL_BLANK (completar a lacuna)". Falta ainda `WORD_BUILD` e o resto da "Fases seguintes" de
+   `docs/01 §3` — mesmo caminho, plugin novo sem tocar no núcleo.
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 
@@ -893,10 +923,10 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Seis missões, dezoito atividades, cinco tipos
+**3. O gargalo agora é conteúdo, não código.** Seis missões, dezenove atividades, seis tipos
 de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`,
-`TRUE_FALSE`) — duas disciplinas (Matemática com quatro missões, Português com duas), ainda um
-único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
+`TRUE_FALSE`, `FILL_BLANK`) — duas disciplinas (Matemática com quatro missões, Português com
+duas), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 
