@@ -161,6 +161,12 @@ export interface LinhaAtividade {
   readonly duracaoEstimadaSeg: number;
   readonly faixaMinima: string;
   readonly faixaMaxima: string;
+  /** Motor de Aprendizagem Adaptativa (docs/08 §13) — sempre opcionais. */
+  readonly requerLeitura: boolean | null;
+  readonly suporteVisual: string | null;
+  readonly tipoDeInteracao: string | null;
+  readonly quantidadeDeEtapas: number | null;
+  readonly variantesDeApresentacao: unknown | null;
 }
 
 export interface LinhaVinculo {
@@ -497,6 +503,11 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
           duracaoEstimadaSeg: atividade.duracaoEstimadaSeg,
           faixaMinima: atividade.faixaMinima,
           faixaMaxima: atividade.faixaMaxima,
+          requerLeitura: atividade.caracteristicas?.requerLeitura ?? null,
+          suporteVisual: atividade.caracteristicas?.suporteVisual ?? null,
+          tipoDeInteracao: atividade.caracteristicas?.tipoDeInteracao ?? null,
+          quantidadeDeEtapas: atividade.caracteristicas?.quantidadeDeEtapas ?? null,
+          variantesDeApresentacao: atividade.variantesDeApresentacao ?? null,
         });
 
         vinculos.push({
