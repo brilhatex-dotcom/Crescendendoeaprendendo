@@ -74,6 +74,10 @@ const RESPOSTAS_ERRADAS: Readonly<Record<string, (config: unknown) => unknown[]>
       { opcaoIds: corretas.slice(0, -1) }, // faltou uma certa — crédito parcial também nunca sai sem ensino
     ];
   },
+  TRUE_FALSE: (config) => {
+    const c = config as { correta: boolean };
+    return [{ resposta: !c.correta }]; // a única resposta errada possível
+  },
 };
 
 describe("PP5 · Erro sempre ensina (docs/08 §12.3)", () => {

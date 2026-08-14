@@ -4,6 +4,7 @@ import { dragMatchPlugin } from "./drag-match";
 import { multipleChoicePlugin } from "./multiple-choice";
 import { multiSelectPlugin } from "./multi-select";
 import { orderSequencePlugin } from "./order-sequence";
+import { trueFalsePlugin } from "./true-false";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -30,9 +31,11 @@ export const PLUGINS_REGISTRADOS: readonly SealedPlugin[] = [
   selar(orderSequencePlugin),
   selar(dragMatchPlugin),
   selar(multiSelectPlugin),
+  selar(trueFalsePlugin),
 ];
 
 export { multipleChoicePlugin } from "./multiple-choice";
 export { orderSequencePlugin } from "./order-sequence";
 export { dragMatchPlugin } from "./drag-match";
 export { multiSelectPlugin } from "./multi-select";
+export { trueFalsePlugin } from "./true-false";

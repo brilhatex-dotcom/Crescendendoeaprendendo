@@ -100,6 +100,65 @@
           }
         }
       ]
+    },
+    {
+      "slug": "fase-02-a-chave-esta-certa",
+      "nome": "A chave está certa?",
+      "atividades": [
+        {
+          "slug": "verdadeiro-ou-falso-conchas-7",
+          "tipo": "TRUE_FALSE",
+          "objetivo": "contar-ate-10",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 35,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Aqui tem 7 conchas.",
+            "enunciadoFalado": "Aqui tem 7 conchas. Isso é verdade ou é falso?",
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "dentro do baú",
+              "grupos": [
+                {
+                  "simbolo": "🐚",
+                  "quantidade": 7,
+                  "nome": "concha"
+                }
+              ]
+            },
+            "correta": true,
+            "mensagemDeAcerto": "Isso! São mesmo 7 conchas.",
+            "ensino": "Toque em cada concha e conte, uma de cada vez, até chegar na última.",
+            "equivoco": "nao-contou-com-cuidado",
+            "dicas": [
+              "Comece pela concha da esquerda e não pule nenhuma."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 10,
+                "moedas": 4
+              },
+              "PARTIAL": {
+                "xp": 6,
+                "moedas": 2
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
     }
   ]
 }
