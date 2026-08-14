@@ -1,0 +1,52 @@
+{
+  "conquistas": [
+    {
+      "code": "primeiro-farol",
+      "nome": "Primeiro Farol Aceso",
+      "descricao": "Você dominou sua primeira competência de verdade — o farol acendeu e não apaga mais.",
+      "familia": "DOMINIO",
+      "grau": "BRONZE",
+      "criterio": { "tipo": "competenciasDominadas", "minimo": 1 }
+    },
+    {
+      "code": "cinco-farois-acesos",
+      "nome": "Cinco Faróis Acesos",
+      "descricao": "Cinco competências dominadas. O mapa já mostra bem mais luz do que sombra.",
+      "familia": "DOMINIO",
+      "grau": "PRATA",
+      "criterio": { "tipo": "competenciasDominadas", "minimo": 5 }
+    },
+    {
+      "code": "dez-farois-acesos",
+      "nome": "Dez Faróis Acesos",
+      "descricao": "Dez competências dominadas. Poucas crianças chegam tão longe tão rápido.",
+      "familia": "DOMINIO",
+      "grau": "OURO",
+      "criterio": { "tipo": "competenciasDominadas", "minimo": 10 }
+    },
+    {
+      "code": "primeira-missao-concluida",
+      "nome": "A Primeira Vitória",
+      "descricao": "Você terminou sua primeira missão no Arquipélago Crescente.",
+      "familia": "PERSISTENCIA",
+      "grau": "BRONZE",
+      "criterio": { "tipo": "missoesConcluidas", "minimo": 1 }
+    },
+    {
+      "code": "cinco-missoes-concluidas",
+      "nome": "Quem Não Desiste",
+      "descricao": "Cinco missões concluídas. Você está construindo o hábito de terminar o que começa.",
+      "familia": "PERSISTENCIA",
+      "grau": "PRATA",
+      "criterio": { "tipo": "missoesConcluidas", "minimo": 5 }
+    },
+    {
+      "code": "dez-missoes-concluidas",
+      "nome": "A Trilha É Sua",
+      "descricao": "Dez missões concluídas. Isso é persistência de verdade.",
+      "familia": "PERSISTENCIA",
+      "grau": "OURO",
+      "criterio": { "tipo": "missoesConcluidas", "minimo": 10 }
+    }
+  ]
+}

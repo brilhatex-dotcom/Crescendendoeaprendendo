@@ -141,6 +141,7 @@ export const questKindSchema = z.enum([
  * A dependência é de mão única (autoria → avaliador) e não cria ciclo.
  */
 import { layoutDoMapaSchema, regraDeDesbloqueioSchema as regraDeDesbloqueio } from "@/modules/quest";
+import { criterioDeConquistaSchema } from "@/modules/achievement";
 
 export { regraDeDesbloqueio as regraDeDesbloqueioSchema };
 
@@ -184,6 +185,32 @@ export const catalogoDeColecionaveisSchema = z.object({
 
 export type Colecionavel = z.infer<typeof colecionavelSchema>;
 export type CatalogoDeColecionaveis = z.infer<typeof catalogoDeColecionaveisSchema>;
+
+// ── Catálogo de conquistas (content/conquistas.json) ─────────────────────────
+
+/**
+ * `criterioDeConquistaSchema` vem do módulo que avalia o critério
+ * (`@/modules/achievement`), mesmo raciocínio de `regraDeDesbloqueioSchema`
+ * logo abaixo — uma gramática, um dono.
+ */
+export const conquistaSchema = z.object({
+  code: slugSchema,
+  nome: z.string().min(2).max(120),
+  descricao: z.string().min(10).max(300),
+  /** Bíblia Vol. 1 Cap. 6 §6.15 — as cinco famílias do produto. */
+  familia: z.enum(["DOMINIO", "PERSISTENCIA", "DESCOBERTA", "CRIACAO", "CUIDADO"]),
+  grau: z.enum(["BRONZE", "PRATA", "OURO", "LENDARIA"]),
+  /** `false` (padrão): nome e descrição visíveis mesmo antes de desbloquear — mostra o caminho. */
+  oculta: z.boolean().default(false),
+  criterio: criterioDeConquistaSchema,
+});
+
+export const catalogoDeConquistasSchema = z.object({
+  conquistas: z.array(conquistaSchema).min(1),
+});
+
+export type Conquista = z.infer<typeof conquistaSchema>;
+export type CatalogoDeConquistas = z.infer<typeof catalogoDeConquistasSchema>;
 
 // ── Estrutura acima da missão ────────────────────────────────────────────────
 

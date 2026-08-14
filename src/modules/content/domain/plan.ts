@@ -1,4 +1,5 @@
 import { DIFICULDADE_INICIAL, type DifficultyLabel } from "@/activities";
+import type { CriterioDeConquista } from "@/modules/achievement";
 import type { LayoutDoMapa, RegraDeDesbloqueio } from "@/modules/quest";
 import type { Acervo, MissaoCarregada } from "@/content/loader";
 import type { DisciplinaCurricular } from "@/content/schema";
@@ -175,6 +176,16 @@ export interface LinhaColecionavel {
   readonly simbolo: string;
 }
 
+export interface LinhaConquista {
+  readonly code: string;
+  readonly nome: string;
+  readonly descricao: string;
+  readonly familia: string;
+  readonly grau: string;
+  readonly oculta: boolean;
+  readonly criterio: CriterioDeConquista;
+}
+
 export interface PlanoDeImportacao {
   readonly academias: readonly LinhaAcademia[];
   readonly disciplinas: readonly LinhaDisciplina[];
@@ -189,6 +200,7 @@ export interface PlanoDeImportacao {
   readonly atividades: readonly LinhaAtividade[];
   readonly vinculos: readonly LinhaVinculo[];
   readonly colecionaveis: readonly LinhaColecionavel[];
+  readonly conquistas: readonly LinhaConquista[];
 }
 
 export interface ProblemaDePlano {
@@ -503,6 +515,16 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
     simbolo: c.simbolo,
   }));
 
+  const conquistas: LinhaConquista[] = acervo.conquistas.map((c) => ({
+    code: c.code,
+    nome: c.nome,
+    descricao: c.descricao,
+    familia: c.familia,
+    grau: c.grau,
+    oculta: c.oculta,
+    criterio: c.criterio,
+  }));
+
   return {
     plano: {
       academias,
@@ -518,6 +540,7 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
       atividades,
       vinculos,
       colecionaveis,
+      conquistas,
     },
     problemas,
   };
