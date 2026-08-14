@@ -222,6 +222,9 @@ export function planejarTentativa(
       outcome: resultado.outcome,
       scoreRatio: resultado.scoreRatio,
       primeiraVez: contexto.tentativasNaAtividade === 0,
+      dicasUsadas: submissao.dicasUsadas,
+      duracaoMs: submissao.duracaoMs,
+      presentationTag: null,
       premio,
       dominio: dominio
         ? {

@@ -627,6 +627,62 @@ Com este plugin, todos os cinco tipos de atividade da lista original de `docs/12
 seis, na verdade) estão implementados, exceto `WORD_BUILD` e o resto da "Fases seguintes" de
 `docs/01 §3`.
 
+### Motor de Aprendizagem Adaptativa — Fases 0 e 1 concluídas
+Pedido explícito do dono, no meio da sessão: a plataforma deve descobrir progressivamente **como**
+cada criança aprende melhor (suporte visual, instrução em etapas, independência de leitura...) e
+adaptar a apresentação — **nunca diagnosticar** condição médica ou psicológica nenhuma. Uma
+plataforma só, um motor de atividades só, adaptação como camada. Análise arquitetural completa
+(o que muda, o que fica, novos modelos, novos contratos, quatro fluxos, plano de 5 fases)
+apresentada ao dono antes de qualquer código, por pedido dele mesmo. Ver ADR 0005 (a ser escrito
+na Fase de documentação) para o registro formal da decisão.
+
+**Fase 0 — fundação de dados**, migration puramente aditiva:
+- `LearningProfile` / `LearningProfileDimension` / `LearningProfileEvent` — perfil por (criança,
+  academia|global). Modelo de dimensão flexível: uma dimensão nova é uma linha, nunca uma
+  migration. Trilha de auditoria append-only.
+- `Activity` ganha características declaradas opcionais (`requiresReading`, `visualSupportLevel`,
+  `interactionType`, `stepCount`) e `presentationVariants` (Json?, apresentações alternativas da
+  MESMA pergunta pedagógica — o motor de atividades nunca vai saber que existem).
+- `Attempt.presentationTag`, `LearnerSettings` com 6 novos toggles de acessibilidade manual,
+  `Recommendation.payload` (reaproveitado, sem tabela nova).
+- Ajuste de meio de caminho: `@@unique([learnerId, academyId])` foi trocado por `@@index` puro —
+  Postgres nunca considera dois `NULL` iguais, então a constraint composta não impedia duplicata
+  nenhuma no perfil global (`academyId = null`). Mesmo limite que `AccountRoleAssignment` já
+  aceita para `organizationId` nulo; `obterOuCriarPerfil` faz `findFirst` + `create`, não `upsert`.
+
+**Fase 1 — módulo `learning-profile`** (domain + application + infrastructure, **sem UI**):
+- `domain/dimension.ts` — matemática pura: `recomputarDimensao` (idempotente por
+  **recomputação**, não acumulação — mesmíssimo raciocínio de `achievement/domain/criteria.ts`:
+  o outbox é *at-least-once*, então a dimensão é sempre recalculada a partir de TODAS as
+  tentativas relevantes já persistidas, nunca por "+1 por evento"); `calcularConfianca` usa
+  `n / (n + 8)` — com 37 observações dá ~82%, a mesma ordem de grandeza do exemplo do próprio
+  pedido do dono.
+- `domain/dimension-rules.ts` — o mapeamento característica → dimensão (`suporteVisual`,
+  `instrucaoPassoAPasso`, `independenciaDeLeitura`). Uma atividade sem nenhuma característica
+  declarada (todo o acervo hoje, antes da Fase 2) não ensina nada — o handler não faz nada nesse
+  caso, e começa a aprender sozinho assim que a primeira atividade declarar algo.
+  `dimensoesRelevantes` é a função só; nenhuma chave menciona diagnóstico (verificado em teste).
+- `application/update-from-attempt.ts` — reage a `assessment.attempt_evaluated` pelo outbox
+  (mesmo raciocínio de `achievement`: perfil de aprendizagem informa a *próxima* missão, não
+  compete pelo orçamento de latência da tentativa atual).
+- `TentativaAvaliada` (evento interno de `assessment`) ganhou `dicasUsadas`, `duracaoMs`,
+  `presentationTag` — sinais que já existiam em `RegistroDeTentativa` (telemetria), agora também
+  no evento interno, hoje só consumidos por este módulo. `presentationTag` é sempre `null` até a
+  Fase 3 escolher variantes de verdade.
+- Registrado em `src/composition/assessment.ts`, mesma tabela de handlers de `assessment.attempt_evaluated`.
+
+**Verificado**: `npm run verify` (548 testes, incluindo os novos de domínio e a política que
+garante `FILTRO_POR_DIMENSAO` do Prisma e `REGRAS_DE_DIMENSAO` do domínio nunca saírem de
+sincronia) · `npm run test:integration` (76 testes, incluindo a pipeline real
+resposta→outbox→perfil contra Postgres, com a mesma prova de idempotência-por-recomputação que
+`achievement` — despachar a mesma mensagem duas vezes e chamar o handler duas vezes com o mesmo
+estado de `Attempt` nunca conta a mesma tentativa duas vezes) · build de produção.
+
+**Pendente**: Fase 2 (schema de conteúdo + primeira atividade real com variantes), Fase 3
+(seleção de variante por perfil + `Recommendation` de acessibilidade + tela "Personalização da
+Aprendizagem" para o responsável) e a atualização de documentação (ADR 0005, docs/04, docs/08,
+docs/13). Ver seção 5 para o plano completo de 5 fases.
+
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
 nova dentro da mesma Academia do Conhecimento** (não uma academia própria) — é assim que a
@@ -937,6 +993,11 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
    `docs/01 §3` — mesmo caminho, plugin novo sem tocar no núcleo.
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
+8. **Motor de Aprendizagem Adaptativa** (pedido explícito do dono, no meio desta sessão) —
+   **Fases 0 e 1 concluídas nesta sessão**, Fases 2-4 em andamento. Ver seção 3, "Motor de
+   Aprendizagem Adaptativa — Fases 0 e 1 concluídas", para o que já existe, e o plano de 5 fases
+   apresentado ao dono antes de começar (fundação de dados → módulo de perfil → variantes de
+   conteúdo → seleção por perfil + tela do responsável → documentação).
 
 ### Decisões em aberto — precisam do dono
 **1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é

@@ -43,6 +43,21 @@ export interface TentativaAvaliada {
   readonly primeiraVez: boolean;
 
   /**
+   * Sinais de interação — hoje só consumidos pelo Motor de Aprendizagem
+   * Adaptativa (`learning-profile`), para inferir com qual apresentação a
+   * criança rende melhor. Já existiam em `RegistroDeTentativa` (telemetria);
+   * aqui é a mesma informação, sem `pseudonymId`, para uso interno.
+   */
+  readonly dicasUsadas: number;
+  readonly duracaoMs: number;
+  /**
+   * Tag da variante de apresentação mostrada (`Activity.presentationVariants`),
+   * ou `null` para a apresentação padrão. Sempre `null` até a camada de
+   * adaptação (Fase 3) começar a escolher variantes de verdade.
+   */
+  readonly presentationTag: string | null;
+
+  /**
    * Prêmio **calculado**, não creditado.
    *
    * Quem credita é o módulo de economia, em transação própria e com chave de
