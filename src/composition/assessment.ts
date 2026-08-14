@@ -11,6 +11,12 @@ import {
 } from "@/modules/economy";
 import { criarRepositorioPrismaDeCarteira } from "@/modules/economy/infrastructure/prisma-wallet-repository";
 import {
+  criarAtualizarPerfilAPartirDeTentativa,
+  criarBuscarPerfilDeAprendizagem,
+  type BuscarPerfilDeAprendizagem,
+} from "@/modules/learning-profile";
+import { criarRepositorioPrismaDePerfilDeAprendizagem } from "@/modules/learning-profile/infrastructure/prisma-learning-profile-repository";
+import {
   criarCobrancaDeFolego,
   criarCreditoDeMissao as criarCreditoDeMissaoNaLuz,
   criarCreditoDeTentativa,
@@ -46,7 +52,7 @@ import { systemClock } from "@/shared/kernel";
  * | evento                       | quem reage                                  |
  * |------------------------------|---------------------------------------------|
  * | `quest.started`              | progressão cobra o Fôlego                    |
- * | `assessment.attempt_evaluated` | progressão credita Luz · economia credita Fagulha · missão avança a corrida · coleção concede figurinha · conquista avança progresso (pelo outbox) |
+ * | `assessment.attempt_evaluated` | progressão credita Luz · economia credita Fagulha · missão avança a corrida · coleção concede figurinha · conquista avança progresso (pelo outbox) · perfil de aprendizagem recomputa dimensão (pelo outbox) |
  * | `quest.completed`            | progressão credita a recompensa e avança a Trilha · economia credita a moeda · coleção concede figurinha · conquista avança progresso (pelo outbox) |
  * | `learning.attempt_recorded`  | telemetria (pelo outbox)                     |
  *
@@ -59,6 +65,7 @@ const repositorioDeProgresso = criarRepositorioPrismaDeProgresso(db);
 const repositorioDeCarteira = criarRepositorioPrismaDeCarteira(db);
 const repositorioDeColecionaveis = criarRepositorioPrismaDeColecionaveis(db);
 const repositorioDeConquistas = criarRepositorioPrismaDeConquistas(db);
+const repositorioDePerfilDeAprendizagem = criarRepositorioPrismaDePerfilDeAprendizagem(db);
 const repositorioDeMissoes = criarRepositorioPrismaDeMissoes();
 const repositorioDeSlots = criarRepositorioPrismaDeSlots();
 const leituraDoMapa = criarLeituraPrismaDoMapa(db);
@@ -81,6 +88,10 @@ const MANIPULADORES: readonly EventHandler[] = [
   criarCreditoDeRecompensa({ repositorio: repositorioDeCarteira }),
   criarConcessaoPorTentativa({ repositorio: repositorioDeColecionaveis }),
   criarAvaliacaoPorTentativa({ repositorio: repositorioDeConquistas, clock: systemClock }),
+  criarAtualizarPerfilAPartirDeTentativa({
+    repositorio: repositorioDePerfilDeAprendizagem,
+    clock: systemClock,
+  }),
   criarAvancoDaCorrida({
     repositorio: repositorioDeMissoes,
     slots: repositorioDeSlots,
@@ -119,6 +130,7 @@ interface ContainerDaJogada {
   readonly carteira: typeof repositorioDeCarteira;
   readonly colecao: typeof repositorioDeColecionaveis;
   readonly conquistas: typeof repositorioDeConquistas;
+  readonly buscarPerfilDeAprendizagem: BuscarPerfilDeAprendizagem;
   readonly despachante: DespachanteDoOutbox;
 }
 
@@ -140,6 +152,10 @@ export function containerDeAvaliacao(): ContainerDaJogada {
     carteira: repositorioDeCarteira,
     colecao: repositorioDeColecionaveis,
     conquistas: repositorioDeConquistas,
+    buscarPerfilDeAprendizagem: criarBuscarPerfilDeAprendizagem({
+      repositorio: repositorioDePerfilDeAprendizagem,
+      clock: systemClock,
+    }),
     despachante: criarDespachanteDoOutbox(db, MANIPULADORES),
   };
   return cache;

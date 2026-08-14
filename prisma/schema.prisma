@@ -1016,8 +1016,12 @@ model LearningProfile {
   dimensions LearningProfileDimension[]
   events     LearningProfileEvent[]
 
-  @@unique([learnerId, academyId])
-  @@index([academyId])
+  /// Não é `@@unique`: Postgres nunca considera dois `NULL` iguais, então uma
+  /// constraint composta com `academyId` nulo (o perfil global) não
+  /// impediria duplicata nenhuma — o mesmo limite que `AccountRoleAssignment`
+  /// já aceita para `organizationId` nulo. `obterOuCriarPerfil` faz
+  /// `findFirst` + `create` em vez de `upsert` por causa disso.
+  @@index([learnerId, academyId])
 }
 
 /// Uma linha por eixo observado. Modelo deliberadamente flexível: uma
