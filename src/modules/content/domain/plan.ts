@@ -1,5 +1,5 @@
 import { DIFICULDADE_INICIAL, type DifficultyLabel } from "@/activities";
-import type { RegraDeDesbloqueio } from "@/modules/quest";
+import type { LayoutDoMapa, RegraDeDesbloqueio } from "@/modules/quest";
 import type { Acervo, MissaoCarregada } from "@/content/loader";
 import type { DisciplinaCurricular } from "@/content/schema";
 
@@ -116,6 +116,8 @@ export interface LinhaMundo {
   readonly nome: string;
   readonly nivelMinimo: number;
   readonly ordem: number;
+  /** `null` = mundo sem geografia autorada; a tela cai na lista simples. */
+  readonly mapa: LayoutDoMapa | null;
 }
 
 export interface LinhaCapitulo {
@@ -409,6 +411,7 @@ export function planejarImportacao(acervo: Acervo): ResultadoDoPlano {
         nome: nivel?.nome ?? carregada.nivel,
         nivelMinimo: nivel?.nivelMinimo ?? 1,
         ordem: nivel?.ordem ?? mundos.size,
+        mapa: nivel?.mapa ?? null,
       });
     }
 

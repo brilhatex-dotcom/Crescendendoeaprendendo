@@ -189,11 +189,18 @@ export function criarEscritorPrismaDeConteudo(db: PrismaClient): EscritorDeConte
               minLevel: linha.nivelMinimo,
               order: linha.ordem,
               /*
-               * O mapa visual ainda não existe (HANDOFF §5, "Depois"). Guardar
-               * a versão do schema desde já evita ter que adivinhar, no dia em
-               * que existir, se um layout vazio é "sem mapa" ou "mapa antigo".
+               * `schemaVersion` viaja com o layout desde antes de existir
+               * conteúdo nenhum — evita ter que adivinhar, no dia em que um
+               * segundo formato aparecer, se um layout vazio é "sem mapa" ou
+               * "mapa no formato antigo".
                */
-              mapLayout: { schemaVersion: 1, nos: [], arestas: [] },
+              mapLayout: linha.mapa
+                ? {
+                    schemaVersion: 1,
+                    nos: linha.mapa.nos.map((no) => ({ missaoRef: no.missaoRef, x: no.x, y: no.y })),
+                    arestas: linha.mapa.arestas.map((aresta) => ({ de: aresta.de, para: aresta.para })),
+                  }
+                : { schemaVersion: 1, nos: [], arestas: [] },
             };
 
             const mundo = await tx.world.upsert({

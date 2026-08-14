@@ -2,6 +2,7 @@ import type { SeletorDeAtividades } from "@/activities";
 import { ConflitoDeConcorrencia } from "@/shared/kernel";
 import type { Clock, EventBus, Transacao, UnidadeDeTrabalho } from "@/shared/kernel";
 
+import type { LayoutDoMapa } from "../domain/map-layout";
 import type { DadosDaMissao, EstadoDaCorrida } from "../domain/quest-run";
 import type { EstadoParaDesbloqueio, RegraDeDesbloqueio } from "../domain/unlock-rule";
 
@@ -91,6 +92,8 @@ export interface MundoNoMapa {
   readonly academia: string;
   readonly nivelMinimo: number;
   readonly capitulos: readonly CapituloNoMapa[];
+  /** Já validado/tolerante — ver `lerLayoutDoMapa`. `LAYOUT_VAZIO` = sem mapa desenhado ainda. */
+  readonly layout: LayoutDoMapa;
 }
 
 export interface DadosDoMapa {

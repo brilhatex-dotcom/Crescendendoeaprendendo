@@ -2,5 +2,14 @@
   "slug": "nivel-01",
   "nome": "A Praça Muda",
   "ordem": 1,
-  "nivelMinimo": 1
+  "nivelMinimo": 1,
+  "mapa": {
+    "nos": [
+      {
+        "missaoRef": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-01-o-alfabeto-da-virgula",
+        "x": 50,
+        "y": 70
+      }
+    ]
+  }
 }

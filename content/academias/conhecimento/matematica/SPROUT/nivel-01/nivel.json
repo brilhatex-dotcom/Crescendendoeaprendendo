@@ -2,5 +2,43 @@
   "slug": "nivel-01",
   "nome": "A Orla Apagada",
   "ordem": 1,
-  "nivelMinimo": 1
+  "nivelMinimo": 1,
+  "mapa": {
+    "nos": [
+      {
+        "missaoRef": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-01-a-contagem-da-orla",
+        "x": 15,
+        "y": 82
+      },
+      {
+        "missaoRef": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-02-os-caranguejos-da-mare",
+        "x": 38,
+        "y": 62
+      },
+      {
+        "missaoRef": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-03-o-recife-dos-peixinhos",
+        "x": 62,
+        "y": 42
+      },
+      {
+        "missaoRef": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-04-o-bau-da-orla",
+        "x": 85,
+        "y": 18
+      }
+    ],
+    "arestas": [
+      {
+        "de": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-01-a-contagem-da-orla",
+        "para": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-02-os-caranguejos-da-mare"
+      },
+      {
+        "de": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-02-os-caranguejos-da-mare",
+        "para": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-03-o-recife-dos-peixinhos"
+      },
+      {
+        "de": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-03-o-recife-dos-peixinhos",
+        "para": "conhecimento/matematica/SPROUT/nivel-01/modulo-01-numeros-ate-10/missao-04-o-bau-da-orla"
+      }
+    ]
+  }
 }
