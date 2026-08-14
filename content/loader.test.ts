@@ -65,7 +65,16 @@ const MISSAO_BOA = {
   ],
 };
 
-async function escreverAcervo(missao: unknown, curriculo: unknown = CURRICULO): Promise<void> {
+const NIVEL_PADRAO = { slug: "nivel-01", nome: "Nível 1", ordem: 1 };
+
+/** Referência completa da `MISSAO_BOA` desta fixture — o mesmo formato de `questCompleted`/`mapa.nos[].missaoRef`. */
+const REF_DA_MISSAO_BOA = "conhecimento/matematica/SPROUT/nivel-01/modulo-01/missao-01-teste";
+
+async function escreverAcervo(
+  missao: unknown,
+  curriculo: unknown = CURRICULO,
+  nivel: unknown = NIVEL_PADRAO,
+): Promise<void> {
   const dirModulo = join(
     raiz,
     "academias/conhecimento/matematica/SPROUT/nivel-01/modulo-01",
@@ -92,7 +101,7 @@ async function escreverAcervo(missao: unknown, curriculo: unknown = CURRICULO): 
   );
   await writeFile(
     join(raiz, "academias/conhecimento/matematica/SPROUT/nivel-01/nivel.json"),
-    JSON.stringify({ slug: "nivel-01", nome: "Nível 1", ordem: 1 }),
+    JSON.stringify(nivel),
   );
   await writeFile(
     join(dirModulo, "modulo.json"),
@@ -243,6 +252,53 @@ describe("o validador pega conteúdo quebrado", () => {
     );
 
     expect((await problemas()).join(" ")).toContain("JSON inválido");
+  });
+
+  it("mapa: nó apontando para missão inexistente", async () => {
+    await escreverAcervo(MISSAO_BOA, CURRICULO, {
+      ...NIVEL_PADRAO,
+      mapa: { nos: [{ missaoRef: "missao-fantasma", x: 10, y: 10 }] },
+    });
+
+    const mensagens = await problemas();
+    expect(mensagens.join(" ")).toContain("missao-fantasma");
+    // A missão de verdade também fica sem nó — as duas mensagens aparecem.
+    expect(mensagens.join(" ")).toContain(REF_DA_MISSAO_BOA);
+  });
+
+  it("mapa: aresta apontando para nó que não existe", async () => {
+    await escreverAcervo(MISSAO_BOA, CURRICULO, {
+      ...NIVEL_PADRAO,
+      mapa: {
+        nos: [{ missaoRef: REF_DA_MISSAO_BOA, x: 10, y: 10 }],
+        arestas: [{ de: REF_DA_MISSAO_BOA, para: "no-que-nao-existe" }],
+      },
+    });
+
+    expect((await problemas()).join(" ")).toContain("no-que-nao-existe");
+  });
+
+  it("mapa: missão do nível sem nó no mapa", async () => {
+    await escreverAcervo(MISSAO_BOA, CURRICULO, {
+      ...NIVEL_PADRAO,
+      mapa: { nos: [{ missaoRef: "conhecimento/matematica/SPROUT/nivel-01/modulo-01/missao-02", x: 10, y: 10 }] },
+    });
+    // Missão extra que o mapa acima não cobre — só ela teria nó, faltaria a MISSAO_BOA.
+    await writeFile(
+      join(raiz, "academias/conhecimento/matematica/SPROUT/nivel-01/modulo-01/missao-02.json"),
+      JSON.stringify({ ...MISSAO_BOA, slug: "missao-02" }),
+    );
+
+    expect((await problemas()).join(" ")).toContain(`a missão "${REF_DA_MISSAO_BOA}" não tem nó`);
+  });
+
+  it("mapa completo e correto não gera problema nenhum", async () => {
+    await escreverAcervo(MISSAO_BOA, CURRICULO, {
+      ...NIVEL_PADRAO,
+      mapa: { nos: [{ missaoRef: REF_DA_MISSAO_BOA, x: 10, y: 10 }] },
+    });
+
+    expect(await problemas()).toEqual([]);
   });
 
   it("ordem correta citando id inexistente (validação do plugin, não do schema de autoria)", async () => {

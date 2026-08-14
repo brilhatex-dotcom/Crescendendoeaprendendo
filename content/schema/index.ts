@@ -140,7 +140,7 @@ export const questKindSchema = z.enum([
  *
  * A dependência é de mão única (autoria → avaliador) e não cria ciclo.
  */
-import { regraDeDesbloqueioSchema as regraDeDesbloqueio } from "@/modules/quest";
+import { layoutDoMapaSchema, regraDeDesbloqueioSchema as regraDeDesbloqueio } from "@/modules/quest";
 
 export { regraDeDesbloqueio as regraDeDesbloqueioSchema };
 
@@ -200,6 +200,18 @@ export const nivelSchema = z.object({
   ordem: z.number().int().min(0),
   /** Nível mínimo da criança para o conteúdo aparecer no mapa. */
   nivelMinimo: z.number().int().min(1).default(1),
+  /**
+   * Geografia do mapa deste mundo: onde cada missão aparece (`x`/`y` em
+   * percentual) e que caminhos a ligam às vizinhas. Opcional — mundo sem
+   * `mapa` cai na lista simples (ver `docs/HANDOFF.md`, "Mapa desenhado").
+   * `missaoRef` é a mesma referência completa usada em
+   * `desbloqueio.questCompleted` (`academia/disciplina/FAIXA/nivel/modulo/missao-slug`).
+   * A integridade (todo nó aponta para uma missão real deste mundo, toda
+   * missão do mundo tem nó, toda aresta liga nós existentes) é conferida em
+   * `src/modules/content/domain/plan.ts`, não aqui — este schema só garante
+   * a forma.
+   */
+  mapa: layoutDoMapaSchema.optional(),
 });
 
 export const disciplinaSchema = z.object({

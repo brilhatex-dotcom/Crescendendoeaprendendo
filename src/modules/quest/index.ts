@@ -25,9 +25,11 @@ export { criarAvancoDaCorrida } from "./application/advance-run";
 export {
   criarMontarMapa,
   type CapituloDoMapa,
+  type MapaVisual,
   type MissaoDoMapa,
   type MontarMapa,
   type MundoDoMapa,
+  type NoDoMapaVisual,
 } from "./application/map";
 
 export {
@@ -54,6 +56,14 @@ export {
   type Pendencia,
   type RegraDeDesbloqueio,
 } from "./domain/unlock-rule";
+
+export {
+  LAYOUT_VAZIO,
+  layoutDoMapaSchema,
+  type ArestaDoLayout,
+  type LayoutDoMapa,
+  type NoDoLayout,
+} from "./domain/map-layout";
 
 export {
   TOPICO_MISSAO_CONCLUIDA,

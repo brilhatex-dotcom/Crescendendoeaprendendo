@@ -624,6 +624,55 @@ operador acima. Fecha o item 7 da "Ordem sugerida" (seção 5).
   login com a senha nova funciona, com a antiga é recusado → reusar o mesmo link falha
   ("uso único").
 
+### Mapa desenhado — concluído (item 4 da "Ordem sugerida")
+Pedido do dono: "quero mais lúdico possível para as crianças". `World.mapLayout` existia no
+schema desde a Etapa 3 mas nunca foi autorado nem lido — o mapa era uma lista vertical de
+cartões. Agora é geografia de verdade: nós posicionados por `x`/`y` (percentual), ligados por
+caminhos, com névoa sobre o que ainda não abriu.
+
+- **Domínio novo**: `src/modules/quest/domain/map-layout.ts` — `LayoutDoMapa` (`nos`: cada um
+  com `missaoRef` + `x`/`y` de 0 a 100; `arestas`: pares `de`/`para`) e `layoutDoMapaSchema`.
+  Puro, sem I/O — mesmo padrão de `unlock-rule.ts`. `LAYOUT_VAZIO` é o valor de "mundo sem mapa
+  desenhado ainda", e é ele quem faz a tela cair de volta pra lista.
+- **Leitura tolerante**: `infrastructure/map-layout-json.ts` (`lerLayoutDoMapa`) — mesmo
+  raciocínio de `lerRegraDeDesbloqueio`: layout irreconhecível ou o placeholder do importador
+  (`{nos:[]}`) nunca travam a tela, só fazem o mundo cair na lista.
+- **Autoria em `content/`**: `nivel.json` ganhou o campo opcional `mapa` (`content/schema/
+  index.ts` reaproveita `layoutDoMapaSchema` — a mesma gramática do banco, sem uma segunda
+  definição pra divergir). `missaoRef` é a referência completa, o mesmo formato de
+  `desbloqueio.questCompleted`.
+- **Integridade referencial** (`content/loader.ts`, `validarReferenciasEConfigs`): todo nó
+  precisa apontar pra uma missão real do mesmo nível; toda missão do nível precisa ter nó (mapa
+  incompleto nunca é publicado — ou cobre tudo, ou o mundo fica sem mapa); toda aresta liga nós
+  existentes. Pego no `npm run content:validate`, antes de chegar no banco.
+- **`plan.ts`/`prisma-content-writer.ts`**: `LinhaMundo.mapa` viaja do nível pro mundo e é
+  gravado em `World.mapLayout` como está (sem transformação — a mesma forma do domínio até o
+  Postgres).
+- **`map.ts`/`prisma-map-reader.ts`**: `MundoDoMapa.mapa` (novo, `MapaVisual | null`) traduz o
+  layout bruto (referências) na `MissaoDoMapa` já avaliada (jogabilidade, concluída, em
+  andamento) — a mesma instância que a lista usa, não recalculada duas vezes. Nó cujo
+  `missaoRef` não bate mais com nenhuma missão (conteúdo mudou, banco não foi reimportado) é
+  descartado em silêncio, e aresta órfã também — defensivo, nunca quebra a tela.
+- **Tela** (`app/(play)/hub/mapa.tsx`): quando `mundo.mapa` existe, desenha um `<svg>` com as
+  arestas (caminho já andado acende em `--color-corrente`, o resto fica pontilhado e apagado) e
+  os nós como `Link`/`div[aria-disabled]` posicionados por `left`/`top` percentual sobre o svg —
+  não dentro dele, pelo mesmo motivo de `ORDER_SEQUENCE`/`DRAG_MATCH` não usarem drag nativo:
+  foco de teclado e leitor de tela precisam do elemento real. Nó bloqueado continua mostrando
+  toda pendência por extenso (`docs/08 §3` — "o mapa mostra o caminho, nunca só um cadeado"),
+  não só um cadeado. Mundo sem `mapa` autorado cai de volta pra lista de sempre — zero regressão
+  pra conteúdo futuro que ainda não tiver geografia.
+- **Conteúdo real**: os dois mundos existentes (Matemática nível 1, Português nível 1) ganharam
+  layout — a Orla em trilha de 4 nós subindo da praia ao baú, a Praça com o único nó de Vírgula.
+- Testes novos: `map-layout.test.ts` (schema), `map-layout-json.test.ts` (leitura tolerante),
+  `map.test.ts` (tradução layout → mapa visual, incluindo nó/aresta órfãos), casos novos em
+  `loader.test.ts` e `plan.test.ts` (integridade referencial, transporte do `mapa`, e a
+  garantia de que o formato de `missaoRef` duplicado em `content/loader.ts` bate com
+  `refDeMissao` de `plan.ts`).
+- **Verificado em navegador real** (Playwright): os dois mapas desenhados corretamente — nó 1
+  de Matemática jogável (★), nós 2–4 bloqueados com a pendência certa por extenso, arestas
+  pontilhadas entre eles; clique no nó jogável abre `/missao/[slug]`; nó alcançável no primeiro
+  Tab da página (acessibilidade por teclado confirmada).
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -649,17 +698,12 @@ operador acima. Fecha o item 7 da "Ordem sugerida" (seção 5).
 > seção; agora é a seção 3, "O conteúdo encontra a tela". Verificado em navegador de verdade, não
 > só em teste.
 
-- **O mapa é uma lista, não um desenho.** `World.mapLayout` (nós, arestas, coordenadas) está no
-  schema e o importador grava `{ schemaVersion: 1, nos: [], arestas: [] }` — vazio. O mapa atual
-  agrupa por ilha e capítulo, com tranca e caminho, mas não tem geografia. Fazer o desenho exige
-  autorar o layout em `content/`
 - **`content/` ainda não autora slot do modo `objetivo`.** O motor sabe preencher
   `StageActivity.activityId` nulo, e a tela já sabe mostrar o resultado (seção 3, acima) — falta
   só a autoria: o schema (`content/schema/`) não tem campo para declarar um slot, todo
   `fase.atividades` de hoje é fixo. Escrever a primeira missão com slot desse modo exige estender
   `content/schema/index.ts` e o importador (`domain/plan.ts`) para reconhecer o tipo "slot" e
   gravar `slotRule` com o `Objective.id` já resolvido
-- **`Chapter`, `World` e `mapLayout`** — no banco, sem tela. A base lista missões em texto
 - **Desbloqueio por nível** (Academia da Inteligência no 10, Prosperidade no 15…) — a tabela de
   `docs/08 §1` não está implementada. O que funciona é o desbloqueio **declarado no conteúdo**
   (`premio.desbloqueios` → linhas em `Unlock`). O gate por nível precisa da declaração no lado do
@@ -699,7 +743,7 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
    desbloqueio. O barramento e o outbox estão prontos: é escrever o manipulador (modo `outbox`,
    porque conquista pode esperar — ver a seção 3, "Sistema de figurinhas", para o raciocínio de
    quando `inline` é obrigatório e quando `outbox` serve) e registrá-lo no composition root.
-4. **Mapa desenhado** — `World.mapLayout` autorado em `content/`, com nós e arestas.
+4. ~~Mapa desenhado~~ — **concluído nesta sessão**. Ver seção 3, "Mapa desenhado".
 5. **Perfil de talentos** (`docs/08 §9`) — recalculado a cada 50 tentativas. Tem regra ética
    própria: teto de 40% de sugestões do talento dominante, mínimo 1 fora do perfil por dia,
    e não é exibido com `confidence < 0.6`.

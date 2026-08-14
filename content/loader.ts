@@ -317,6 +317,64 @@ export function validarReferenciasEConfigs(
     colecionaveisConhecidos.add(colecionavel.code);
   }
 
+  // Referência completa da missão, no mesmo formato que `desbloqueio.questCompleted`
+  // e que `mapa.nos[].missaoRef` usam — e o mesmo que `plan.ts` grava como
+  // `Quest.sourceRef` (`refDeMissao`). Duplicado aqui de propósito: `content/`
+  // não pode importar de `src/modules/content` (a dependência vai só na outra
+  // direção — `plan.ts` importa `content/loader.ts`), então a fórmula do
+  // caminho mora nos dois lugares. Um teste (`plan.test.ts`) prova que batem.
+  const refDaMissao = (m: MissaoCarregada): string =>
+    `${m.academia}/${m.disciplina}/${m.faixa}/${m.nivel}/${m.modulo}/${m.missao.slug}`;
+
+  // Mundo aqui é o par (disciplina, faixa, nível) — a mesma unidade de
+  // `World`/`nivel.json` — chaveado pelo caminho de pastas, não pelo slug do
+  // banco (que este módulo não conhece e não precisa conhecer).
+  const missoesPorMundo = new Map<string, Set<string>>();
+  for (const carregada of acervo.missoes) {
+    const chaveDoMundo = `${carregada.academia}/${carregada.disciplina}/${carregada.faixa}/${carregada.nivel}`;
+    const conjunto = missoesPorMundo.get(chaveDoMundo) ?? new Set<string>();
+    conjunto.add(refDaMissao(carregada));
+    missoesPorMundo.set(chaveDoMundo, conjunto);
+  }
+
+  for (const { academia, disciplina, faixa, pasta, nivel } of acervo.niveis) {
+    if (!nivel.mapa) continue;
+
+    const arquivo = `academias/${academia}/${disciplina}/${faixa}/${pasta}/nivel.json`;
+    const chaveDoMundo = `${academia}/${disciplina}/${faixa}/${pasta}`;
+    const missoesValidas = missoesPorMundo.get(chaveDoMundo) ?? new Set<string>();
+    const idsDosNos = new Set<string>();
+
+    for (const no of nivel.mapa.nos) {
+      if (!missoesValidas.has(no.missaoRef)) {
+        problemas.push({
+          arquivo,
+          mensagem: `mapa: nó aponta para a missão "${no.missaoRef}", que não existe (ou não pertence) a este nível.`,
+        });
+      } else if (idsDosNos.has(no.missaoRef)) {
+        problemas.push({ arquivo, mensagem: `mapa: nó repetido para a missão "${no.missaoRef}".` });
+      }
+      idsDosNos.add(no.missaoRef);
+    }
+
+    for (const aresta of nivel.mapa.arestas) {
+      if (!idsDosNos.has(aresta.de)) {
+        problemas.push({ arquivo, mensagem: `mapa: aresta parte de "${aresta.de}", que não é um nó deste mapa.` });
+      }
+      if (!idsDosNos.has(aresta.para)) {
+        problemas.push({ arquivo, mensagem: `mapa: aresta chega em "${aresta.para}", que não é um nó deste mapa.` });
+      }
+    }
+
+    // Mapa incompleto nunca chega ao banco: ou ele cobre toda missão do
+    // nível, ou o nível fica sem mapa (a tela cai para a lista).
+    for (const missaoRef of missoesValidas) {
+      if (!idsDosNos.has(missaoRef)) {
+        problemas.push({ arquivo, mensagem: `mapa: a missão "${missaoRef}" não tem nó no mapa deste nível.` });
+      }
+    }
+  }
+
   const slugsDeMissao = new Set<string>();
 
   for (const carregada of acervo.missoes) {

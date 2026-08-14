@@ -143,6 +143,35 @@ describe("planejarImportacao", () => {
     expect(plano.colecionaveis).toHaveLength(0);
   });
 
+  it("transporta o mapa do nível para o mundo, referenciando a missão pelo mesmo ref de `refDeMissao`", () => {
+    const ref = refDeMissao(ACERVO_MINIMO.missoes[0]!);
+
+    const { plano } = planejarImportacao({
+      ...ACERVO_MINIMO,
+      niveis: [
+        {
+          ...ACERVO_MINIMO.niveis[0]!,
+          nivel: {
+            ...ACERVO_MINIMO.niveis[0]!.nivel,
+            mapa: { nos: [{ missaoRef: ref, x: 10, y: 90 }], arestas: [] },
+          },
+        },
+      ],
+    });
+
+    // Esta é a garantia que `content/loader.ts` promete no comentário de
+    // `refDaMissao`: a fórmula duplicada lá bate com `refDeMissao` daqui.
+    expect(plano.mundos[0]?.mapa).toEqual({
+      nos: [{ missaoRef: ref, x: 10, y: 90 }],
+      arestas: [],
+    });
+  });
+
+  it("mundo sem `mapa` autorado transporta `null`", () => {
+    const { plano } = planejarImportacao(ACERVO_MINIMO);
+    expect(plano.mundos[0]?.mapa).toBeNull();
+  });
+
   it("mapeia o catálogo de colecionáveis 1:1", () => {
     const { plano } = planejarImportacao({
       ...ACERVO_MINIMO,

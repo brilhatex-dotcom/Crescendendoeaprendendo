@@ -5,6 +5,7 @@ import type { Transacao } from "@/shared/kernel";
 
 import type { DadosDoMapa, LeituraDoMapa } from "../application/ports";
 import type { EstadoParaDesbloqueio } from "../domain/unlock-rule";
+import { lerLayoutDoMapa } from "./map-layout-json";
 import { lerRegraDeDesbloqueio } from "./unlock-rule-json";
 
 /**
@@ -35,6 +36,7 @@ export function criarLeituraPrismaDoMapa(db: PrismaClient): LeituraDoMapa {
             slug: true,
             name: true,
             minLevel: true,
+            mapLayout: true,
             academy: { select: { name: true } },
             chapters: {
               orderBy: { order: "asc" },
@@ -87,6 +89,7 @@ export function criarLeituraPrismaDoMapa(db: PrismaClient): LeituraDoMapa {
           nome: mundo.name,
           academia: mundo.academy.name,
           nivelMinimo: mundo.minLevel,
+          layout: lerLayoutDoMapa(mundo.mapLayout),
           capitulos: mundo.chapters.map((capitulo) => ({
             nome: capitulo.name,
             missoes: capitulo.quests.flatMap((quest) =>
