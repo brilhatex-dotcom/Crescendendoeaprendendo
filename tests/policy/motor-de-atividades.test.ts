@@ -65,6 +65,15 @@ const RESPOSTAS_ERRADAS: Readonly<Record<string, (config: unknown) => unknown[]>
     const trocaParcial = { ...Object.fromEntries(ids.map((id) => [id, id])), [ids[0]!]: ids[1]!, [ids[1]!]: ids[0]! };
     return [{ pareamentos: deslocado }, { pareamentos: trocaParcial }];
   },
+  MULTI_SELECT: (config) => {
+    const c = config as { opcoes: { id: string; correta: boolean }[] };
+    const corretas = c.opcoes.filter((o) => o.correta).map((o) => o.id);
+    const incorretas = c.opcoes.filter((o) => !o.correta).map((o) => o.id);
+    return [
+      { opcaoIds: incorretas }, // nenhuma certa marcada — o pior caso
+      { opcaoIds: corretas.slice(0, -1) }, // faltou uma certa — crédito parcial também nunca sai sem ensino
+    ];
+  },
 };
 
 describe("PP5 · Erro sempre ensina (docs/08 §12.3)", () => {

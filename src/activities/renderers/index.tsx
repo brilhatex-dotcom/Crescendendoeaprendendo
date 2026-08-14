@@ -61,6 +61,11 @@ const RENDERERS: Readonly<Record<string, ComponentType<ActivityRendererProps>>> 
     () => import("./drag-match-renderer").then((m) => selarRenderer(m.DragMatchRenderer)),
     { loading: () => <EsqueletoDeAtividade /> },
   ),
+
+  "multi-select": dynamic<ActivityRendererProps>(
+    () => import("./multi-select-renderer").then((m) => selarRenderer(m.MultiSelectRenderer)),
+    { loading: () => <EsqueletoDeAtividade /> },
+  ),
 };
 
 export function obterRenderer(
