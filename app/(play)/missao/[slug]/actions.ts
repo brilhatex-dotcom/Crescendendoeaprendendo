@@ -195,6 +195,7 @@ export const responderAtividadeAction = createAction({
       resposta,
       dicasUsadas: entrada.dicasUsadas,
       duracaoMs: entrada.duracaoMs,
+      presentationTag: atividade.presentationTag,
       /*
        * A jogada em curso. Anulável de propósito: uma tentativa fora de missão
        * — treino livre, revisão avulsa — continua sendo histórico e continua

@@ -212,6 +212,7 @@ const entrada = (
   resposta: { escolha: 1 },
   dicasUsadas: 0,
   duracaoMs: 3500,
+  presentationTag: null,
   questRunId: null,
   idempotencyKey: chave,
   avaliadaNoCliente: true,

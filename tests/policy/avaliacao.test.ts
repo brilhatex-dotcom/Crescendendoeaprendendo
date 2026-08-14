@@ -81,6 +81,7 @@ const submissao = {
   resposta: { escolha: 1 },
   dicasUsadas: 0,
   duracaoMs: 3000,
+  presentationTag: null,
   questRunId: null,
   idempotencyKey: "chave-de-politica-0001",
   avaliadaNoCliente: false,

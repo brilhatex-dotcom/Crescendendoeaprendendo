@@ -1,9 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { seletorPorProximidade } from "@/activities";
+import { seletorPorProximidade, type EvaluationResult } from "@/activities";
 import { carregarMissaoParaSessao } from "@/activities/content-bridge";
 import { carregarAcervo } from "@/content/loader";
+import { criarSubmeterTentativa } from "@/modules/assessment";
+import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
+import { criarImportarConteudo } from "@/modules/content";
+import { criarEscritorPrismaDeConteudo } from "@/modules/content/infrastructure/prisma-content-writer";
 import {
   criarCreditoDeMissao as criarCreditoDeMissaoNaCarteira,
   criarCreditoDeRecompensa,
@@ -64,6 +68,14 @@ const abrir = criarAbrirJogada({
   unidadeDeTrabalho,
   barramento,
   clock: systemClock,
+});
+
+const submeter = criarSubmeterTentativa({
+  repositorio: criarRepositorioPrismaDeAvaliacao(db),
+  unidadeDeTrabalho,
+  barramento,
+  clock: systemClock,
+  dormir: async () => {},
 });
 
 const REF_DA_FILA = "sistema/fila-de-revisao";
@@ -209,6 +221,9 @@ async function limparJogadas(): Promise<void> {
   await db.wallet.deleteMany();
   await db.unlock.deleteMany();
   await db.learnerProgress.deleteMany();
+  await db.learningProfileEvent.deleteMany();
+  await db.learningProfileDimension.deleteMany();
+  await db.learningProfile.deleteMany();
 }
 
 async function limparCompetenciasDeTeste(): Promise<void> {
@@ -227,10 +242,20 @@ beforeAll(async () => {
   await limparCompetenciasDeTeste();
   await garantirFixtureDeRevisao();
 
-  const { acervo } = await carregarAcervo();
+  const { acervo, problemas } = await carregarAcervo();
+  expect(problemas).toEqual([]);
   const primeira = acervo.missoes[0];
   expect(primeira).toBeDefined();
   slugDaMissaoReal = primeira!.missao.slug;
+
+  /*
+   * A missão de demonstração da Fase 3 (`contar-peixinhos-6`) precisa existir
+   * de verdade no banco — `submeterTentativa` procura por `sourceRef` — e o
+   * CI só roda migração de schema, nunca `npm run content:import`.
+   */
+  const importar = criarImportarConteudo({ escritor: criarEscritorPrismaDeConteudo(db) });
+  const importacao = await importar({ acervo });
+  expect(importacao.ok).toBe(true);
 
   const conta = await db.account.create({
     data: { email: "bridge@teste.local", name: "Responsável de Teste" },
@@ -339,5 +364,143 @@ describe("carregarMissaoParaSessao — com learnerId", () => {
     const idDepois = depois!.fases.flatMap((f) => f.atividades)[0]?.slug;
 
     expect(idDepois).toBe(idAntes);
+  });
+});
+
+/**
+ * Garante que a academia real de `contar-peixinhos-6` existe no banco, sem
+ * depender de `npm run content:import` já ter rodado (CI só migra o schema).
+ * `upsert` por `slug`: se a importação já rodou, não sobrescreve nada — se
+ * não, cria o suficiente para `idDaAcademia("conhecimento")` resolver.
+ */
+async function garantirAcademiaConhecimento(): Promise<string> {
+  const academia = await db.academy.upsert({
+    where: { slug: "conhecimento" },
+    update: {},
+    create: {
+      slug: "conhecimento",
+      name: "Academia do Conhecimento",
+      islandName: "Ilha das Mil Perguntas",
+      guardian: "ORLA",
+      theme: {},
+      order: 0,
+    },
+  });
+  return academia.id;
+}
+
+function encontrarAtividade(
+  missao: Awaited<ReturnType<typeof carregarMissaoParaSessao>>,
+  slug: string,
+) {
+  const atividade = missao?.fases.flatMap((f) => f.atividades).find((a) => a.slug === slug);
+  expect(atividade, `atividade "${slug}" não encontrada na missão`).toBeDefined();
+  return atividade!;
+}
+
+describe("carregarMissaoParaSessao — seleção de apresentação pelo Learning Profile (Fase 3)", () => {
+  const SLUG_DA_MISSAO = "missao-03-o-recife-dos-peixinhos";
+  const SLUG_DA_ATIVIDADE = "contar-peixinhos-6";
+
+  it("sem perfil, a criança recebe a apresentação padrão — texto puro, sem apoio visual", async () => {
+    const missao = await carregarMissaoParaSessao(SLUG_DA_MISSAO, learnerId);
+    const atividade = encontrarAtividade(missao, SLUG_DA_ATIVIDADE);
+
+    expect(atividade.presentationTag).toBeNull();
+    expect((atividade.config as { apoio?: unknown }).apoio).toBeUndefined();
+  });
+
+  it("perfil com evidência forte de suporte visual: a criança recebe a variante visual", async () => {
+    const academyId = await garantirAcademiaConhecimento();
+
+    const perfil = await db.learningProfile.create({ data: { learnerId, academyId } });
+    await db.learningProfileDimension.create({
+      data: {
+        profileId: perfil.id,
+        key: "suporteVisual",
+        // O mesmo exemplo do pedido do dono: "Confiança: 82%, Observações: 37".
+        value: 0.85,
+        confidence: 0.82,
+        observationsCount: 37,
+        lastObservedAt: new Date(),
+      },
+    });
+
+    const missao = await carregarMissaoParaSessao(SLUG_DA_MISSAO, learnerId);
+    const atividade = encontrarAtividade(missao, SLUG_DA_ATIVIDADE);
+
+    expect(atividade.presentationTag).toBe("suporte-visual-alto");
+    const apoio = (atividade.config as { apoio?: { grupos?: { quantidade: number }[] } }).apoio;
+    expect(apoio?.grupos?.[0]?.quantidade).toBe(6);
+  });
+
+  it("perfil com poucas observações não muda nada — confiança insuficiente não é motivo pra trocar", async () => {
+    const academyId = await garantirAcademiaConhecimento();
+
+    const perfil = await db.learningProfile.create({ data: { learnerId, academyId } });
+    await db.learningProfileDimension.create({
+      data: {
+        profileId: perfil.id,
+        key: "suporteVisual",
+        value: 0.9,
+        // n=2 dá confiança 2/(2+8) = 0.2 — bem abaixo do limiar de 0.5.
+        confidence: 0.2,
+        observationsCount: 2,
+        lastObservedAt: new Date(),
+      },
+    });
+
+    const missao = await carregarMissaoParaSessao(SLUG_DA_MISSAO, learnerId);
+    const atividade = encontrarAtividade(missao, SLUG_DA_ATIVIDADE);
+
+    expect(atividade.presentationTag).toBeNull();
+  });
+
+  it("a tentativa grava a tag da apresentação que foi de fato servida", async () => {
+    const academyId = await garantirAcademiaConhecimento();
+
+    const perfil = await db.learningProfile.create({ data: { learnerId, academyId } });
+    await db.learningProfileDimension.create({
+      data: {
+        profileId: perfil.id,
+        key: "suporteVisual",
+        value: 0.85,
+        confidence: 0.82,
+        observationsCount: 37,
+        lastObservedAt: new Date(),
+      },
+    });
+
+    const missao = await carregarMissaoParaSessao(SLUG_DA_MISSAO, learnerId);
+    const atividade = encontrarAtividade(missao, SLUG_DA_ATIVIDADE);
+    expect(atividade.presentationTag).toBe("suporte-visual-alto");
+
+    const ACERTOU: EvaluationResult = {
+      outcome: "CORRECT",
+      scoreRatio: 1,
+      feedback: { tom: "CELEBRA", mensagem: "Isso!" },
+    };
+
+    const registro = await submeter({
+      learnerId,
+      refDaAtividade: atividade.ref,
+      resultado: ACERTOU,
+      probabilidadeDeChute: 0.33,
+      regraDeRecompensa: atividade.recompensa ?? null,
+      resposta: { opcaoId: "seis" },
+      dicasUsadas: 0,
+      duracaoMs: 4000,
+      presentationTag: atividade.presentationTag,
+      questRunId: null,
+      idempotencyKey: "chave-fase3-presentation-tag",
+      avaliadaNoCliente: true,
+      traceId: "trace-fase3",
+    });
+    expect(registro.ok).toBe(true);
+
+    const gravado = await db.attempt.findFirst({
+      where: { learnerId, idempotencyKey: "chave-fase3-presentation-tag" },
+    });
+    expect(gravado?.presentationTag).toBe("suporte-visual-alto");
   });
 });

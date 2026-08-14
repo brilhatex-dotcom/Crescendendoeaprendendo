@@ -10,7 +10,10 @@
  * Reage a `assessment.attempt_evaluated` pelo outbox; não é chamado por
  * nenhum outro módulo do fluxo de resposta (mesmo espírito de `achievement`).
  * A seleção de variante por perfil (Fase 3) consome `buscarPerfilDeAprendizagem`
- * a partir de `quest/application`.
+ * e `escolherApresentacao` a partir de `src/activities/content-bridge.ts` — o
+ * único ponto por onde toda atividade (autorada ou de slot) passa antes da
+ * tela, e o único arquivo de `src/activities` liberado a importar `src/modules`
+ * (`.dependency-cruiser.cjs`, regra `motor-e-puro`).
  */
 
 export {
@@ -21,6 +24,10 @@ export {
   type BuscarPerfilDeAprendizagem,
   type DimensaoDoPerfil,
 } from "./application/read-profile";
+export {
+  escolherApresentacao,
+  type ApresentacaoCandidata,
+} from "./application/select-presentation";
 export type {
   CaracteristicasDaAtividade,
   DimensaoPersistida,

@@ -179,6 +179,7 @@ async function responder(sufixo: string, indice: number, scoreRatio: number): Pr
     resposta: { escolha: 1 },
     dicasUsadas: 0,
     duracaoMs: 1500,
+    presentationTag: null,
     questRunId: null,
     idempotencyKey: `perfil-${sufixo}-${indice}`,
     avaliadaNoCliente: true,

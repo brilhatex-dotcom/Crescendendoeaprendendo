@@ -627,7 +627,7 @@ Com este plugin, todos os cinco tipos de atividade da lista original de `docs/12
 seis, na verdade) estão implementados, exceto `WORD_BUILD` e o resto da "Fases seguintes" de
 `docs/01 §3`.
 
-### Motor de Aprendizagem Adaptativa — Fases 0, 1 e 2 concluídas
+### Motor de Aprendizagem Adaptativa — Fases 0, 1, 2 e 3a concluídas
 Pedido explícito do dono, no meio da sessão: a plataforma deve descobrir progressivamente **como**
 cada criança aprende melhor (suporte visual, instrução em etapas, independência de leitura...) e
 adaptar a apresentação — **nunca diagnosticar** condição médica ou psicológica nenhuma. Uma
@@ -712,9 +712,56 @@ build de produção. Sem mudança de UI nesta fase (a seleção de variante e o 
 da Fase 3) — verificação manual em navegador não se aplica; `/criar-conta` e `/entrar` conferidos
 de pé com `npm run dev`.
 
-**Pendente**: Fase 3 (seleção de variante por perfil + `Recommendation` de acessibilidade + tela
-"Personalização da Aprendizagem" para o responsável) e a atualização de documentação (ADR 0005,
-docs/04, docs/08, docs/13). Ver seção 5 para o plano completo de 5 fases.
+**Fase 3a — o motor escolhe a apresentação de verdade** (seleção de variante por perfil; a
+`Recommendation` de acessibilidade e a tela "Personalização da Aprendizagem" ficam para a 3b):
+
+- `src/modules/learning-profile/application/select-presentation.ts` — `escolherApresentacao(perfil,
+  padrao, variantes)`, função pura. Cada candidata (padrão ou variante) declara
+  `CaracteristicasDaAtividade`; uma característica "conta" para uma dimensão pela MESMA regra que
+  decide se uma tentativa alimenta aquela dimensão (`REGRAS_DE_DIMENSAO`/`dimensoesRelevantes`,
+  Fase 1) — não há uma segunda leitura do que "suporte visual" significa. Só escolhe uma variante
+  quando a dimensão relevante tem confiança ≥ 0.5 (n ≥ 8 observações, o mesmo K da suavização) E
+  valor ≥ 0.6 (desempenho médio "melhor que só parcial") — sem evidência suficiente, devolve
+  sempre a padrão. Entre variantes qualificadas, vence a de maior valor × confiança.
+  Determinístico: mesmo perfil, mesma escolha.
+- `src/activities/content-bridge.ts` — o único ponto de integração, e não por acaso: é o único
+  arquivo de `src/activities` liberado a importar `src/modules`/Prisma (`.dependency-cruiser.cjs`,
+  regra `motor-e-puro`), e o único lugar por onde toda atividade — autorada em `content/` ou
+  resolvida por slot no banco — passa antes de virar `AtividadeNaSessao`. Busca o perfil uma vez
+  por missão (`buscarPerfilRelevante`, academia resolvida por slug a partir do conteúdo, `null`
+  para missões só-de-banco como a Fila de Revisão) e aplica `escolherApresentacao` em cada
+  atividade — `construirDoConteudo` normaliza as características em português de `content/` para
+  o formato do Learning Profile antes de decidir; `atividadesDosSlots` lê `presentationVariants`
+  direto de `Activity` e valida com o mesmo `varianteDeApresentacaoSchema` do content/loader,
+  defensivamente (JSON que não bate mais com o schema vira "sem variantes", nunca erro na tela).
+  O motor de atividades (`src/activities/plugins`, os renderers) continua recebendo só um
+  `config` pronto — nunca soube, e continua sem saber, que existe escolha.
+- `AtividadeNaSessao` ganha `presentationTag: string | null` — a tag da apresentação servida.
+  Threading completo até o histórico: `responderAtividadeAction` → `SubmeterTentativaEntrada` →
+  `SubmissaoAvaliada` → `DadosDaTentativa` → `TentativaAvaliada` (evento interno, o que
+  `learning-profile` já consumia desde a Fase 1, agora com o valor real em vez de sempre `null`)
+  → coluna `Attempt.presentationTag` (já existia desde a Fase 0, nunca tinha sido escrita).
+
+**Verificado (Fase 3a)**: `npm run verify` (556 testes, 8 novos cobrindo `escolherApresentacao` —
+sem perfil, sem variantes, confiança insuficiente, valor insuficiente, escolha correta, empate
+por pontuação, variante sem dimensão mapeada, determinismo) · `npm run test:integration` (80
+testes — 4 novos em `content-bridge.integration.test.ts` provam, contra Postgres de verdade e
+usando a atividade real `contar-peixinhos-6`: sem perfil a criança recebe a apresentação padrão;
+um perfil com confiança e valor suficientes — o mesmo exemplo do pedido do dono, "Confiança: 82%,
+Observações: 37" — faz a criança receber a variante `suporte-visual-alto`; poucas observações não
+mudam nada; e a tentativa submetida grava a tag certa em `Attempt.presentationTag`) · build de
+produção · verificação manual em navegador (login real, criação de perfil de criança, PIN,
+"Entrar como", e a missão "A Contagem da Orla" jogada — devolutiva "Quase! Não é essa."
+renderizando normalmente, confirmando que o novo caminho de `content-bridge.ts`, que agora serve
+toda missão e não só a de demonstração, não quebrou o jogo comum). A missão de demonstração em si
+(`missao-03-o-recife-dos-peixinhos`) fica bloqueada no mapa até completar as duas primeiras — é a
+regra normal de desbloqueio, não algo desta fase — por isso a prova visual da troca de
+apresentação está nos testes de integração, não numa captura de tela.
+
+**Pendente**: Fase 3b (`Recommendation` de acessibilidade quando a confiança cruzar o limiar +
+tela "Personalização da Aprendizagem" para o responsável, com aceitar/ajustar/desativar) e a
+atualização de documentação (ADR 0005, docs/04, docs/08, docs/13). Ver seção 5 para o plano
+completo de 5 fases.
 
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
@@ -1027,10 +1074,10 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 8. **Motor de Aprendizagem Adaptativa** (pedido explícito do dono, no meio desta sessão) —
-   **Fases 0, 1 e 2 concluídas nesta sessão**, Fases 3-4 pendentes. Ver seção 3, "Motor de
-   Aprendizagem Adaptativa — Fases 0, 1 e 2 concluídas", para o que já existe, e o plano de 5
-   fases apresentado ao dono antes de começar (fundação de dados → módulo de perfil → variantes
-   de conteúdo → seleção por perfil + tela do responsável → documentação).
+   **Fases 0, 1, 2 e 3a concluídas nesta sessão**, Fase 3b e a Fase 4 (documentação) pendentes.
+   Ver seção 3, "Motor de Aprendizagem Adaptativa — Fases 0, 1, 2 e 3a concluídas", para o que já
+   existe, e o plano de 5 fases apresentado ao dono antes de começar (fundação de dados → módulo
+   de perfil → variantes de conteúdo → seleção por perfil + tela do responsável → documentação).
 
 ### Decisões em aberto — precisam do dono
 **1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é

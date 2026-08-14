@@ -91,6 +91,7 @@ const entrada = (parcial: Record<string, unknown> = {}) => ({
   resposta: { escolha: 2 },
   dicasUsadas: 0,
   duracaoMs: 4000,
+  presentationTag: null,
   questRunId: null,
   idempotencyKey: "0199aa11-2233-4455-6677-8899aabbccdd",
   avaliadaNoCliente: true,

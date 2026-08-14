@@ -46,6 +46,8 @@ export interface DadosDaTentativa {
   readonly scoreRatio: number;
   readonly dicasUsadas: number;
   readonly duracaoMs: number;
+  /** Tag da apresentação servida (Motor de Aprendizagem Adaptativa, Fase 3). */
+  readonly presentationTag: string | null;
   readonly equivoco: string | null;
   readonly idempotencyKey: string;
   /** Resposta que já tinha sido corrigida no navegador (devolutiva instantânea). */
@@ -117,6 +119,8 @@ export interface SubmissaoAvaliada {
   readonly resposta: unknown;
   readonly dicasUsadas: number;
   readonly duracaoMs: number;
+  /** Tag da apresentação servida (Motor de Aprendizagem Adaptativa, Fase 3). */
+  readonly presentationTag: string | null;
   readonly questRunId: string | null;
   readonly idempotencyKey: string;
   readonly avaliadaNoCliente: boolean;
@@ -201,6 +205,7 @@ export function planejarTentativa(
     scoreRatio: resultado.scoreRatio,
     dicasUsadas: submissao.dicasUsadas,
     duracaoMs: submissao.duracaoMs,
+    presentationTag: submissao.presentationTag,
     equivoco,
     idempotencyKey: submissao.idempotencyKey,
     avaliadaNoCliente: submissao.avaliadaNoCliente,
@@ -224,7 +229,7 @@ export function planejarTentativa(
       primeiraVez: contexto.tentativasNaAtividade === 0,
       dicasUsadas: submissao.dicasUsadas,
       duracaoMs: submissao.duracaoMs,
-      presentationTag: null,
+      presentationTag: submissao.presentationTag,
       premio,
       dominio: dominio
         ? {

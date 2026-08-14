@@ -210,6 +210,7 @@ async function concluirUmaMissao(sufixo: string): Promise<void> {
       resposta: { escolha: 1 },
       dicasUsadas: 0,
       duracaoMs: 1500,
+      presentationTag: null,
       questRunId: aberta.value.questRunId,
       idempotencyKey: `chave-${sufixo}-${indice}`,
       avaliadaNoCliente: true,

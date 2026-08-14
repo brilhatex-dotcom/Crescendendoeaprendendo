@@ -52,8 +52,8 @@ export interface TentativaAvaliada {
   readonly duracaoMs: number;
   /**
    * Tag da variante de apresentação mostrada (`Activity.presentationVariants`),
-   * ou `null` para a apresentação padrão. Sempre `null` até a camada de
-   * adaptação (Fase 3) começar a escolher variantes de verdade.
+   * escolhida por `escolherApresentacao` (`src/activities/content-bridge.ts`)
+   * antes da sessão existir — ou `null` para a apresentação padrão.
    */
   readonly presentationTag: string | null;
 
