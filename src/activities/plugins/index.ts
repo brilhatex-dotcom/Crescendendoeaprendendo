@@ -1,6 +1,7 @@
 import type { SealedPlugin } from "../contracts";
 import { selar } from "../registry";
 import { dragMatchPlugin } from "./drag-match";
+import { fillBlankPlugin } from "./fill-blank";
 import { multipleChoicePlugin } from "./multiple-choice";
 import { multiSelectPlugin } from "./multi-select";
 import { orderSequencePlugin } from "./order-sequence";
@@ -32,6 +33,7 @@ export const PLUGINS_REGISTRADOS: readonly SealedPlugin[] = [
   selar(dragMatchPlugin),
   selar(multiSelectPlugin),
   selar(trueFalsePlugin),
+  selar(fillBlankPlugin),
 ];
 
 export { multipleChoicePlugin } from "./multiple-choice";
@@ -39,3 +41,4 @@ export { orderSequencePlugin } from "./order-sequence";
 export { dragMatchPlugin } from "./drag-match";
 export { multiSelectPlugin } from "./multi-select";
 export { trueFalsePlugin } from "./true-false";
+export { fillBlankPlugin } from "./fill-blank";

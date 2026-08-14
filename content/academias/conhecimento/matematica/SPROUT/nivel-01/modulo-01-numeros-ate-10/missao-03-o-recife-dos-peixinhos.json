@@ -268,6 +268,84 @@
           }
         }
       ]
+    },
+    {
+      "slug": "fase-04-o-relatorio-do-recife",
+      "nome": "O relatório do recife",
+      "atividades": [
+        {
+          "slug": "completar-quantidade-de-corais",
+          "tipo": "FILL_BLANK",
+          "objetivo": "contar-ate-10",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 45,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Aqui tem ___ corais.",
+            "enunciadoFalado": "Aqui tem quantos corais? Escolha a palavra que completa a frase.",
+            "apoio": {
+              "tipo": "colecao",
+              "legenda": "espalhados no recife",
+              "grupos": [
+                {
+                  "simbolo": "🪸",
+                  "quantidade": 5,
+                  "nome": "coral"
+                }
+              ]
+            },
+            "opcoes": [
+              {
+                "id": "quatro",
+                "texto": "quatro",
+                "correta": false,
+                "ensino": "Faltou um! Toque em cada coral e conte de novo, um de cada vez.",
+                "equivoco": "parou-antes-do-ultimo"
+              },
+              {
+                "id": "cinco",
+                "texto": "cinco",
+                "correta": true
+              },
+              {
+                "id": "seis",
+                "texto": "seis",
+                "correta": false,
+                "ensino": "Você contou um coral duas vezes. Vá da esquerda para a direita, uma de cada vez.",
+                "equivoco": "contou-em-dobro"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! Aqui tem cinco corais.",
+            "dicas": [
+              "Toque em cada coral enquanto conta em voz alta.",
+              "Comece pelo coral da esquerda e não pule nenhum."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 14,
+                "moedas": 6
+              },
+              "PARTIAL": {
+                "xp": 8,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
     }
   ]
 }

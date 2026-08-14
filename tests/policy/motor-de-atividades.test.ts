@@ -78,6 +78,10 @@ const RESPOSTAS_ERRADAS: Readonly<Record<string, (config: unknown) => unknown[]>
     const c = config as { correta: boolean };
     return [{ resposta: !c.correta }]; // a única resposta errada possível
   },
+  FILL_BLANK: (config) => {
+    const c = config as { opcoes: { id: string; correta: boolean }[] };
+    return c.opcoes.filter((o) => !o.correta).map((o) => ({ opcaoId: o.id }));
+  },
 };
 
 describe("PP5 · Erro sempre ensina (docs/08 §12.3)", () => {
