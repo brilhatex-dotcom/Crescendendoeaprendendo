@@ -1,0 +1,243 @@
+{
+  "slug": "missao-02-a-cesta-de-palavras-da-virgula",
+  "nome": "A Cesta de Palavras da Vírgula",
+  "tipo": "STORY",
+  "ordem": 2,
+  "introducao": "VÍRGULA brincou com uma cesta de cartões de palavras e espalhou tudo pelo chão da Praça das Letras. Você ajuda a arrumar de novo?",
+  "conclusao": "A cesta está arrumada! VÍRGULA se enrola nas fitas, satisfeita — mais um cantinho da Praça organizado.",
+  "competenciasExigidas": [],
+  "desbloqueio": {
+    "questCompleted": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-01-o-alfabeto-da-virgula"
+  },
+  "recompensaDaMissao": {
+    "porDesfecho": {
+      "CORRECT": {
+        "xp": 45,
+        "moedas": 16,
+        "colecionaveis": [
+          "fita-da-virgula"
+        ]
+      },
+      "PARTIAL": {
+        "xp": 28,
+        "moedas": 9
+      },
+      "INCORRECT": {
+        "xp": 10
+      }
+    },
+    "aplicarFatorDeDificuldade": false
+  },
+  "fases": [
+    {
+      "slug": "fase-01-som-inicial",
+      "nome": "Qual é o som?",
+      "atividades": [
+        {
+          "slug": "letra-inicial-sapo",
+          "tipo": "MULTIPLE_CHOICE",
+          "objetivo": "identificar-letra-inicial",
+          "dificuldade": "FACIL",
+          "duracaoEstimadaSeg": 40,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "🐸 SAPO — com qual letra essa palavra começa?",
+            "enunciadoFalado": "Sapo. Com qual letra essa palavra começa?",
+            "opcoes": [
+              {
+                "id": "s",
+                "texto": "S",
+                "correta": true
+              },
+              {
+                "id": "a",
+                "texto": "A",
+                "correta": false,
+                "ensino": "A aparece em SAPO, mas não é a primeira letra. Fale a palavra bem devagar: 'Ssss-apo'.",
+                "equivoco": "nao-e-a-primeira-letra"
+              },
+              {
+                "id": "p",
+                "texto": "P",
+                "correta": false,
+                "ensino": "P também está em SAPO, mas no meio, não no começo. Escute o primeiro som: 'Ssss-apo'.",
+                "equivoco": "nao-e-a-primeira-letra"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! SAPO começa com o som de S.",
+            "dicas": [
+              "Fale a palavra bem devagar e escute o primeiro som.",
+              "O primeiro som de 'sapo' é 'sss'."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 7,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-02-duas-partes",
+      "nome": "Quais palavras têm só duas partes?",
+      "atividades": [
+        {
+          "slug": "selecionar-palavras-de-duas-silabas",
+          "tipo": "MULTI_SELECT",
+          "objetivo": "contar-silabas",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 65,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "VÍRGULA só quer guardar na cesta as palavras com exatamente 2 partes (sílabas). Toque em todas elas.",
+            "enunciadoFalado": "Vírgula só quer guardar na cesta as palavras com exatamente duas partes. Toque em todas elas.",
+            "opcoes": [
+              {
+                "id": "sapo",
+                "texto": "🐸 SAPO",
+                "correta": true
+              },
+              {
+                "id": "pato",
+                "texto": "🦆 PATO",
+                "correta": true
+              },
+              {
+                "id": "elefante",
+                "texto": "🐘 ELEFANTE",
+                "correta": false
+              },
+              {
+                "id": "abelha",
+                "texto": "🐝 ABELHA",
+                "correta": false
+              }
+            ],
+            "mensagemDeAcerto": "Isso! SA-PO e PA-TO têm 2 partes. ELEFANTE e ABELHA têm mais.",
+            "ensino": "Bata palma a cada parte que você fala. Palavras de 2 partes têm só duas batidas.",
+            "ensinoParcial": "Você já achou algumas certas! Bata palma de novo nas que sobraram e conte as batidas.",
+            "equivoco": "nao-contou-as-silabas-certo",
+            "dicas": [
+              "Fale cada palavra bem devagar, batendo palma a cada parte.",
+              "SA-PO tem duas batidas. E-LE-FAN-TE tem quatro."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 15,
+                "moedas": 6
+              },
+              "PARTIAL": {
+                "xp": 9,
+                "moedas": 4
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-03-combinar",
+      "nome": "Cada letra com sua palavra",
+      "atividades": [
+        {
+          "slug": "combinar-letra-e-palavra-2",
+          "tipo": "DRAG_MATCH",
+          "objetivo": "reconhecer-letras-do-alfabeto",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 80,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Combine cada letra com a palavra que começa com ela.",
+            "enunciadoFalado": "Combine cada letra com a palavra que começa com ela.",
+            "pares": [
+              {
+                "id": "c",
+                "esquerda": "C",
+                "direita": "🐶 Cachorro"
+              },
+              {
+                "id": "f",
+                "esquerda": "F",
+                "direita": "🦭 Foca"
+              },
+              {
+                "id": "l",
+                "esquerda": "L",
+                "direita": "🦁 Leão"
+              },
+              {
+                "id": "r",
+                "esquerda": "R",
+                "direita": "🐭 Rato"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! Cada letra encontrou sua palavra.",
+            "ensino": "Fale cada palavra devagar e escute o primeiro som — ele é o nome da letra.",
+            "ensinoParcial": "Alguns pares já estão certos! Escute de novo o primeiro som dos que faltam.",
+            "equivoco": "nao-ouviu-o-primeiro-som",
+            "dicas": [
+              "Fale a palavra bem devagar.",
+              "O primeiro som que você ouve é o nome da letra."
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 20,
+                "moedas": 8
+              },
+              "PARTIAL": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

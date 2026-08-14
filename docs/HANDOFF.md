@@ -614,6 +614,27 @@ correto cada um (confirmado o bug ANTES da correção, e a correção DEPOIS) ·
 de Português jogadas até o fim, incluindo o pareamento por toque · galeria mostrando a Pegada
 da Vírgula revelada.
 
+### Português ganha uma segunda missão — concluído
+Trabalho de conteúdo puro (decisão nº 3 da seção 5: "o gargalo agora é conteúdo, não código"),
+sem tocar em nenhum arquivo de `src/`. Português tinha só uma missão desde que a disciplina foi
+criada; Matemática já tinha quatro.
+
+- `missao-02-a-cesta-de-palavras-da-virgula.json` — continuação de VÍRGULA e a Praça das Letras.
+  Reaproveita os **3 objetivos de currículo já existentes** (`identificar-letra-inicial`,
+  `contar-silabas`, `reconhecer-letras-do-alfabeto`) — nenhum objetivo novo, nenhum código BNCC
+  inventado — mas com três tipos de plugin diferentes dos da missão 1: `MULTIPLE_CHOICE` (letra
+  inicial de SAPO), **`MULTI_SELECT`** (marcar as palavras com exatamente 2 sílabas — primeiro
+  uso desse plugin fora de Matemática), `DRAG_MATCH` (parear letra com palavra, conjunto de
+  letras novo: C/F/L/R, sem repetir os pares da missão 1).
+- `nivel.json` (Português) — segundo nó no `mapa`, com aresta ligando a missão 1 à 2.
+- `content/colecionaveis.json` — novo colecionável "Fita da Vírgula" (🎀), concedido na
+  conclusão da missão 2.
+
+**Verificado em navegador de verdade** (Playwright): missão 1 até o fim para destravar a 2, as
+três fases da missão 2 jogadas em sequência (incluindo o `MULTI_SELECT` com crédito conferido
+via `aria-checked`), galeria mostrando a Fita da Vírgula, e o mapa de "A Praça Muda" mostrando os
+dois nós concluídos e conectados.
+
 ### Script de operador: redefinir senha — concluído
 Pedido do dono ao perceber, jogando em produção, que não existe fluxo de "esqueci minha senha"
 pelo site — só `/criar-conta`, `/entrar`, `/verificar-email`.
@@ -848,9 +869,10 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Cinco missões, quatorze atividades, quatro tipos
+**3. O gargalo agora é conteúdo, não código.** Seis missões, dezessete atividades, quatro tipos
 de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`) —
-quase tudo no mesmo módulo (Números até 10). Todo o resto do sistema está pronto para receber muito mais — e
+duas disciplinas (Matemática com quatro missões, Português com duas), ainda um único módulo em
+cada. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 
