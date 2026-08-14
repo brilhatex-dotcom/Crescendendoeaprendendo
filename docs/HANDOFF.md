@@ -574,6 +574,29 @@ schema — a mensagem de erro aponta para `MULTIPLE_CHOICE` em vez de deixar alg
 seletor múltiplo de resposta única · a ordem de marcação nunca importa (é conjunto, não
 sequência) · a mesma resposta avaliada duas vezes produz o mesmo resultado (`evaluate` é puro).
 
+### Plugin TRUE_FALSE (verdadeiro ou falso) — concluído
+Quinta frente de plugin, mesmo caminho zero-mudança-no-núcleo. O caso mais simples de todos: uma
+afirmação, a criança diz se é verdadeira. Diferente de `MULTIPLE_CHOICE` com duas opções, quem
+autora **não escreve rótulo nenhum** — "Verdadeiro"/"Falso" são fixos no renderer, sempre no
+mesmo lugar da tela, então o schema só pede a afirmação e se ela é verdadeira.
+
+- `src/activities/plugins/true-false/` — `schema.ts` (sem lista de opções: só `enunciado`,
+  `correta: boolean`, `ensino`), `evaluate.ts` (binário — sem `PARTIAL`, não existe "quase
+  verdadeiro"; probabilidade de chute **fixa em 0.5**, sem calcular a partir de opções porque
+  não há lista nenhuma para contar).
+- `src/activities/renderers/true-false-renderer.tsx` — dois botões grandes (✅/❌), mesmo
+  `role="radiogroup"`/`role="radio"` e as mesmas regras de acessibilidade de
+  `MultipleChoiceRenderer` (nunca só cor, alvo de toque de 56px).
+- Registrado nos dois manifestos e coberto pela política PP5 — a única resposta errada possível
+  (a negação da afirmação) precisa vir com `ensino`.
+- **Conteúdo real**: nova segunda fase em `missao-04-o-bau-da-orla.json` ("A chave está certa?")
+  — afirmar uma contagem de conchas, dentro do objetivo já existente `contar-ate-10`.
+
+**Verificado em navegador de verdade** (Playwright): missões 1 a 3 até o fim para destravar a 4,
+a fase de pareamento (`DRAG_MATCH`) seguida da nova fase `TRUE_FALSE`, os 2 botões localizados e
+o `aria-checked` conferido diretamente, mensagem de acerto exibida, botões desabilitados após
+revelar.
+
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
 nova dentro da mesma Academia do Conhecimento** (não uma academia própria) — é assim que a
@@ -855,10 +878,11 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 5. **Perfil de talentos** (`docs/08 §9`) — **investigado nesta sessão, não iniciado de propósito**.
    Ver decisão nº 5 abaixo: ao contrário de Conquistas e Mapa, este item não tem como ser
    escopado sem inventar regra de produto que não está documentada em lugar nenhum.
-6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, depois `MULTI_SELECT`)~~ — **concluído
-   nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH (parear)" e "Plugin MULTI_SELECT (seleção
-   múltipla)". Falta ainda `FILL_BLANK`, `TRUE_FALSE` e o resto da lista de `docs/12` — mesmo
-   caminho, plugin novo sem tocar no núcleo.
+6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, depois `MULTI_SELECT`, depois
+   `TRUE_FALSE`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH (parear)",
+   "Plugin MULTI_SELECT (seleção múltipla)" e "Plugin TRUE_FALSE (verdadeiro ou falso)". Falta
+   ainda `FILL_BLANK` e o resto da lista de `docs/12` — mesmo caminho, plugin novo sem tocar no
+   núcleo.
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 
@@ -869,10 +893,10 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Seis missões, dezessete atividades, quatro tipos
-de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`) —
-duas disciplinas (Matemática com quatro missões, Português com duas), ainda um único módulo em
-cada. Todo o resto do sistema está pronto para receber muito mais — e
+**3. O gargalo agora é conteúdo, não código.** Seis missões, dezoito atividades, cinco tipos
+de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`,
+`TRUE_FALSE`) — duas disciplinas (Matemática com quatro missões, Português com duas), ainda um
+único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 
