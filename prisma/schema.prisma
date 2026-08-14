@@ -201,30 +201,31 @@ model Learner {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization    Organization?           @relation(fields: [organizationId], references: [id])
-  settings        LearnerSettings?
-  guardians       GuardianLink[]
-  progress        LearnerProgress?
-  wallet          Wallet?
-  companion       Companion?
-  talentProfile   TalentProfile?
-  screenTimeRule  ScreenTimeRule?
-  masteries       SkillMastery[]
-  reviewCards     ReviewCard[]
-  attempts        Attempt[]
-  questRuns       QuestRun[]
-  unlocks         Unlock[]
-  ledgerEntries   LedgerEntry[]
-  inventory       InventoryItem[]
-  achievements    LearnerAchievement[]
-  collectibles    LearnerCollectible[]
-  tutorSessions   TutorSession[]
-  recommendations Recommendation[]
-  enrollments     ClassroomEnrollment[]
-  submissions     Submission[]
-  consents        Consent[]
-  notifications   Notification[]
-  weeklySnapshots LearnerWeeklySnapshot[]
+  organization     Organization?           @relation(fields: [organizationId], references: [id])
+  settings         LearnerSettings?
+  guardians        GuardianLink[]
+  progress         LearnerProgress?
+  wallet           Wallet?
+  companion        Companion?
+  talentProfile    TalentProfile?
+  learningProfiles LearningProfile[]
+  screenTimeRule   ScreenTimeRule?
+  masteries        SkillMastery[]
+  reviewCards      ReviewCard[]
+  attempts         Attempt[]
+  questRuns        QuestRun[]
+  unlocks          Unlock[]
+  ledgerEntries    LedgerEntry[]
+  inventory        InventoryItem[]
+  achievements     LearnerAchievement[]
+  collectibles     LearnerCollectible[]
+  tutorSessions    TutorSession[]
+  recommendations  Recommendation[]
+  enrollments      ClassroomEnrollment[]
+  submissions      Submission[]
+  consents         Consent[]
+  notifications    Notification[]
+  weeklySnapshots  LearnerWeeklySnapshot[]
 
   @@index([organizationId])
   @@index([ageBand])
@@ -232,6 +233,12 @@ model Learner {
 }
 
 /// Acessibilidade como padrão, não como recurso (Bíblia Cap. 1 V6).
+///
+/// Estes campos são a camada MANUAL: só mudam quando o responsável decide (ou
+/// aceita uma sugestão — nunca sozinhos). O que o sistema OBSERVA e INFERE
+/// mora em `LearningProfile`/`LearningProfileDimension` — são coisas
+/// deliberadamente separadas, para nunca alterar o comportamento da criança
+/// silenciosamente (ver `Recommendation.kind = "ACCESSIBILITY_SUGGESTION"`).
 model LearnerSettings {
   learnerId       String  @id
   soundEnabled    Boolean @default(true)
@@ -242,6 +249,15 @@ model LearnerSettings {
   textToSpeech    Boolean @default(true) // padrão true em SPROUT
   aiTutorEnabled  Boolean @default(true)
   captionsEnabled Boolean @default(true)
+
+  // Camada de acessibilidade estendida (independente de diagnóstico).
+  stepByStepInstructions Boolean  @default(false)
+  oneTaskAtATime         Boolean  @default(false)
+  pictogramsEnabled      Boolean  @default(false)
+  simplifiedInterface    Boolean  @default(false)
+  extraTimeEnabled       Boolean  @default(false)
+  soundVolume            Int? // 0-100, refina soundEnabled quando presente
+  fontScale              Decimal? @db.Decimal(3, 2) // 1.00 = padrão
 
   learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
 }
@@ -279,8 +295,9 @@ model Academy {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  worlds   World[]
-  subjects Subject[]
+  worlds           World[]
+  subjects         Subject[]
+  learningProfiles LearningProfile[]
 }
 
 model Subject {
@@ -446,6 +463,24 @@ model Activity {
   /// histórico de quem já jogou. Nulo em atividade gerada por IA, que não vem
   /// de arquivo.
   sourceRef String? @unique
+
+  /// Características declaradas da apresentação PADRÃO desta atividade — para
+  /// a camada de adaptação decidir se vale a pena procurar uma variante
+  /// melhor. Todas opcionais: atividade sem declaração nenhuma continua
+  /// válida e jogável exatamente como antes (docs/13, Motor de Aprendizagem
+  /// Adaptativa).
+  requiresReading    Boolean?
+  visualSupportLevel String? // "nenhum" | "baixo" | "medio" | "alto"
+  interactionType    String? // "toque-unico" | "toque-multiplo" | "arrastar-por-toque" | "ordenar"
+  stepCount          Int?
+
+  /// Apresentações alternativas da MESMA pergunta pedagógica — nunca
+  /// perguntas diferentes que testam a mesma habilidade. Array de
+  /// `{ tag, caracteristicas, config }`; cada `config` ainda é validado pelo
+  /// `configSchema` do mesmo `type` desta atividade. Nulo = sem variante.
+  /// O motor de atividades nunca lê este campo — só a camada de adaptação,
+  /// em `quest/application`, antes de entregar UM `config` ao motor.
+  presentationVariants Json?
 
   objective  Objective       @relation(fields: [objectiveId], references: [id])
   pack       ContentPack?    @relation(fields: [packId], references: [id])
@@ -646,6 +681,12 @@ model Attempt {
   idempotencyKey  String         @unique // dedupe de sync offline
   clientEvaluated Boolean        @default(false)
   createdAt       DateTime       @default(now())
+
+  /// Qual variante de `Activity.presentationVariants` foi mostrada nesta
+  /// tentativa (a tag), ou nulo quando foi a apresentação padrão. É o sinal
+  /// que liga desempenho a modalidade — sem ele, o Learning Profile não teria
+  /// como saber que "suporte visual alto" ajudou.
+  presentationTag String?
 
   learner  Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
   activity Activity  @relation(fields: [activityId], references: [id])
@@ -932,16 +973,89 @@ model TalentProfile {
 model Recommendation {
   id         String    @id @default(cuid(2))
   learnerId  String
-  kind       String // QUEST, REVIEW, PROJECT, BREAK
+  kind       String // QUEST, REVIEW, PROJECT, BREAK, ACCESSIBILITY_SUGGESTION
   refId      String?
   reason     String // explicável ao responsável (PIA4)
   score      Decimal   @db.Decimal(4, 3)
+  /// Detalhe estruturado da sugestão, quando `reason` sozinho não basta —
+  /// hoje só usado por `kind = "ACCESSIBILITY_SUGGESTION"`
+  /// (`{ dimensionKey, settingField, suggestedValue }`). Nulo nos demais
+  /// `kind`, que seguem funcionando exatamente como antes.
+  payload    Json?
   consumedAt DateTime?
   createdAt  DateTime  @default(now())
 
   learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
 
   @@index([learnerId, consumedAt, score(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MOTOR DE APRENDIZAGEM ADAPTATIVA
+//  ADR 0005 · docs/08 §13 · docs/13 §12
+//
+//  Perfil de MODALIDADE de aprendizagem (visual/texto/áudio/instrução curta,
+//  quanto suporte cada eixo parece ajudar) — não confundir com
+//  `TalentProfile` (interesse/talento por área). Nunca diagnostica: as chaves
+//  de `LearningProfileDimension.key` são sempre eixos de apresentação,
+//  jamais nomes de condição médica ou psicológica.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Um perfil por (learner, academyId|null). `academyId = null` é o perfil
+/// global, usado como ponto de partida antes de haver dado suficiente por
+/// academia (docs/08 §13.4, "personalização por academia").
+model LearningProfile {
+  id        String   @id @default(cuid(2))
+  learnerId String
+  academyId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  learner    Learner                    @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  academy    Academy?                   @relation(fields: [academyId], references: [id])
+  dimensions LearningProfileDimension[]
+  events     LearningProfileEvent[]
+
+  @@unique([learnerId, academyId])
+  @@index([academyId])
+}
+
+/// Uma linha por eixo observado. Modelo deliberadamente flexível: uma
+/// dimensão nova ("audioSupport", "sessionLength"...) é só uma linha nova,
+/// nunca uma migration — o mesmo raciocínio de `docs/13` para tipos de
+/// atividade, aplicado a eixos de perfil.
+model LearningProfileDimension {
+  profileId         String
+  key               String // "visualSupport" | "textLength" | "instructionLength" | ...
+  value             Decimal   @db.Decimal(4, 3) // 0..1
+  confidence        Decimal   @db.Decimal(4, 3) // 0..1
+  observationsCount Int       @default(0)
+  lastObservedAt    DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  profile LearningProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, key])
+}
+
+/// Trilha de auditoria append-only — "histórico de mudanças" e "evidências
+/// utilizadas" exigidos para um perfil que nunca pode mudar silenciosamente
+/// o que a criança vê (docs/08 §13.3).
+model LearningProfileEvent {
+  id                 BigInt   @id @default(autoincrement())
+  profileId          String
+  dimensionKey       String
+  previousValue      Decimal? @db.Decimal(4, 3)
+  newValue           Decimal  @db.Decimal(4, 3)
+  previousConfidence Decimal? @db.Decimal(4, 3)
+  newConfidence      Decimal  @db.Decimal(4, 3)
+  trigger            String // SYSTEM_INFERENCE | GUARDIAN_OVERRIDE | GUARDIAN_ACCEPTED_SUGGESTION | GUARDIAN_RESET
+  evidenceSummary    Json? // ids de Attempt, nunca texto livre da criança
+  createdAt          DateTime @default(now())
+
+  profile LearningProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, dimensionKey, createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
