@@ -351,6 +351,29 @@ export function criarEscritorPrismaDeConteudo(db: PrismaClient): EscritorDeConte
             colecionaveisGravados += 1;
           }
 
+          // ── Conquista (Achievement) ────────────────────────────────────────
+          // `rewardXp` fica em 0 (padrão da coluna): a concessão de XP por
+          // conquista ainda não está encanada (docs/HANDOFF.md, "Conquistas").
+          let conquistasGravadas = 0;
+
+          for (const linha of plano.conquistas) {
+            const dados = {
+              name: linha.nome,
+              description: linha.descricao,
+              family: linha.familia,
+              tier: linha.grau,
+              hidden: linha.oculta,
+              criteria: { tipo: linha.criterio.tipo, minimo: linha.criterio.minimo },
+            };
+
+            await tx.achievement.upsert({
+              where: { code: linha.code },
+              create: { code: linha.code, ...dados },
+              update: dados,
+            });
+            conquistasGravadas += 1;
+          }
+
           return {
             academias: idPorAcademia.size,
             disciplinas: idPorDisciplina.size,
@@ -365,6 +388,7 @@ export function criarEscritorPrismaDeConteudo(db: PrismaClient): EscritorDeConte
             atividades: idPorAtividade.size,
             vinculos: vinculosGravados,
             colecionaveis: colecionaveisGravados,
+            conquistas: conquistasGravadas,
           };
         },
         { timeout: TIMEOUT_DA_TRANSACAO_MS },

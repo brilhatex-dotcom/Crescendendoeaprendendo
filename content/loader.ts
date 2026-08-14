@@ -6,6 +6,7 @@ import type { ActivityRegistry, RegraDeRecompensa } from "@/activities";
 import {
   academiaSchema,
   catalogoDeColecionaveisSchema,
+  catalogoDeConquistasSchema,
   disciplinaCurricularSchema,
   disciplinaSchema,
   missaoSchema,
@@ -14,6 +15,7 @@ import {
   type Academia,
   type AtividadeAutorada,
   type Colecionavel,
+  type Conquista,
   type Disciplina,
   type DisciplinaCurricular,
   type Missao,
@@ -93,6 +95,7 @@ export interface Acervo {
   readonly modulos: readonly ModuloCarregado[];
   readonly missoes: readonly MissaoCarregada[];
   readonly colecionaveis: readonly Colecionavel[];
+  readonly conquistas: readonly Conquista[];
 }
 
 export interface ProblemaDeConteudo {
@@ -119,6 +122,7 @@ export async function carregarAcervo(
   const modulos: ModuloCarregado[] = [];
   const missoes: MissaoCarregada[] = [];
   let colecionaveis: readonly Colecionavel[] = [];
+  let conquistas: readonly Conquista[] = [];
 
   /** Lê e valida um JSON. Problema vira relatório, nunca exceção. */
   async function ler<T>(
@@ -191,6 +195,19 @@ export async function carregarAcervo(
     if (catalogo) colecionaveis = catalogo.colecionaveis;
   }
 
+  // ── Catálogo de conquistas ────────────────────────────────────────────────
+  // Mesmo raciocínio do catálogo de colecionáveis: arquivo único, ausente é
+  // um acervo válido sem conquistas, não um erro.
+  const caminhoDoCatalogoDeConquistas = join(raiz, "conquistas.json");
+  if (
+    await stat(caminhoDoCatalogoDeConquistas)
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    const catalogo = await ler(caminhoDoCatalogoDeConquistas, catalogoDeConquistasSchema);
+    if (catalogo) conquistas = catalogo.conquistas;
+  }
+
   // ── Academias e o que está abaixo delas ────────────────────────────────────
   const dirAcademias = join(raiz, "academias");
 
@@ -256,7 +273,7 @@ export async function carregarAcervo(
   }
 
   return {
-    acervo: { curriculos, academias, disciplinas, niveis, modulos, missoes, colecionaveis },
+    acervo: { curriculos, academias, disciplinas, niveis, modulos, missoes, colecionaveis, conquistas },
     problemas,
   };
 }
@@ -315,6 +332,18 @@ export function validarReferenciasEConfigs(
       });
     }
     colecionaveisConhecidos.add(colecionavel.code);
+  }
+
+  // Código repetido no catálogo colidiria em `Achievement.code`, único no banco.
+  const conquistasConhecidas = new Set<string>();
+  for (const conquista of acervo.conquistas) {
+    if (conquistasConhecidas.has(conquista.code)) {
+      problemas.push({
+        arquivo: "conquistas.json",
+        mensagem: `Código de conquista repetido: "${conquista.code}".`,
+      });
+    }
+    conquistasConhecidas.add(conquista.code);
   }
 
   // Referência completa da missão, no mesmo formato que `desbloqueio.questCompleted`

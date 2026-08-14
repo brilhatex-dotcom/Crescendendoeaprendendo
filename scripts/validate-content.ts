@@ -33,6 +33,7 @@ async function main(): Promise<number> {
   console.log(`  missões ............ ${acervo.missoes.length}`);
   console.log(`  atividades ......... ${atividades}`);
   console.log(`  colecionáveis ...... ${acervo.colecionaveis.length}`);
+  console.log(`  conquistas ......... ${acervo.conquistas.length}`);
   console.log(`  tipos jogáveis ..... ${registroPadrao.tiposDisponiveis().join(", ")}`);
   console.log("");
 

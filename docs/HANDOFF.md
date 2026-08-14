@@ -673,6 +673,60 @@ caminhos, com névoa sobre o que ainda não abriu.
   pontilhadas entre eles; clique no nó jogável abre `/missao/[slug]`; nó alcançável no primeiro
   Tab da página (acessibilidade por teclado confirmada).
 
+### Conquistas — concluído (item 3 da "Ordem sugerida")
+`Achievement`/`LearnerAchievement` existiam no schema desde a Etapa 0, sem nenhum manipulador
+escrito — o par serviu de modelo estrutural para `Collectible`/`LearnerCollectible` (figurinhas),
+não o contrário (ver seção 3, "Sistema de figurinhas"). Este item fecha o círculo.
+
+**Escopo deliberadamente menor que a visão de produto — leia antes de estranhar.** A Bíblia
+(Vol. 1 Cap. 6 §6.15) descreve cinco famílias — Domínio, Persistência, Descoberta, Criação,
+Cuidado — quatro graus cada, e cita a "Medalha da Virada" (voltar a uma competência já errada
+e dominá-la) como exemplo. **Só Domínio e Persistência têm mecânica hoje.** Descoberta, Criação
+e Cuidado exigem eventos que o motor não publica ainda (segredo encontrado, obra criada, ajuda a
+personagem) — não inventados aqui, mesmo raciocínio de deixar `codigoBncc` de fora quando não dá
+para ter certeza. Nenhum documento de `docs/` tem uma lista concreta de conquistas com nome e
+critério — as seis abaixo são autoria desta sessão, não uma tradução de spec existente.
+
+- **`src/modules/achievement/domain/criteria.ts`** — só dois tipos de critério,
+  `competenciasDominadas` e `missoesConcluidas`, e de propósito: são os únicos que dá para avaliar
+  **recomputando de uma fonte de verdade já persistida** (`SkillMastery.masteredAt`,
+  `QuestRun.status = COMPLETED`) em vez de acumular "+1 por evento". Isso é o que torna o avanço
+  de progresso **idempotente de graça** — sem tabela de deduplicação de evento nenhuma: reprocessar
+  o mesmo evento (o outbox é *at-least-once*, nunca *exactly-once* — `src/server/outbox.ts`)
+  recalcula a mesma contagem e grava o mesmo resultado. Testado explicitamente (ver abaixo).
+- **`domain/board.ts`** — ao contrário da galeria de figurinhas, conquista **não esconde** nome e
+  descrição por padrão: mostra o quanto falta (`progresso` 0–1), mesmo princípio de `docs/08 §3`
+  ("o mapa mostra o caminho"). Só quando o catálogo marca `oculta: true` (campo `hidden` do banco,
+  já existia, nunca tinha sido usado) é que ela fica secreta até desbloquear.
+- **`application/grant-achievements.ts`** — dois `EventHandler`, **`outbox`, não `inline`**: é
+  a decisão que já estava registrada na seção 3 ("Sistema de figurinhas") antes de este módulo
+  existir — "reconhecimento que chega um pouco depois ainda é reconhecimento". Reagem a
+  `assessment.attempt_evaluated` (`dominio.dominouAgora`) e `quest.completed`.
+- **`infrastructure/prisma-achievement-repository.ts`** — `avancarProgresso` busca TODAS as
+  conquistas do tipo de critério pedido, recomputa a contagem uma vez e faz upsert em cada uma que
+  ainda não desbloqueou — inclusive as longe do fim (é o que faz "3 de 10" fazer sentido na barra).
+  Critério irreconhecível (`Json` defasado) não trava as demais — mesmo raciocínio de
+  `lerRegraDeDesbloqueio`/`lerLayoutDoMapa`.
+- **`rewardXp` não está creditado.** A coluna existe (`Achievement.rewardXp`), o conteúdo não a
+  usa ainda e fica em 0. Creditar exigiria o módulo publicar um evento próprio
+  (`achievement.unlocked`) para `progression` reagir — módulos não se chamam direto — e isso não
+  foi feito nesta sessão por prudência de escopo numa noite sem o dono para validar o desenho da
+  cascata de eventos. Fica registrado como o próximo passo natural.
+- `content/conquistas.json` — catálogo com 6 conquistas (3 graus × 2 famílias), reaproveitando
+  `criterioDeConquistaSchema` do módulo `achievement` em `content/schema/index.ts` (mesmo
+  raciocínio de `regraDeDesbloqueioSchema`/`layoutDoMapaSchema` — uma gramática, um dono).
+- Tela nova `/conquistas` (`app/(play)/conquistas/`), agrupada por família, com selo de grau
+  colorido e barra de progresso; link "Suas conquistas" ao lado de "Sua coleção" no hub.
+- **Testado com Postgres real** (`tests/integration/achievement.integration.test.ts`): pipeline
+  completo (missão concluída → outbox → despachante → conquista desbloqueada); despachar duas
+  vezes não desbloqueia de novo; **chamar `avancarProgresso` duas vezes com o mesmo estado —
+  simulando duas execuções concorrentes do despachante processando a mesma mensagem — não muda
+  nada na segunda chamada**, a prova direta da idempotência por recomputação; critério
+  irreconhecível não trava as demais conquistas; leitura do quadro junta catálogo e progresso.
+- **Verificado em navegador real** (Playwright): quadro em 0% antes de jogar → missão concluída
+  → despachante rodado manualmente (sem `CRON_SECRET` local) → "A Primeira Vitória" aparece com
+  borda verde e "✓ Conquistada", as de 5/10 mostram 20%/10% de progresso real.
+
 ### Design System
 - `tokens/` — cor e tipografia (já existiam)
 - `primitives/` — `Button` (+ `buttonStyles`), `Field`, `Alert`, `Card`; `utils/cn.ts`
@@ -681,7 +735,8 @@ caminhos, com névoa sobre o que ainda não abriu.
 - `(marketing)` — `/`, `/para-pais` (CTA de cadastro **recolocado**)
 - `(auth)` — `/criar-conta`, `/entrar`, `/verificar-email`, `/esqueci-a-senha`, `/redefinir-senha`
 - `(guardian)` — `/familia` (seletor, criar criança, definir PIN)
-- `(play)` — `/hub` (lista as missões do acervo) e `/missao/[slug]` (jogável)
+- `(play)` — `/hub` (mapa das missões), `/missao/[slug]` (jogável), `/colecao` (figurinhas),
+  `/conquistas` (quadro de conquistas)
 
 ### Barreiras de qualidade
 - `.dependency-cruiser.cjs` — 10 regras de fronteira, 3 delas do motor (0 erros)
@@ -714,8 +769,8 @@ caminhos, com névoa sobre o que ainda não abriu.
 - **Missão abandonada** — `QuestRunStatus.ABANDONED` existe no enum e nada o usa. Uma corrida
   aberta fica aberta para sempre, e retomá-la é sempre possível. É o comportamento gentil; se um
   dia precisar de expiração, é aqui
-- Conquistas, talentos, notificações e relatórios — o outbox e o barramento já estão prontos;
-  falta escrever os manipuladores
+- Talentos, notificações e relatórios — o outbox e o barramento já estão prontos (conquistas já
+  usam os dois, ver seção 3); falta escrever os manipuladores
 - Calibração de dificuldade por telemetria (`docs/08 §2`, job noturno com ≥ 200 tentativas)
 - 18 dos 20 tipos de atividade — por decisão explícita
 - **Som do feedback** — o vocabulário está no schema e o conteúdo já pode declarar, mas nada toca.
@@ -739,10 +794,9 @@ Os itens 1 (seleção adaptativa), 2 (fila de revisão) e 0 (a tela sabe mostrar
 feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seção 3.
 
 ### Ordem sugerida
-3. **Conquistas.** `Achievement.criteria` é regra declarativa avaliada por evento, como a de
-   desbloqueio. O barramento e o outbox estão prontos: é escrever o manipulador (modo `outbox`,
-   porque conquista pode esperar — ver a seção 3, "Sistema de figurinhas", para o raciocínio de
-   quando `inline` é obrigatório e quando `outbox` serve) e registrá-lo no composition root.
+3. ~~Conquistas~~ — **concluído nesta sessão**. Ver seção 3, "Conquistas". Só Domínio e
+   Persistência têm mecânica; Descoberta/Criação/Cuidado e o crédito de `rewardXp` ficam para
+   depois (registrado no mesmo lugar).
 4. ~~Mapa desenhado~~ — **concluído nesta sessão**. Ver seção 3, "Mapa desenhado".
 5. **Perfil de talentos** (`docs/08 §9`) — recalculado a cada 50 tentativas. Tem regra ética
    própria: teto de 40% de sugestões do talento dominante, mínimo 1 fora do perfil por dia,

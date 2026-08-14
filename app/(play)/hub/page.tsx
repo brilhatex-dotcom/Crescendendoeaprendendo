@@ -75,12 +75,21 @@ export default async function HubPage() {
 
       <Mapa mundos={mundos} />
 
-      <Link
-        href="/colecao"
-        className="font-display min-h-[var(--touch-target-play)] rounded-[var(--radius-xl)] border-2 border-[var(--glass-border)] px-8 py-3 text-lg font-bold transition-colors duration-[var(--duration-quick)] hover:border-[var(--color-corrente)]"
-      >
-        Sua coleção
-      </Link>
+      <div className="flex flex-wrap items-center justify-center gap-4">
+        <Link
+          href="/colecao"
+          className="font-display min-h-[var(--touch-target-play)] rounded-[var(--radius-xl)] border-2 border-[var(--glass-border)] px-8 py-3 text-lg font-bold transition-colors duration-[var(--duration-quick)] hover:border-[var(--color-corrente)]"
+        >
+          Sua coleção
+        </Link>
+
+        <Link
+          href="/conquistas"
+          className="font-display min-h-[var(--touch-target-play)] rounded-[var(--radius-xl)] border-2 border-[var(--glass-border)] px-8 py-3 text-lg font-bold transition-colors duration-[var(--duration-quick)] hover:border-[var(--color-corrente)]"
+        >
+          Suas conquistas
+        </Link>
+      </div>
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <SairDaAreaForm />

@@ -75,6 +75,7 @@ const ACERVO_MINIMO: Acervo = {
     },
   ],
   colecionaveis: [],
+  conquistas: [],
   missoes: [
     {
       academia: "conhecimento",

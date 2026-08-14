@@ -1,4 +1,6 @@
 import { seletorPorProximidade } from "@/activities";
+import { criarAvaliacaoPorMissao, criarAvaliacaoPorTentativa } from "@/modules/achievement";
+import { criarRepositorioPrismaDeConquistas } from "@/modules/achievement/infrastructure/prisma-achievement-repository";
 import { criarSubmeterTentativa, type SubmeterTentativa } from "@/modules/assessment";
 import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
 import { criarConcessaoPorMissao, criarConcessaoPorTentativa } from "@/modules/collection";
@@ -44,18 +46,19 @@ import { systemClock } from "@/shared/kernel";
  * | evento                       | quem reage                                  |
  * |------------------------------|---------------------------------------------|
  * | `quest.started`              | progressão cobra o Fôlego                    |
- * | `assessment.attempt_evaluated` | progressão credita Luz · economia credita Fagulha · missão avança a corrida · coleção concede figurinha |
- * | `quest.completed`            | progressão credita a recompensa e avança a Trilha · economia credita a moeda · coleção concede figurinha |
+ * | `assessment.attempt_evaluated` | progressão credita Luz · economia credita Fagulha · missão avança a corrida · coleção concede figurinha · conquista avança progresso (pelo outbox) |
+ * | `quest.completed`            | progressão credita a recompensa e avança a Trilha · economia credita a moeda · coleção concede figurinha · conquista avança progresso (pelo outbox) |
  * | `learning.attempt_recorded`  | telemetria (pelo outbox)                     |
  *
- * Acrescentar um efeito — conquista ao dominar uma competência, aviso ao
- * responsável, sugestão de missão em família — é acrescentar uma linha em
- * `MANIPULADORES`. Zero alteração nos módulos (docs/01 §2).
+ * Acrescentar um efeito — aviso ao responsável, sugestão de missão em
+ * família — é acrescentar uma linha em `MANIPULADORES`. Zero alteração nos
+ * módulos (docs/01 §2).
  */
 
 const repositorioDeProgresso = criarRepositorioPrismaDeProgresso(db);
 const repositorioDeCarteira = criarRepositorioPrismaDeCarteira(db);
 const repositorioDeColecionaveis = criarRepositorioPrismaDeColecionaveis(db);
+const repositorioDeConquistas = criarRepositorioPrismaDeConquistas(db);
 const repositorioDeMissoes = criarRepositorioPrismaDeMissoes();
 const repositorioDeSlots = criarRepositorioPrismaDeSlots();
 const leituraDoMapa = criarLeituraPrismaDoMapa(db);
@@ -77,6 +80,7 @@ const MANIPULADORES: readonly EventHandler[] = [
   criarCreditoDeTentativa({ repositorio: repositorioDeProgresso, clock: systemClock }),
   criarCreditoDeRecompensa({ repositorio: repositorioDeCarteira }),
   criarConcessaoPorTentativa({ repositorio: repositorioDeColecionaveis }),
+  criarAvaliacaoPorTentativa({ repositorio: repositorioDeConquistas, clock: systemClock }),
   criarAvancoDaCorrida({
     repositorio: repositorioDeMissoes,
     slots: repositorioDeSlots,
@@ -88,6 +92,7 @@ const MANIPULADORES: readonly EventHandler[] = [
   criarCreditoDeMissaoNaLuz({ repositorio: repositorioDeProgresso, clock: systemClock }),
   criarCreditoDeMissaoNaCarteira({ repositorio: repositorioDeCarteira }),
   criarConcessaoPorMissao({ repositorio: repositorioDeColecionaveis }),
+  criarAvaliacaoPorMissao({ repositorio: repositorioDeConquistas, clock: systemClock }),
 
   // learning.attempt_recorded
   criarTelemetriaDeTentativa(),
@@ -113,6 +118,7 @@ interface ContainerDaJogada {
   readonly progresso: typeof repositorioDeProgresso;
   readonly carteira: typeof repositorioDeCarteira;
   readonly colecao: typeof repositorioDeColecionaveis;
+  readonly conquistas: typeof repositorioDeConquistas;
   readonly despachante: DespachanteDoOutbox;
 }
 
@@ -133,6 +139,7 @@ export function containerDeAvaliacao(): ContainerDaJogada {
     progresso: repositorioDeProgresso,
     carteira: repositorioDeCarteira,
     colecao: repositorioDeColecionaveis,
+    conquistas: repositorioDeConquistas,
     despachante: criarDespachanteDoOutbox(db, MANIPULADORES),
   };
   return cache;
