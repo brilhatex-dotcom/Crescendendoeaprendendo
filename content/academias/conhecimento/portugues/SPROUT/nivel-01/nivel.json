@@ -14,12 +14,21 @@
         "missaoRef": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-02-a-cesta-de-palavras-da-virgula",
         "x": 60,
         "y": 40
+      },
+      {
+        "missaoRef": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-03-o-enigma-da-virgula",
+        "x": 85,
+        "y": 18
       }
     ],
     "arestas": [
       {
         "de": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-01-o-alfabeto-da-virgula",
         "para": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-02-a-cesta-de-palavras-da-virgula"
+      },
+      {
+        "de": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-02-a-cesta-de-palavras-da-virgula",
+        "para": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-03-o-enigma-da-virgula"
       }
     ]
   }

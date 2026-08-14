@@ -1,0 +1,219 @@
+{
+  "slug": "missao-03-o-enigma-da-virgula",
+  "nome": "O Enigma da Vírgula",
+  "tipo": "STORY",
+  "ordem": 3,
+  "introducao": "VÍRGULA deixou pistas de sons e letras escondidas pela Praça. Resolva os três enigmas dela para achar o prêmio.",
+  "conclusao": "Você resolveu todos os enigmas! VÍRGULA salta satisfeita — a Praça das Letras nunca esteve tão viva.",
+  "competenciasExigidas": [],
+  "desbloqueio": {
+    "questCompleted": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-02-a-cesta-de-palavras-da-virgula"
+  },
+  "recompensaDaMissao": {
+    "porDesfecho": {
+      "CORRECT": {
+        "xp": 45,
+        "moedas": 16,
+        "colecionaveis": [
+          "pista-da-virgula"
+        ]
+      },
+      "PARTIAL": {
+        "xp": 28,
+        "moedas": 9
+      },
+      "INCORRECT": {
+        "xp": 10
+      }
+    },
+    "aplicarFatorDeDificuldade": false
+  },
+  "fases": [
+    {
+      "slug": "fase-01-verdade-ou-mentira",
+      "nome": "Verdade ou mentira?",
+      "atividades": [
+        {
+          "slug": "verdadeiro-ou-falso-tartaruga",
+          "tipo": "TRUE_FALSE",
+          "objetivo": "identificar-letra-inicial",
+          "dificuldade": "FACIL",
+          "duracaoEstimadaSeg": 35,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "🐢 TARTARUGA começa com a letra T.",
+            "enunciadoFalado": "Tartaruga. Essa palavra começa com a letra T. Isso é verdade ou é falso?",
+            "correta": true,
+            "mensagemDeAcerto": "Isso! TARTARUGA começa mesmo com T.",
+            "ensino": "Fale a palavra bem devagar e escute o primeiro som: 'Ttt-artaruga'.",
+            "equivoco": "nao-ouviu-o-primeiro-som",
+            "dicas": [
+              "Fale a palavra bem devagar e escute só o primeiro som."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 10,
+                "moedas": 4
+              },
+              "PARTIAL": {
+                "xp": 6,
+                "moedas": 2
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-02-quantas-partes",
+      "nome": "Quantas partes tem?",
+      "atividades": [
+        {
+          "slug": "completar-silabas-girafa",
+          "tipo": "FILL_BLANK",
+          "objetivo": "contar-silabas",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 45,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "🦒 GIRAFA tem ___ partes.",
+            "enunciadoFalado": "Girafa. Quantas partes (sílabas) tem essa palavra?",
+            "opcoes": [
+              {
+                "id": "dois",
+                "texto": "duas",
+                "correta": false,
+                "ensino": "Faltou uma! Bata palma de novo, bem devagar: gi-ra-fa.",
+                "equivoco": "parou-antes-do-ultimo"
+              },
+              {
+                "id": "tres",
+                "texto": "três",
+                "correta": true
+              },
+              {
+                "id": "quatro",
+                "texto": "quatro",
+                "correta": false,
+                "ensino": "Você bateu palma demais. Vá devagar e escute cada parte: gi-ra-fa.",
+                "equivoco": "contou-em-dobro"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! GI-RA-FA tem três partes.",
+            "dicas": [
+              "Bata palma a cada parte que você fala.",
+              "Fale bem devagar: gi... ra... fa."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 14,
+                "moedas": 6
+              },
+              "PARTIAL": {
+                "xp": 8,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "slug": "fase-03-o-som-do-m",
+      "nome": "O som do M",
+      "atividades": [
+        {
+          "slug": "selecionar-palavras-com-m",
+          "tipo": "MULTI_SELECT",
+          "objetivo": "reconhecer-letras-do-alfabeto",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 60,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "Toque em todas as palavras que começam com o som de M.",
+            "enunciadoFalado": "Toque em todas as palavras que começam com o som de M.",
+            "opcoes": [
+              {
+                "id": "macaco",
+                "texto": "🐒 Macaco",
+                "correta": true
+              },
+              {
+                "id": "elefante",
+                "texto": "🐘 Elefante",
+                "correta": false
+              },
+              {
+                "id": "mosquito",
+                "texto": "🦟 Mosquito",
+                "correta": true
+              },
+              {
+                "id": "cavalo",
+                "texto": "🐴 Cavalo",
+                "correta": false
+              }
+            ],
+            "mensagemDeAcerto": "Isso! Macaco e mosquito começam com o som de M.",
+            "ensino": "Fale cada palavra bem devagar e escute o primeiro som. M soa como 'mmm'.",
+            "ensinoParcial": "Você já achou algumas certas! Escute de novo o primeiro som das que sobraram.",
+            "equivoco": "nao-ouviu-o-primeiro-som",
+            "dicas": [
+              "Fale cada palavra bem devagar antes de escolher.",
+              "M soa como 'mmm', bem fechado com a boca."
+            ]
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 15,
+                "moedas": 6
+              },
+              "PARTIAL": {
+                "xp": 9,
+                "moedas": 4
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

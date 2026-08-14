@@ -688,6 +688,28 @@ três fases da missão 2 jogadas em sequência (incluindo o `MULTI_SELECT` com c
 via `aria-checked`), galeria mostrando a Fita da Vírgula, e o mapa de "A Praça Muda" mostrando os
 dois nós concluídos e conectados.
 
+### Português ganha uma terceira missão — concluído
+Mesma decisão nº 3 ("o gargalo agora é conteúdo, não código"), continuando a aproximar Português
+de Matemática em profundidade de conteúdo. Reaproveita os mesmos 3 objetivos de currículo de
+sempre, mas estreia em Português os dois plugins mais novos da sessão — nenhum objetivo novo,
+nenhum código BNCC inventado.
+
+- `missao-03-o-enigma-da-virgula.json` — três enigmas de VÍRGULA: **`TRUE_FALSE`** (a palavra
+  TARTARUGA começa com T — primeiro uso desse plugin fora de Matemática), **`FILL_BLANK`**
+  ("GIRAFA tem ___ partes" — primeiro uso desse plugin em qualquer disciplina fora de Matemática),
+  `MULTI_SELECT` (marcar as palavras que começam com o som de M, sob o objetivo
+  `reconhecer-letras-do-alfabeto` em vez de `identificar-letra-inicial` — a diferença: reconhecer
+  o som de uma letra em várias palavras, não identificar a letra inicial de uma palavra só).
+- `nivel.json` (Português) — terceiro nó no `mapa`, com aresta ligando a missão 2 à 3.
+- `content/colecionaveis.json` — novo colecionável "Pista da Vírgula" (🔍), concedido na
+  conclusão da missão 3.
+
+**Verificado em navegador de verdade** (Playwright): missões 1 e 2 até o fim para destravar a 3,
+as três fases da missão 3 jogadas em sequência — a lacuna do `FILL_BLANK` conferida vazia antes
+de escolher e preenchida com "três" depois, checkboxes do `MULTI_SELECT` conferidos via
+`aria-checked` — galeria mostrando a Pista da Vírgula, e o mapa de "A Praça Muda" mostrando os
+três nós concluídos e conectados em sequência.
+
 ### Script de operador: redefinir senha — concluído
 Pedido do dono ao perceber, jogando em produção, que não existe fluxo de "esqueci minha senha"
 pelo site — só `/criar-conta`, `/entrar`, `/verificar-email`.
@@ -923,10 +945,10 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Seis missões, dezenove atividades, seis tipos
+**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e duas atividades, seis tipos
 de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`,
 `TRUE_FALSE`, `FILL_BLANK`) — duas disciplinas (Matemática com quatro missões, Português com
-duas), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
+três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 
