@@ -29,6 +29,11 @@
       "code": "fita-da-virgula",
       "nome": "Fita da Vírgula",
       "simbolo": "🎀"
+    },
+    {
+      "code": "pista-da-virgula",
+      "nome": "Pista da Vírgula",
+      "simbolo": "🔍"
     }
   ]
 }
