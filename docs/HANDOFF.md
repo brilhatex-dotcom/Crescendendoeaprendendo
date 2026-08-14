@@ -627,7 +627,7 @@ Com este plugin, todos os cinco tipos de atividade da lista original de `docs/12
 seis, na verdade) estão implementados, exceto `WORD_BUILD` e o resto da "Fases seguintes" de
 `docs/01 §3`.
 
-### Motor de Aprendizagem Adaptativa — Fases 0 e 1 concluídas
+### Motor de Aprendizagem Adaptativa — Fases 0, 1 e 2 concluídas
 Pedido explícito do dono, no meio da sessão: a plataforma deve descobrir progressivamente **como**
 cada criança aprende melhor (suporte visual, instrução em etapas, independência de leitura...) e
 adaptar a apresentação — **nunca diagnosticar** condição médica ou psicológica nenhuma. Uma
@@ -671,17 +671,50 @@ na Fase de documentação) para o registro formal da decisão.
   Fase 3 escolher variantes de verdade.
 - Registrado em `src/composition/assessment.ts`, mesma tabela de handlers de `assessment.attempt_evaluated`.
 
-**Verificado**: `npm run verify` (548 testes, incluindo os novos de domínio e a política que
-garante `FILTRO_POR_DIMENSAO` do Prisma e `REGRAS_DE_DIMENSAO` do domínio nunca saírem de
-sincronia) · `npm run test:integration` (76 testes, incluindo a pipeline real
+**Verificado (Fases 0-1)**: `npm run verify` (548 testes, incluindo os novos de domínio e a
+política que garante `FILTRO_POR_DIMENSAO` do Prisma e `REGRAS_DE_DIMENSAO` do domínio nunca
+saírem de sincronia) · `npm run test:integration` (76 testes, incluindo a pipeline real
 resposta→outbox→perfil contra Postgres, com a mesma prova de idempotência-por-recomputação que
 `achievement` — despachar a mesma mensagem duas vezes e chamar o handler duas vezes com o mesmo
 estado de `Attempt` nunca conta a mesma tentativa duas vezes) · build de produção.
 
-**Pendente**: Fase 2 (schema de conteúdo + primeira atividade real com variantes), Fase 3
-(seleção de variante por perfil + `Recommendation` de acessibilidade + tela "Personalização da
-Aprendizagem" para o responsável) e a atualização de documentação (ADR 0005, docs/04, docs/08,
-docs/13). Ver seção 5 para o plano completo de 5 fases.
+**Fase 2 — pipeline de autoria de conteúdo + primeira atividade real com variantes**:
+- `content/schema/index.ts` — `caracteristicasDaAtividadeSchema` (`requerLeitura`,
+  `suporteVisual`, `tipoDeInteracao`, `quantidadeDeEtapas`, todos opcionais — só descrevem a
+  FORMA, nunca o conteúdo pedagógico) e `varianteDeApresentacaoSchema` (`tag` + `caracteristicas`
+  + `config: unknown`). `atividadeAutoradaSchema` ganha `caracteristicas` (características da
+  apresentação padrão, a de `config`) e `variantesDeApresentacao` (até 5 apresentações
+  alternativas da MESMA pergunta, ambos opcionais — ausentes = comportamento de hoje).
+- `content/loader.ts` — `validarConfigDaAtividade` agora também valida o `config` de cada
+  variante pelo `configSchema` do mesmo `tipo`: uma variante com config inválido é tão grave
+  quanto o padrão inválido, porque a camada de adaptação (Fase 3) pode escolhê-la para qualquer
+  criança.
+- `src/modules/content/domain/plan.ts` / `prisma-content-writer.ts` — `LinhaAtividade` carrega os
+  novos campos até o banco. `presentationVariants` grava `Prisma.DbNull` (não `undefined`) quando
+  ausente, para que reautorar uma atividade sem variantes realmente limpe variantes antigas no
+  `update` do `upsert` — `undefined` no Prisma significa "não mexe nesta coluna".
+- **Atividade de demonstração**: `contar-peixinhos-6`, nova segunda atividade da
+  `fase-01-contar` em `missao-03-o-recife-dos-peixinhos` (Matemática, objetivo `contar-ate-10`
+  já existente — nenhum código BNCC novo inventado). Mesma pergunta ("quantos peixinhos"), três
+  formas: padrão em texto puro (sem `apoio`, `requerLeitura: true`, `suporteVisual: "nenhum"`),
+  variante `suporte-visual-alto` (com `apoio` de coleção de emoji, `suporteVisual: "alto"`,
+  `requerLeitura: false`) e variante `passo-a-passo` (enunciado decomposto em 3 passos
+  explícitos, `quantidadeDeEtapas: 3`, `suporteVisual: "alto"`). As três levam à mesma resposta
+  correta (6) e ensinam o mesmo objetivo — só a apresentação muda.
+
+**Verificado (Fase 2)**: `npm run content:validate` (23 atividades, sem problemas, incluindo a
+segunda passada validando as 2 variantes) · `npm run verify` (548 testes) ·
+`npm run test:integration` (76 testes, incluindo a reimportação idempotente do acervo real com a
+nova atividade) · `npx prisma migrate deploy` + `npm run content:import` contra Postgres local,
+com verificação direta via `psql` de que `requiresReading`, `visualSupportLevel`,
+`interactionType`, `stepCount` e `presentationVariants` gravaram corretamente na atividade nova ·
+build de produção. Sem mudança de UI nesta fase (a seleção de variante e o consumo por tela são
+da Fase 3) — verificação manual em navegador não se aplica; `/criar-conta` e `/entrar` conferidos
+de pé com `npm run dev`.
+
+**Pendente**: Fase 3 (seleção de variante por perfil + `Recommendation` de acessibilidade + tela
+"Personalização da Aprendizagem" para o responsável) e a atualização de documentação (ADR 0005,
+docs/04, docs/08, docs/13). Ver seção 5 para o plano completo de 5 fases.
 
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
@@ -994,10 +1027,10 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 8. **Motor de Aprendizagem Adaptativa** (pedido explícito do dono, no meio desta sessão) —
-   **Fases 0 e 1 concluídas nesta sessão**, Fases 2-4 em andamento. Ver seção 3, "Motor de
-   Aprendizagem Adaptativa — Fases 0 e 1 concluídas", para o que já existe, e o plano de 5 fases
-   apresentado ao dono antes de começar (fundação de dados → módulo de perfil → variantes de
-   conteúdo → seleção por perfil + tela do responsável → documentação).
+   **Fases 0, 1 e 2 concluídas nesta sessão**, Fases 3-4 pendentes. Ver seção 3, "Motor de
+   Aprendizagem Adaptativa — Fases 0, 1 e 2 concluídas", para o que já existe, e o plano de 5
+   fases apresentado ao dono antes de começar (fundação de dados → módulo de perfil → variantes
+   de conteúdo → seleção por perfil + tela do responsável → documentação).
 
 ### Decisões em aberto — precisam do dono
 **1. `CRON_SECRET` na Vercel.** Sem ele, `/api/outbox` responde 503 e a **telemetria nunca é
@@ -1006,7 +1039,7 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e duas atividades, seis tipos
+**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e três atividades, seis tipos
 de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`,
 `TRUE_FALSE`, `FILL_BLANK`) — duas disciplinas (Matemática com quatro missões, Português com
 três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e

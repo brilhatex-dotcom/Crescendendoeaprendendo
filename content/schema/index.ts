@@ -74,6 +74,36 @@ export const disciplinaCurricularSchema = z.object({
 // ── Atividade autorada ───────────────────────────────────────────────────────
 
 /**
+ * Características declaradas de uma apresentação — Motor de Aprendizagem
+ * Adaptativa (docs/08 §13). Só descrevem a FORMA, nunca o conteúdo
+ * pedagógico: a camada de adaptação as lê para decidir qual apresentação
+ * servir a cada criança; o motor de atividades nunca as vê.
+ */
+export const caracteristicasDaAtividadeSchema = z.object({
+  /** A criança precisa ler para responder? */
+  requerLeitura: z.boolean().optional(),
+  suporteVisual: z.enum(["nenhum", "baixo", "medio", "alto"]).optional(),
+  tipoDeInteracao: z
+    .enum(["toque-unico", "toque-multiplo", "arrastar-por-toque", "ordenar"])
+    .optional(),
+  /** Em quantas etapas a instrução é decomposta. Ausente = 1 (instrução única). */
+  quantidadeDeEtapas: z.number().int().min(1).max(20).optional(),
+});
+
+/**
+ * Uma apresentação alternativa da MESMA pergunta pedagógica — outra forma de
+ * exercitar o mesmo `objetivo`, não outra pergunta. `config` continua sendo
+ * validado pelo `configSchema` do mesmo `tipo` da atividade que a contém
+ * (segunda passada do validador, `content/loader.ts`).
+ */
+export const varianteDeApresentacaoSchema = z.object({
+  /** Estável e legível — vira `Attempt.presentationTag`. Ex.: "suporte-visual-alto". */
+  tag: slugSchema,
+  caracteristicas: caracteristicasDaAtividadeSchema,
+  config: z.unknown(),
+});
+
+/**
  * Uma atividade dentro de uma fase.
  *
  * `config` é `unknown` aqui de propósito: quem sabe validar o conteúdo de uma
@@ -95,6 +125,15 @@ export const atividadeAutoradaSchema = z.object({
   /** Validado pelo plugin do `tipo`, na segunda passada do validador. */
   config: z.unknown(),
   recompensa: regraDeRecompensaSchema.optional(),
+  /** Características da apresentação PADRÃO (a de `config`). Sempre opcional. */
+  caracteristicas: caracteristicasDaAtividadeSchema.optional(),
+  /**
+   * Apresentações alternativas, escolhidas pela camada de adaptação conforme
+   * o Learning Profile da criança (Fase 3). Ausente = só a apresentação
+   * padrão existe — o comportamento de hoje, para toda atividade que não
+   * declarar nada.
+   */
+  variantesDeApresentacao: z.array(varianteDeApresentacaoSchema).max(5).optional(),
 });
 
 // ── Fase (etapa dentro da missão) ────────────────────────────────────────────
@@ -270,5 +309,7 @@ export type Modulo = z.infer<typeof moduloSchema>;
 export type Missao = z.infer<typeof missaoSchema>;
 export type Fase = z.infer<typeof faseSchema>;
 export type AtividadeAutorada = z.infer<typeof atividadeAutoradaSchema>;
+export type CaracteristicasDaAtividade = z.infer<typeof caracteristicasDaAtividadeSchema>;
+export type VarianteDeApresentacao = z.infer<typeof varianteDeApresentacaoSchema>;
 export type DisciplinaCurricular = z.infer<typeof disciplinaCurricularSchema>;
 export type Objetivo = z.infer<typeof objetivoSchema>;

@@ -3,6 +3,7 @@ import {
   type AgeBand,
   ContentOrigin,
   ContentStatus,
+  Prisma,
   type PrismaClient,
   type QuestKind,
 } from "@prisma/client";
@@ -305,6 +306,21 @@ export function criarEscritorPrismaDeConteudo(db: PrismaClient): EscritorDeConte
               estimatedSec: linha.duracaoEstimadaSeg,
               minAgeBand: linha.faixaMinima as AgeBand,
               maxAgeBand: linha.faixaMaxima as AgeBand,
+              // Motor de Aprendizagem Adaptativa (docs/08 §13) — sempre opcionais.
+              requiresReading: linha.requerLeitura,
+              visualSupportLevel: linha.suporteVisual,
+              interactionType: linha.tipoDeInteracao,
+              stepCount: linha.quantidadeDeEtapas,
+              // `Prisma.DbNull`, nunca `undefined`: precisa limpar de verdade
+              // quando o conteúdo deixa de declarar variantes — `undefined`
+              // no `update` do Prisma significa "não mexe", e deixaria
+              // variante velha presa no banco depois de removida do arquivo.
+              // Bare `null` não é aceito pelo tipo gerado do Prisma para
+              // colunas `Json?` — é preciso o sentinela `Prisma.DbNull`.
+              presentationVariants:
+                linha.variantesDeApresentacao === null
+                  ? Prisma.DbNull
+                  : (linha.variantesDeApresentacao as Prisma.InputJsonValue),
               origin: ContentOrigin.CURATED,
               /*
                * Conteúdo que passou pelo validador está publicado. A revisão

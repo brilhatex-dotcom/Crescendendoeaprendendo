@@ -511,14 +511,34 @@ function validarConfigDaAtividade(
     ];
   }
 
+  const problemas: ProblemaDeConteudo[] = [];
+
   const config = plugin.value.validarConfig(atividade.config);
-  if (config.ok) return [];
+  if (!config.ok) {
+    const detalhes = config.error.details?.problemas;
+    const lista = Array.isArray(detalhes) ? detalhes : [config.error.message];
+    problemas.push(...lista.map((problema) => ({ arquivo, mensagem: `${rotulo}: ${String(problema)}` })));
+  }
 
-  const detalhes = config.error.details?.problemas;
-  const lista = Array.isArray(detalhes) ? detalhes : [config.error.message];
+  /*
+   * Cada variante de apresentação é a MESMA pergunta em outra forma — ainda
+   * do mesmo `tipo`, então validada pelo mesmo `configSchema`. Uma variante
+   * com config inválido é tão grave quanto o config padrão inválido: a
+   * camada de adaptação pode escolhê-la para qualquer criança.
+   */
+  for (const variante of atividade.variantesDeApresentacao ?? []) {
+    const configDaVariante = plugin.value.validarConfig(variante.config);
+    if (configDaVariante.ok) continue;
 
-  return lista.map((problema) => ({
-    arquivo,
-    mensagem: `${rotulo}: ${String(problema)}`,
-  }));
+    const detalhes = configDaVariante.error.details?.problemas;
+    const lista = Array.isArray(detalhes) ? detalhes : [configDaVariante.error.message];
+    problemas.push(
+      ...lista.map((problema) => ({
+        arquivo,
+        mensagem: `${rotulo} (variante "${variante.tag}"): ${String(problema)}`,
+      })),
+    );
+  }
+
+  return problemas;
 }
