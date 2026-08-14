@@ -24,6 +24,11 @@
       "code": "pegada-da-virgula",
       "nome": "Pegada da Vírgula",
       "simbolo": "🐾"
+    },
+    {
+      "code": "fita-da-virgula",
+      "nome": "Fita da Vírgula",
+      "simbolo": "🎀"
     }
   ]
 }

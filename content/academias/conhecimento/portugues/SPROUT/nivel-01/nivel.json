@@ -7,8 +7,19 @@
     "nos": [
       {
         "missaoRef": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-01-o-alfabeto-da-virgula",
-        "x": 50,
-        "y": 70
+        "x": 25,
+        "y": 75
+      },
+      {
+        "missaoRef": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-02-a-cesta-de-palavras-da-virgula",
+        "x": 60,
+        "y": 40
+      }
+    ],
+    "arestas": [
+      {
+        "de": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-01-o-alfabeto-da-virgula",
+        "para": "conhecimento/portugues/SPROUT/nivel-01/modulo-01-alfabeto/missao-02-a-cesta-de-palavras-da-virgula"
       }
     ]
   }
