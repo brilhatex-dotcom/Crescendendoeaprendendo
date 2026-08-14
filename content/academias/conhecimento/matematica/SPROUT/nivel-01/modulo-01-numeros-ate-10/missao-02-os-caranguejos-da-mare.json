@@ -263,6 +263,82 @@
           }
         }
       ]
+    },
+    {
+      "slug": "fase-04-o-abrigo-da-mare",
+      "nome": "O abrigo da maré",
+      "atividades": [
+        {
+          "slug": "separar-grupos-com-6-ou-mais",
+          "tipo": "MULTI_SELECT",
+          "objetivo": "comparar-quantidades",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 60,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "A água vai subir! ORLA só tem lugar no abrigo para os grupos com 6 bichinhos ou mais. Toque em todos esses grupos.",
+            "enunciadoFalado": "A água vai subir! ORLA só tem lugar no abrigo para os grupos com 6 bichinhos ou mais. Toque em todos esses grupos.",
+            "opcoes": [
+              {
+                "id": "caranguejos",
+                "texto": "🦀🦀🦀🦀🦀🦀",
+                "correta": true
+              },
+              {
+                "id": "estrelas",
+                "texto": "⭐⭐⭐",
+                "correta": false,
+                "ensino": "Conte de novo: são só 3 estrelas. Isso é menos que 6, então ficam na praia.",
+                "equivoco": "nao-comparou-com-o-limite"
+              },
+              {
+                "id": "conchas",
+                "texto": "🐚🐚🐚🐚🐚🐚🐚",
+                "correta": true
+              },
+              {
+                "id": "peixinhos",
+                "texto": "🐠🐠",
+                "correta": false,
+                "ensino": "Conte de novo: são só 2 peixinhos. Isso é menos que 6, então ficam na praia.",
+                "equivoco": "nao-comparou-com-o-limite"
+              }
+            ],
+            "mensagemDeAcerto": "Isso! Caranguejos e conchas têm 6 ou mais. Estrelas e peixinhos ficam na praia, com menos de 6.",
+            "ensino": "Conte cada grupo até o fim. Se parar em 6, 7, 8, 9 ou 10, o grupo vai para o abrigo.",
+            "ensinoParcial": "Você já separou alguns certos! Conte de novo cada grupo e compare com 6.",
+            "equivoco": "nao-comparou-com-o-limite",
+            "dicas": [
+              "Toque em cada bichinho enquanto conta, um de cada vez.",
+              "Se o grupo tiver 6 ou mais, ele vai para o abrigo."
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 15,
+                "moedas": 6
+              },
+              "PARTIAL": {
+                "xp": 9,
+                "moedas": 4
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
     }
   ]
 }

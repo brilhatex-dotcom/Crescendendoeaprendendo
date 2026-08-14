@@ -541,6 +541,39 @@ mostrando "4 de 4" com a chave revelada.
 o `id` nunca aparece na tela, só `esquerda`/`direita`, então a correção é `pareamento[id] === id`
 sem indireção nenhuma e sem vazar a resposta na inspeção do DOM.
 
+### Plugin MULTI_SELECT (seleção múltipla) — concluído
+Quarta frente de plugin, mesmo caminho de `DRAG_MATCH`: `MULTI_SELECT` já estava reservado em
+`ACTIVITY_TYPES`, zero mudança no núcleo. "Toque em todos os que servem" — diferente de
+`MULTIPLE_CHOICE` (uma resposta certa) por poder ter várias opções corretas ao mesmo tempo.
+
+- `src/activities/plugins/multi-select/` — `schema.ts` (3 a 6 opções, exige **ao menos duas
+  corretas**; com só uma, o schema recusa e aponta para `MULTIPLE_CHOICE` em vez de deixar a
+  criança jogar um seletor múltiplo que só tem uma resposta certa), `evaluate.ts` (crédito
+  parcial por **acurácia de matriz de confusão**: cada opção conta como acerto se
+  "marcada == correta", contando também as erradas corretamente deixadas em branco — decisão
+  deliberadamente diferente de `DRAG_MATCH`, que só conta pares que a criança de fato tentou,
+  porque uma checkbox não tem estado "intocado"; probabilidade de chute `1/2ⁿ`, cada opção é
+  uma moeda independente).
+- `src/activities/renderers/multi-select-renderer.tsx` — **checkboxes reais**, `role="group"` +
+  `role="checkbox"` + `aria-checked` (não `radiogroup`/`radio`, porque o leitor de tela precisa
+  anunciar "marcado"/"não marcado" por opção, não "1 de N selecionada"). Toque alterna; mesmos
+  estados visuais de `MultipleChoiceRenderer` (grade para opções curtas, ✓/↺ ao revelar).
+- Registrado nos dois manifestos e coberto pela política PP5 — inclusive o caso "faltou marcar
+  uma correta" para provar que crédito parcial também nunca sai sem `ensino`.
+- **Conteúdo real**: nova quarta fase em `missao-02-os-caranguejos-da-mare.json` ("O abrigo da
+  maré") — marcar todos os grupos com 6 bichinhos ou mais, dentro do objetivo já existente
+  `comparar-quantidades`. Nenhum objetivo novo de currículo foi inventado para caber a atividade.
+
+**Verificado em navegador de verdade** (Playwright): missão 1 até o fim para destravar a 2, as
+quatro fases da missão 2 jogadas em sequência, os 4 checkboxes clicados e o `aria-checked`
+conferido diretamente, resposta com uma correta marcada e uma correta em branco, mensagem de
+acerto exibida, checkboxes desabilitados após revelar.
+
+**Propriedades travadas:** um `MULTI_SELECT` com menos de duas opções corretas não passa no
+schema — a mensagem de erro aponta para `MULTIPLE_CHOICE` em vez de deixar alguém autorar um
+seletor múltiplo de resposta única · a ordem de marcação nunca importa (é conjunto, não
+sequência) · a mesma resposta avaliada duas vezes produz o mesmo resultado (`evaluate` é puro).
+
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
 nova dentro da mesma Academia do Conhecimento** (não uma academia própria) — é assim que a
@@ -798,12 +831,13 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
    Persistência têm mecânica; Descoberta/Criação/Cuidado e o crédito de `rewardXp` ficam para
    depois (registrado no mesmo lugar).
 4. ~~Mapa desenhado~~ — **concluído nesta sessão**. Ver seção 3, "Mapa desenhado".
-5. **Perfil de talentos** (`docs/08 §9`) — recalculado a cada 50 tentativas. Tem regra ética
-   própria: teto de 40% de sugestões do talento dominante, mínimo 1 fora do perfil por dia,
-   e não é exibido com `confidence < 0.6`.
-6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`)~~ — **concluído nesta sessão**. Ver seção
-   3, "Plugin DRAG_MATCH (parear)". Falta ainda `FILL_BLANK`, `MULTI_SELECT`, `TRUE_FALSE` e o
-   resto da lista de `docs/12` — mesmo caminho, plugin novo sem tocar no núcleo.
+5. **Perfil de talentos** (`docs/08 §9`) — **investigado nesta sessão, não iniciado de propósito**.
+   Ver decisão nº 5 abaixo: ao contrário de Conquistas e Mapa, este item não tem como ser
+   escopado sem inventar regra de produto que não está documentada em lugar nenhum.
+6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, depois `MULTI_SELECT`)~~ — **concluído
+   nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH (parear)" e "Plugin MULTI_SELECT (seleção
+   múltipla)". Falta ainda `FILL_BLANK`, `TRUE_FALSE` e o resto da lista de `docs/12` — mesmo
+   caminho, plugin novo sem tocar no núcleo.
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 
@@ -814,9 +848,9 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Quatro missões, dez atividades, três tipos de
-atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`) — todas no mesmo
-módulo (Números até 10). Todo o resto do sistema está pronto para receber muito mais — e
+**3. O gargalo agora é conteúdo, não código.** Cinco missões, quatorze atividades, quatro tipos
+de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`) —
+quase tudo no mesmo módulo (Números até 10). Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 
@@ -826,6 +860,27 @@ atraso é aceitável, e um upgrade de plano não se justifica ainda. **Quando o 
 para mais gente, revisitar isto** — ou fazer upgrade pra Vercel Pro (libera cron a cada minuto),
 ou tirar o despacho de dentro do pulso do cron (chamar `despachante.despachar()` direto após a
 ação que gerou o evento). Ver `app/api/outbox/route.ts` e `vercel.json`.
+
+**5. Perfil de talentos exige decisão de produto antes de qualquer código.** Investigado a fundo
+nesta sessão (schema `TalentProfile`/`Recommendation` já existe e está migrado; nunca foi lido
+nem escrito por código nenhum). O que falta **não é engenharia**, é regra de produto que não
+está escrita em lugar nenhum — `docs/08 §9` lista sinais em prosa, não fórmula:
+- **A fórmula do score por talento.** Não existe em `docs/08` nem na Bíblia.
+- **O mapeamento competência → talento.** A Bíblia nomeia 12 talentos (Matemático, Cientista,
+  Artista, Inventor, Programador, Escritor, Naturalista, Líder, Comunicador, Músico,
+  Estrategista, Empreendedor); nenhum documento diz qual `Skill`/`Subject` alimenta qual.
+- **3 dos 5 sinais não são coletados hoje** ("tempo voluntário", "escolha livre de missão", "uso
+  de atividade criativa" — `ActivityType` nem tem flag de "criativa"). Só 2 de 5 têm dado pronto
+  (`SkillMastery` para acerto por área e persistência).
+- **A semântica de `Recommendation`** (`kind: QUEST | REVIEW | PROJECT | BREAK`, `refId` livre) —
+  o que decide o que aparece no hub, como o teto de 40%/mínimo-1-fora-do-perfil se aplica na
+  prática (por sessão? por dia corrido? em que fuso — mesma pergunta em aberto da decisão nº 2) —
+  não está implementado nem especificado.
+- **Onde exibir.** Não existe tela `/perfil` nem painel do responsável; a Bíblia sugere que o
+  destino é o responsável, não a criança, mas isso também não está confirmado em código nenhum.
+- Fabricar essas cinco coisas sem o dono seria o mesmo erro que inventar código BNCC — só que numa
+  escala muito maior (um sistema de recomendação inteiro, não um campo opcional). Por isso este
+  item fica **investigado e documentado, não implementado**, até vir a decisão.
 
 > A antiga decisão nº 1 desta lista — "a importação de conteúdo deve rodar no deploy?" — está
 > resolvida. Ver seção 3, "Importação automática de conteúdo no deploy".
