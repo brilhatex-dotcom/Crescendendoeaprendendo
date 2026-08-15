@@ -1208,6 +1208,44 @@ nela.
   cold start de função serverless ou do banco Postgres (Neon) suspendendo por inatividade — nenhum
   dos dois é corrigível só no código da aplicação.
 
+### Investigado: lentidão de ~5s ao responder uma pergunta — sem código a corrigir
+Relato de acompanhamento do dono, depois da correção acima: a navegação melhorou, mas responder
+uma atividade (ver o resultado depois de tocar "Responder"/"Conferir") ainda leva uns 5 segundos.
+
+Revisão de `submitAttempt` (`src/modules/assessment/application/submit-attempt.ts`) e do
+barramento de eventos (`src/server/event-bus.ts`): a transação grava a tentativa, o modelo de
+domínio, a revisão espaçada, e — pelos manipuladores `inline` — credita Luz, Fagulha, avança a
+corrida da missão e concede colecionável, tudo na mesma transação (docs/08 §11, por desenho, para
+consistência atômica). O despacho é sequencial de propósito (`event-bus.ts`: manipuladores
+compartilham a mesma conexão Prisma; paralelizar sobre uma conexão só arriscaria intercalar
+comandos e deixar handlers escrevendo numa transação já abortada em caso de erro). O código foi
+revisado com atenção e não tem nada óbvio de ineficiente — nem N+1, nem chamada redundante, nem
+espera artificial (o único `dormir` é o backoff de conflito de concorrência, 15-45ms).
+
+**Conclusão**: um punhado de operações de banco bem escritas não deveria levar 5 segundos por si
+só. O suspeito mais provável **não é o código da aplicação** — é latência de rede entre onde a
+Vercel roda as funções e onde o Postgres (Neon) mora (região diferente), ou o banco acordando de
+suspensão por inatividade (plano gratuito). Isso não é verificável nem corrigível sem acesso aos
+painéis da Vercel/Neon — pedido ao dono para conferir se as duas regiões coincidem.
+
+### Personalização visual: perguntas em caixa alta — concluído
+Pedido do dono nesta sessão: todas as perguntas devem aparecer em letras maiúsculas.
+
+- Aplicado via CSS (`uppercase` do Tailwind) no título de cada atividade (`<h2>` com
+  `config.enunciado`), nos 9 renderers (`MULTIPLE_CHOICE`, `MULTI_SELECT`, `TRUE_FALSE`,
+  `FILL_BLANK`, `DRAG_MATCH`, `ORDER_SEQUENCE`, `WORD_BUILD`, `NUMBER_LINE`, `MEMORY_PAIRS`) — não
+  em `content/`, que continua com o texto em caixa normal.
+- **Por que CSS e não editar o texto autorado**: `text-transform` muda só a apresentação visual —
+  o DOM continua com o texto original, então `enunciadoFalado` (texto-para-fala) e os `aria-label`
+  de grupos/opções (usados por leitor de tela) permanecem soando normalmente, frase com maiúsculas
+  e minúsculas, em vez de cada letra sendo lida como sigla. Editar os arquivos de conteúdo direto
+  teria o mesmo efeito visual, mas duplicaria a fonte da verdade (o texto "real" vs. o texto
+  "gritado") e quebraria com qualquer novo conteúdo autorado sem que ninguém lembrasse da regra.
+  As respostas, dicas e devolutivas continuam em caixa normal — só a pergunta em si muda.
+- **Verificado**: `npm run verify` (613 testes, sem alteração de comportamento) · build de
+  produção · verificação manual em navegador (pergunta renderizada em caixa alta, opções e botões
+  inalterados).
+
 ---
 
 ## 4. O que NÃO existe ainda
