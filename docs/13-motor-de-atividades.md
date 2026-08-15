@@ -348,3 +348,68 @@ Honestidade sobre a fronteira desta etapa:
 - **18 dos 20 tipos.** Por decisão explícita: um motor sólido com dois plugins vale mais que dez
   plugins acoplados.
 - **Som.** Ver §10.1 — precisa de assets de áudio e do wiring de `LearnerSettings.soundEnabled`.
+
+---
+
+## 12. Adaptação de apresentação (Motor de Aprendizagem Adaptativa, ADR 0005)
+
+O motor de atividades **nunca soube, e continua sem saber, que existe escolha de apresentação**.
+Todo plugin (`schema.ts`/`evaluate.ts`/`renderer`) continua recebendo um único `config` já
+decidido — a variação de forma acontece inteiramente *antes* dele, na ponte entre conteúdo e
+sessão. Ver `docs/08 §13` para a política completa (limiar de evidência, o que é automático vs. o
+que pede o responsável); aqui, só o mecanismo.
+
+**Onde mora.** `src/activities/content-bridge.ts` é o único arquivo de `src/activities` liberado a
+importar `src/modules`/Prisma (`.dependency-cruiser.cjs`, regra `motor-e-puro`) — e o único ponto
+por onde toda atividade, autorada em `content/` ou resolvida por slot no banco, passa antes de
+virar `AtividadeNaSessao`. É lá, e só lá, que o perfil de aprendizagem (`learning-profile`,
+sempre o escopo global — `academyId: null`, ver `docs/04 §9.1`) é buscado uma vez por missão e
+`escolherApresentacao(perfil, padrão, variantes)` decide, candidata a candidata, qual `config`
+cada atividade da sessão recebe.
+
+**`variantesDeApresentacao` em `content/`.** Uma atividade autorada pode declarar até 5
+apresentações alternativas da MESMA pergunta pedagógica — mesma resposta certa, mesmo XP, forma
+diferente:
+
+```jsonc
+{
+  "id": "contar-peixinhos-6",
+  "tipo": "MULTIPLE_CHOICE",
+  "objetivo": "contar-ate-10",
+  "caracteristicas": { "requerLeitura": true, "suporteVisual": "nenhum" },
+  "config": { /* padrão: texto puro */ },
+  "variantesDeApresentacao": [
+    {
+      "tag": "suporte-visual-alto",
+      "caracteristicas": { "requerLeitura": false, "suporteVisual": "alto" },
+      "config": { /* mesma pergunta, com apoio de emoji */ }
+    },
+    {
+      "tag": "passo-a-passo",
+      "caracteristicas": { "quantidadeDeEtapas": 3 },
+      "config": { /* mesma pergunta, enunciado decomposto */ }
+    }
+  ]
+}
+```
+
+Cada `config` de variante é validado pelo mesmo `configSchema` do `tipo` da atividade
+(`content/loader.ts`) — uma variante com config inválido é tão grave quanto o padrão inválido,
+porque a camada de adaptação pode escolhê-la para qualquer criança. `caracteristicas` descreve só
+a FORMA (requer leitura? quanto suporte visual? quantos passos?), nunca o conteúdo pedagógico.
+
+**Atividade resolvida por slot (banco).** As mesmas colunas existem em `Activity`
+(`requiresReading`, `visualSupportLevel`, `stepCount`, `presentationVariants: Json?`) para
+atividades sem `content/` nenhum — a Fila de Revisão, hoje. `content-bridge.ts` valida
+`presentationVariants` com o mesmo schema Zod na leitura, defensivamente: um JSON que não bate
+mais com o schema vira "sem variantes", nunca um erro na tela.
+
+**A tag viaja até o histórico.** `AtividadeNaSessao.presentationTag` (a variante servida, ou nulo
+para a padrão) atravessa `responderAtividadeAction` → `SubmeterTentativaEntrada` →
+`SubmissaoAvaliada` → o evento interno `TentativaAvaliada` (o que `learning-profile` consome) →
+`Attempt.presentationTag`. É o sinal que liga desempenho a modalidade — sem ele, o perfil não
+saberia que "suporte visual alto" ajudou nesta tentativa.
+
+**Como criar uma atividade com variantes** — mesmos cinco passos de §7, mais um: depois de
+escrever `config` (o padrão), acrescente `variantesDeApresentacao` no JSON de `content/` e rode
+`npm run content:validate`. Nenhum código muda — nem plugin, nem renderer, nem motor.

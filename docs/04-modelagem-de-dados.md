@@ -641,6 +641,81 @@ model Recommendation {
 
 ---
 
+## 9.1 Perfil de aprendizagem — modalidade, não talento (ADR 0005)
+
+Não confundir com `TalentProfile` (§9): talento é *interesse/força por área* (Matemático,
+Artista...); perfil de aprendizagem é *modalidade de apresentação* (quanto suporte visual, quanto
+texto, quanta instrução em etapas parecem ajudar esta criança) — um eixo puramente de **como
+mostrar**, nunca de **o que a criança é capaz de fazer** ou **por quê**. Ver `docs/08 §13` para a
+política de evidência e `docs/13 §12` para como o motor de atividades consome isto.
+
+```prisma
+model LearningProfile {
+  id        String @id @default(cuid(2))
+  learnerId String
+  academyId String?                              // hoje sempre null — perfil global (ver nota abaixo)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  learner    Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  academy    Academy? @relation(fields: [academyId], references: [id])
+  dimensions LearningProfileDimension[]
+  events     LearningProfileEvent[]
+
+  @@index([learnerId, academyId])                // NÃO @@unique — Postgres não deduplica NULL
+}
+
+model LearningProfileDimension {                 // uma linha por eixo observado
+  profileId         String
+  key               String                       // "suporteVisual" | "instrucaoPassoAPasso" | "independenciaDeLeitura"...
+  value             Decimal @db.Decimal(4,3)      // 0..1 — quanto esse suporte parece ajudar
+  confidence        Decimal @db.Decimal(4,3)      // 0..1 — n / (n + 8)
+  observationsCount Int     @default(0)
+  lastObservedAt    DateTime?
+  updatedAt         DateTime @updatedAt
+  profile           LearningProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  @@id([profileId, key])
+}
+
+model LearningProfileEvent {                      // trilha de auditoria append-only
+  id                 BigInt @id @default(autoincrement())
+  profileId          String
+  dimensionKey       String
+  previousValue      Decimal? @db.Decimal(4,3)
+  newValue           Decimal  @db.Decimal(4,3)
+  previousConfidence Decimal? @db.Decimal(4,3)
+  newConfidence      Decimal  @db.Decimal(4,3)
+  trigger            String                        // SYSTEM_INFERENCE | GUARDIAN_OVERRIDE | GUARDIAN_ACCEPTED_SUGGESTION | GUARDIAN_RESET
+  evidenceSummary    Json?                          // ids de Attempt — nunca texto livre da criança
+  createdAt          DateTime @default(now())
+  profile            LearningProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  @@index([profileId, dimensionKey, createdAt])
+}
+```
+
+**Uma dimensão nova é uma linha, nunca uma migration** — mesmo raciocínio de `ActivityType` versus
+`config: Json` (§5): o conjunto de eixos cresce sem alterar schema.
+
+**`academyId` existe mas ainda não é usado por nenhuma escrita.** `update-from-attempt.ts` sempre
+grava com `academyId: null` (perfil global) — "por academia" fica para quando houver dado que
+justifique um perfil diferente por área. Qualquer leitura precisa respeitar o mesmo escopo que a
+escrita usa hoje (global), ou nunca encontra evidência nenhuma.
+
+**Modelos existentes que ganharam colunas aditivas para isto** (todas opcionais — nenhuma leitura
+antiga quebra):
+- `Activity` — `requiresReading`, `visualSupportLevel`, `interactionType`, `stepCount` (a FORMA da
+  apresentação padrão) e `presentationVariants: Json?` (até 5 apresentações alternativas da MESMA
+  pergunta pedagógica; ver `docs/13 §12`).
+- `Attempt.presentationTag: String?` — qual variante foi mostrada nesta tentativa, ou nulo para a
+  padrão; é o sinal que liga desempenho a modalidade.
+- `LearnerSettings` ganhou 6 controles manuais de acessibilidade (`stepByStepInstructions`,
+  `oneTaskAtATime`, `pictogramsEnabled`, `simplifiedInterface`, `extraTimeEnabled`,
+  `soundVolume`), sempre editáveis pelo responsável independente de qualquer sugestão do perfil.
+- `Recommendation.payload: Json?` — reaproveitado (nenhuma tabela nova) para `kind =
+  "ACCESSIBILITY_SUGGESTION"`: `{ dimensionKey, settingField, suggestedValue }`.
+
+---
+
 ## 10. Escola, responsável e notificação
 
 ```prisma

@@ -633,8 +633,8 @@ cada criança aprende melhor (suporte visual, instrução em etapas, independên
 adaptar a apresentação — **nunca diagnosticar** condição médica ou psicológica nenhuma. Uma
 plataforma só, um motor de atividades só, adaptação como camada. Análise arquitetural completa
 (o que muda, o que fica, novos modelos, novos contratos, quatro fluxos, plano de 5 fases)
-apresentada ao dono antes de qualquer código, por pedido dele mesmo. Ver ADR 0005 (a ser escrito
-na Fase de documentação) para o registro formal da decisão.
+apresentada ao dono antes de qualquer código, por pedido dele mesmo. Ver
+[ADR 0005](adr/0005-motor-de-aprendizagem-adaptativa.md) para o registro formal da decisão.
 
 **Fase 0 — fundação de dados**, migration puramente aditiva:
 - `LearningProfile` / `LearningProfileDimension` / `LearningProfileEvent` — perfil por (criança,
@@ -831,8 +831,12 @@ banco aparece na tela com o texto certo, "Ativar" liga `stepByStepInstructions` 
 correspondente aparece "Ligado" depois do `router.refresh()`, e a recomendação some da lista de
 pendentes).
 
-**Pendente**: só a atualização de documentação (ADR 0005, docs/04, docs/08, docs/13) — última fase
-do plano de 5. Ver seção 5.
+**Documentação — concluída.** [ADR 0005](adr/0005-motor-de-aprendizagem-adaptativa.md) registra a
+decisão; `docs/04 §9.1` documenta os modelos (`LearningProfile`/`LearningProfileDimension`/
+`LearningProfileEvent` + colunas aditivas); `docs/08 §13` documenta a política completa (limiar de
+evidência, o que é automático vs. o que pede o responsável); `docs/13 §12` documenta o mecanismo no
+motor de atividades (onde mora, como declarar `variantesDeApresentacao`, como a tag viaja até o
+histórico). As 5 fases do plano estão completas.
 
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
@@ -1204,6 +1208,7 @@ está escrita em lugar nenhum — `docs/08 §9` lista sinais em prosa, não fór
 | Monólito modular + Clean Architecture | ADR 0001 |
 | Motor de atividades por plugins tipados | ADR 0002 |
 | **Sessão de primeira parte, não Auth.js** | **ADR 0004** |
+| **Motor de Aprendizagem Adaptativa: adapta apresentação, nunca diagnostica** | **ADR 0005** |
 | **Conteúdo é dado; o motor interpreta, não contém** | ADR 0002 · `docs/13` |
 | **Erro incorreto sem `ensino` não compila** | `docs/13 §4` |
 | **E-mail transacional: Resend** | decisão do dono, 2026-08-03 |
