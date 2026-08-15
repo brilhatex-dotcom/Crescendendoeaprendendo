@@ -41,7 +41,7 @@ export function FillBlankRenderer({
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="font-display text-2xl font-bold text-balance md:text-3xl">
+      <h2 className="font-display text-2xl font-bold text-balance uppercase md:text-3xl">
         {antes}
         <span
           className={cn(
