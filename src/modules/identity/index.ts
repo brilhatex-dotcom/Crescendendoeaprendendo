@@ -29,7 +29,7 @@ export {
 
 // ── Contratos ────────────────────────────────────────────────────────────────
 export type { IdentityDeps, RequestContext } from "./application/deps";
-export type { PerfilDeCrianca } from "./application/ports";
+export type { ConfiguracoesDoAprendiz, PerfilDeCrianca } from "./application/ports";
 export { DURACAO, LIMITES } from "./application/policy";
 
 // ── Casos de uso ─────────────────────────────────────────────────────────────
@@ -65,3 +65,9 @@ export {
   iniciarSessaoDeCrianca,
 } from "./application/use-cases/learner-session";
 export type { SessaoDeCriancaAberta } from "./application/use-cases/learner-session";
+
+export {
+  atualizarConfiguracoesDoAprendiz,
+  obterConfiguracoesDoAprendiz,
+} from "./application/use-cases/manage-settings";
+export type { AtualizarConfiguracoesInput } from "./application/use-cases/manage-settings";

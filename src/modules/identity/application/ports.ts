@@ -92,6 +92,31 @@ export interface PerfilDeCrianca {
   readonly birthYear: number;
 }
 
+/**
+ * `LearnerSettings` — a camada de acessibilidade independente de diagnóstico
+ * (docs/HANDOFF.md, Fase 0 do Motor de Aprendizagem Adaptativa). O
+ * responsável liga cada uma diretamente, ou aceita uma sugestão gerada por
+ * `learning-profile` (Fase 3b) — os dois caminhos escrevem aqui, pelo mesmo
+ * método.
+ */
+export interface ConfiguracoesDoAprendiz {
+  readonly soundEnabled: boolean;
+  readonly musicEnabled: boolean;
+  readonly reducedMotion: boolean;
+  readonly dyslexiaFont: boolean;
+  readonly highContrast: boolean;
+  readonly textToSpeech: boolean;
+  readonly aiTutorEnabled: boolean;
+  readonly captionsEnabled: boolean;
+  readonly stepByStepInstructions: boolean;
+  readonly oneTaskAtATime: boolean;
+  readonly pictogramsEnabled: boolean;
+  readonly simplifiedInterface: boolean;
+  readonly extraTimeEnabled: boolean;
+  readonly soundVolume: number | null;
+  readonly fontScale: number | null;
+}
+
 export interface LearnerRepository {
   /** Cria criança, ajustes de acessibilidade e vínculo de guarda numa transação. */
   create(dados: NovoLearner): Promise<PerfilDeCrianca>;
@@ -102,6 +127,14 @@ export interface LearnerRepository {
     learnerId: string,
   ): Promise<PerfilDeCrianca | null>;
   countByGuardian(accountId: string): Promise<number>;
+
+  /** `null` só se a criança não existir — toda `Learner` ganha `LearnerSettings` ao ser criada. */
+  obterConfiguracoes(learnerId: string): Promise<ConfiguracoesDoAprendiz | null>;
+  /** Atualização parcial — só os campos informados mudam. */
+  atualizarConfiguracoes(
+    learnerId: string,
+    alteracoes: Partial<ConfiguracoesDoAprendiz>,
+  ): Promise<void>;
 }
 
 // ── Serviços de apoio ────────────────────────────────────────────────────────

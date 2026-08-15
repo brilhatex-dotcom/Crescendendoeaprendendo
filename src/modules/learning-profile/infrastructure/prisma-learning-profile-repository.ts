@@ -4,8 +4,36 @@ import { clienteDaTransacao } from "@/server/unit-of-work";
 
 import type {
   DimensaoPersistida,
+  RecomendacaoPersistida,
   RepositorioDePerfilDeAprendizagem,
 } from "../application/ports";
+
+const KIND_SUGESTAO_DE_ACESSIBILIDADE = "ACCESSIBILITY_SUGGESTION";
+
+interface PayloadDaSugestao {
+  readonly dimensionKey?: string;
+  readonly settingField?: string;
+}
+
+function comoRecomendacaoPersistida(linha: {
+  readonly id: string;
+  readonly payload: unknown;
+  readonly reason: string;
+  readonly score: Prisma.Decimal;
+  readonly createdAt: Date;
+}): RecomendacaoPersistida | null {
+  const payload = linha.payload as PayloadDaSugestao | null;
+  if (!payload?.dimensionKey || !payload.settingField) return null;
+
+  return {
+    id: linha.id,
+    dimensionKey: payload.dimensionKey,
+    settingField: payload.settingField,
+    reason: linha.reason,
+    score: Number(linha.score),
+    createdAt: linha.createdAt,
+  };
+}
 
 /**
  * Filtro Prisma equivalente a cada regra de `domain/dimension-rules.ts`.
@@ -151,6 +179,73 @@ export function criarRepositorioPrismaDePerfilDeAprendizagem(
       }
 
       return { dimensions };
+    },
+
+    async valorAtualDaConfiguracao(learnerId, settingField, tx) {
+      const client = clienteDaTransacao(tx);
+      const configuracoes = await client.learnerSettings.findUnique({ where: { learnerId } });
+      if (!configuracoes) return null;
+
+      // `settingField` vem de `SugestaoDeAcessibilidade.settingField`
+      // (`domain/accessibility-recommendation.ts`) — sempre um dos poucos
+      // nomes de coluna booleana ali declarados, nunca entrada de usuário.
+      const valor = (configuracoes as unknown as Record<string, unknown>)[settingField];
+      return typeof valor === "boolean" ? valor : null;
+    },
+
+    async existeRecomendacaoPendente(learnerId, dimensionKey, tx) {
+      const client = clienteDaTransacao(tx);
+      const existente = await client.recommendation.findFirst({
+        where: {
+          learnerId,
+          kind: KIND_SUGESTAO_DE_ACESSIBILIDADE,
+          consumedAt: null,
+          payload: { path: ["dimensionKey"], equals: dimensionKey },
+        },
+        select: { id: true },
+      });
+      return existente !== null;
+    },
+
+    async criarRecomendacaoDeAcessibilidade(learnerId, sugestao, score, tx) {
+      const client = clienteDaTransacao(tx);
+      await client.recommendation.create({
+        data: {
+          learnerId,
+          kind: KIND_SUGESTAO_DE_ACESSIBILIDADE,
+          reason: sugestao.reason,
+          score,
+          payload: {
+            dimensionKey: sugestao.dimensionKey,
+            settingField: sugestao.settingField,
+            suggestedValue: true,
+          },
+        },
+      });
+    },
+
+    async listarRecomendacoesPendentes(learnerId) {
+      const linhas = await db.recommendation.findMany({
+        where: { learnerId, kind: KIND_SUGESTAO_DE_ACESSIBILIDADE, consumedAt: null },
+        orderBy: { score: "desc" },
+      });
+      return linhas.flatMap((linha) => comoRecomendacaoPersistida(linha) ?? []);
+    },
+
+    async consumirRecomendacao(recommendationId, learnerId, tx) {
+      const client = clienteDaTransacao(tx);
+
+      // `updateMany` porque a condição "ainda pendente" precisa entrar no
+      // `where` — é isso que faz um segundo clique (duplo toque, reload)
+      // não processar a mesma recomendação duas vezes.
+      const resultado = await client.recommendation.updateMany({
+        where: { id: recommendationId, learnerId, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+      if (resultado.count === 0) return null;
+
+      const linha = await client.recommendation.findUnique({ where: { id: recommendationId } });
+      return linha ? comoRecomendacaoPersistida(linha) : null;
     },
   };
 }

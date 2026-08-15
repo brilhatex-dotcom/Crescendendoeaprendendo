@@ -49,6 +49,32 @@ export function calcularValor(scoreRatios: readonly number[]): number | null {
   return soma / scoreRatios.length;
 }
 
+/**
+ * Confiança mínima para confiar numa dimensão na hora de AGIR sobre ela
+ * (escolher uma variante, sugerir uma configuração) — não só de registrar.
+ * `n / (n + 8)` cruza 0.5 em n = 8 observações — poucas demais para mudar o
+ * que a criança vê ou sugerir algo ao responsável seria a mesma classe de
+ * erro que o pedido do dono veio evitar: agir sem evidência de verdade.
+ */
+export const CONFIANCA_MINIMA_PARA_AGIR = 0.5;
+
+/**
+ * Valor mínimo (média de `scoreRatio` nas tentativas com esta característica)
+ * para considerar que ela "ajuda". `scoreRatio` já é 1.0 = acerto pleno,
+ * 0.5 = parcial, 0 = errou — 0.6 é "melhor que só parcial", não perfeição.
+ */
+export const VALOR_MINIMO_PARA_AGIR = 0.6;
+
+/**
+ * Há evidência o bastante para agir sobre esta dimensão — escolher uma
+ * variante de apresentação (Fase 3a) ou sugerir uma configuração ao
+ * responsável (Fase 3b). Uma função só, para as duas decisões nunca
+ * divergirem sobre o que conta como "evidência suficiente".
+ */
+export function evidenciaSuficiente(confidence: number, value: number): boolean {
+  return confidence >= CONFIANCA_MINIMA_PARA_AGIR && value >= VALOR_MINIMO_PARA_AGIR;
+}
+
 export interface DimensaoRecomputada {
   readonly value: number;
   readonly confidence: number;

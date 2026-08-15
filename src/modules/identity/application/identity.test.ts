@@ -8,6 +8,7 @@ import type { IdentityDeps, RequestContext } from "./deps";
 import type {
   AccountRepository,
   AuditTrail,
+  ConfiguracoesDoAprendiz,
   EmailDeRedefinicao,
   EmailDeVerificacao,
   IdentityMailer,
@@ -255,6 +256,14 @@ class CriancasFake implements LearnerRepository {
 
   async countByGuardian(accountId: string): Promise<number> {
     return (await this.listByGuardian(accountId)).length;
+  }
+
+  async obterConfiguracoes(): Promise<ConfiguracoesDoAprendiz | null> {
+    throw new Error("não usado nestes testes");
+  }
+
+  async atualizarConfiguracoes(): Promise<void> {
+    throw new Error("não usado nestes testes");
   }
 }
 
