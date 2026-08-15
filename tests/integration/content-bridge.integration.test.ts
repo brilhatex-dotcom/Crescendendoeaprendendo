@@ -289,7 +289,7 @@ describe("carregarMissaoParaSessao — sem learnerId", () => {
   it("missão do acervo real continua vindo só de content/", async () => {
     const missao = await carregarMissaoParaSessao(slugDaMissaoReal);
     expect(missao).not.toBeNull();
-    expect(missao!.fases.reduce((total, f) => total + f.atividades.length, 0)).toBe(3);
+    expect(missao!.fases.reduce((total, f) => total + f.atividades.length, 0)).toBe(4);
   });
 
   it("a Fila de Revisão não existe sem aceitar o banco", async () => {

@@ -664,6 +664,35 @@ Com este plugin, 7 dos 12 tipos previstos para a "Fase 1" de `docs/01 §3`
 `BUILD_3D`), cada um destes últimos exigindo capacidade nova (IA avaliadora, câmera, canvas...) e
 não só um plugin a mais.
 
+### Plugin NUMBER_LINE (reta numérica) — concluído
+Oitavo plugin. Mede senso de posição e magnitude — "onde fica o 7" é uma habilidade diferente de
+"quanto é 7", e nenhum plugin existente media isso: a resposta é uma posição dentro de uma faixa de
+inteiros, não uma escolha entre opções nem uma sequência de itens.
+
+- `src/activities/plugins/number-line/` — `schema.ts` (`minimo`/`maximo`/`valorCorreto`, faixa
+  limitada a 20 posições — mesmo limite de itens de `ORDER_SEQUENCE`/`DRAG_MATCH`, alvo de toque
+  pequeno demais acima disso; `superRefine` garante `maximo > minimo` e `valorCorreto` dentro da
+  faixa), `evaluate.ts` (crédito parcial por **distância normalizada**: `1 − distância/pior
+  distância possível na faixa` — a mesma disciplina de "quase, não errado" de `ORDER_SEQUENCE`,
+  adaptada de lista para posição; probabilidade de chute `1/n` posições da faixa).
+- `src/activities/renderers/number-line-renderer.tsx` — `radiogroup` de verdade, um botão por
+  posição inteira, mesma acessibilidade dos plugins anteriores (nada de arrastar um marcador ao
+  longo de uma linha).
+- Registrado nos dois manifestos e coberto pela política PP5.
+- **Conteúdo real**: nova terceira fase ("Onde fica na reta?") em
+  `missao-01-a-contagem-da-orla.json` (Matemática) — tocar o 6 numa reta de 0 a 10, sobre o
+  objetivo já existente `ordenar-numeros-ate-10`.
+- **Ajuste de fixtures**: esta missão já era usada como fixture real por
+  `tests/motor/jornada-da-missao.test.ts` e `tests/integration/content-bridge.integration.test.ts`
+  — a nova quarta atividade mudou a contagem esperada de 3 para 4 nos dois arquivos, e o helper
+  `respostaCorreta` de `jornada-da-missao.test.ts` ganhou o caso `NUMBER_LINE`.
+
+**Verificado em navegador de verdade** (Playwright): conta nova, criança nova, PIN, as quatro
+fases da missão jogadas em sequência — as duas primeiras (`MULTIPLE_CHOICE`), a terceira
+(`ORDER_SEQUENCE`) e a nova `NUMBER_LINE` por último. Reta desenhada de 0 a 10, toque no 6
+selecionado corretamente, "Conferir" habilitado só após tocar numa posição, mensagem de acerto
+"Isso! O 6 fica bem entre o 5 e o 7." exibida com XP e Fagulhas creditados.
+
 ### Motor de Aprendizagem Adaptativa — Fases 0, 1, 2, 3a e 3b concluídas
 Pedido explícito do dono, no meio da sessão: a plataforma deve descobrir progressivamente **como**
 cada criança aprende melhor (suporte visual, instrução em etapas, independência de leitura...) e
@@ -1179,11 +1208,12 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
    Ver decisão nº 5 abaixo: ao contrário de Conquistas e Mapa, este item não tem como ser
    escopado sem inventar regra de produto que não está documentada em lugar nenhum.
 6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, `MULTI_SELECT`, `TRUE_FALSE`,
-   `FILL_BLANK`, `WORD_BUILD`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH
-   (parear)", "Plugin MULTI_SELECT (seleção múltipla)", "Plugin TRUE_FALSE (verdadeiro ou falso)",
-   "Plugin FILL_BLANK (completar a lacuna)" e "Plugin WORD_BUILD (montar a palavra)". Faltam
-   `NUMBER_LINE`, `GRID_PUZZLE`, `MEMORY_PAIRS`, `SPEED_TAP`, `STORY_BRANCH` (resto da Fase 1) e as
-   "Fases seguintes" de `docs/01 §3` — mesmo caminho, plugin novo sem tocar no núcleo.
+   `FILL_BLANK`, `WORD_BUILD`, `NUMBER_LINE`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin
+   DRAG_MATCH (parear)", "Plugin MULTI_SELECT (seleção múltipla)", "Plugin TRUE_FALSE (verdadeiro
+   ou falso)", "Plugin FILL_BLANK (completar a lacuna)", "Plugin WORD_BUILD (montar a palavra)" e
+   "Plugin NUMBER_LINE (reta numérica)". Faltam `GRID_PUZZLE`, `MEMORY_PAIRS`, `SPEED_TAP`,
+   `STORY_BRANCH` (resto da Fase 1) e as "Fases seguintes" de `docs/01 §3` — mesmo caminho, plugin
+   novo sem tocar no núcleo.
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 8. **Motor de Aprendizagem Adaptativa** (pedido explícito do dono, no meio desta sessão) —
@@ -1199,10 +1229,10 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e quatro atividades, sete tipos
+**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e cinco atividades, oito tipos
 de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`,
-`TRUE_FALSE`, `FILL_BLANK`, `WORD_BUILD`) — duas disciplinas (Matemática com quatro missões,
-Português com três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
+`TRUE_FALSE`, `FILL_BLANK`, `WORD_BUILD`, `NUMBER_LINE`) — duas disciplinas (Matemática com quatro
+missões, Português com três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 

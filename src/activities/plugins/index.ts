@@ -4,6 +4,7 @@ import { dragMatchPlugin } from "./drag-match";
 import { fillBlankPlugin } from "./fill-blank";
 import { multipleChoicePlugin } from "./multiple-choice";
 import { multiSelectPlugin } from "./multi-select";
+import { numberLinePlugin } from "./number-line";
 import { orderSequencePlugin } from "./order-sequence";
 import { trueFalsePlugin } from "./true-false";
 import { wordBuildPlugin } from "./word-build";
@@ -36,6 +37,7 @@ export const PLUGINS_REGISTRADOS: readonly SealedPlugin[] = [
   selar(trueFalsePlugin),
   selar(fillBlankPlugin),
   selar(wordBuildPlugin),
+  selar(numberLinePlugin),
 ];
 
 export { multipleChoicePlugin } from "./multiple-choice";
@@ -45,3 +47,4 @@ export { multiSelectPlugin } from "./multi-select";
 export { trueFalsePlugin } from "./true-false";
 export { fillBlankPlugin } from "./fill-blank";
 export { wordBuildPlugin } from "./word-build";
+export { numberLinePlugin } from "./number-line";

@@ -254,6 +254,59 @@
           }
         }
       ]
+    },
+    {
+      "slug": "fase-03-a-marca-na-areia",
+      "nome": "Onde fica na reta?",
+      "atividades": [
+        {
+          "slug": "reta-numerica-ate-10",
+          "tipo": "NUMBER_LINE",
+          "objetivo": "ordenar-numeros-ate-10",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 45,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "ORLA marcou até onde a maré subiu. Toque no número 6 na reta.",
+            "enunciadoFalado": "Orla marcou até onde a maré subiu. Toque no número 6 na reta.",
+            "minimo": 0,
+            "maximo": 10,
+            "valorCorreto": 6,
+            "mensagemDeAcerto": "Isso! O 6 fica bem entre o 5 e o 7.",
+            "ensino": "Conte devagar a partir do 0, tocando cada número, até chegar no 6.",
+            "ensinoParcial": "Você tocou bem perto! Conte de novo devagar para achar o lugar exato.",
+            "equivoco": "posicao-proxima-mas-nao-exata",
+            "dicas": [
+              "Comece do 0 e conte para a frente.",
+              "O 6 vem logo depois do 5."
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "PARTIAL": {
+                "xp": 7,
+                "moedas": 3
+              },
+              "INCORRECT": {
+                "xp": 4,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
     }
   ]
 }
