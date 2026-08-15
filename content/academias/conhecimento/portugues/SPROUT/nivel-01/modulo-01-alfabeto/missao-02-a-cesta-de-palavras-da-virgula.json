@@ -238,6 +238,59 @@
           }
         }
       ]
+    },
+    {
+      "slug": "fase-04-achar-os-pares",
+      "nome": "Ache os pares",
+      "atividades": [
+        {
+          "slug": "memoria-das-letras",
+          "tipo": "MEMORY_PAIRS",
+          "objetivo": "reconhecer-letras-do-alfabeto",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 60,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "VÍRGULA escondeu as letras que você já conhece. Vire as cartas e ache os pares!",
+            "enunciadoFalado": "Vírgula escondeu as letras que você já conhece. Vire as cartas e ache os pares.",
+            "pares": [
+              { "id": "c", "valor": "C" },
+              { "id": "f", "valor": "F" },
+              { "id": "l", "valor": "L" }
+            ],
+            "mensagemDeAcerto": "Uau, memória de gato! Achou todos os pares rapidinho.",
+            "ensino": "Preste atenção em onde cada letra está antes de virar a próxima carta.",
+            "ensinoParcial": "Você achou todos os pares! Da próxima vez, tente lembrar onde já olhou.",
+            "dicas": [
+              "Lembre onde você já viu cada letra."
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 18,
+                "moedas": 7
+              },
+              "PARTIAL": {
+                "xp": 11,
+                "moedas": 4
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
     }
   ]
 }

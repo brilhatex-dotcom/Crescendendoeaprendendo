@@ -82,6 +82,13 @@ const RESPOSTAS_ERRADAS: Readonly<Record<string, (config: unknown) => unknown[]>
     const c = config as { opcoes: { id: string; correta: boolean }[] };
     return c.opcoes.filter((o) => !o.correta).map((o) => ({ opcaoId: o.id }));
   },
+  MEMORY_PAIRS: (config) => {
+    const c = config as { pares: { id: string }[] };
+    const numPares = c.pares.length;
+    // Menos tentativas que pares é resposta corrompida; mais que o dobro do
+    // mínimo é memória ruim o bastante para cair abaixo do limiar padrão.
+    return [{ tentativas: numPares * 2 + 4 }, { tentativas: numPares - 1 }];
+  },
   NUMBER_LINE: (config) => {
     const c = config as { minimo: number; maximo: number; valorCorreto: number };
     const extremo = c.valorCorreto === c.minimo ? c.maximo : c.minimo;

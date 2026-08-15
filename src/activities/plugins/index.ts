@@ -2,6 +2,7 @@ import type { SealedPlugin } from "../contracts";
 import { selar } from "../registry";
 import { dragMatchPlugin } from "./drag-match";
 import { fillBlankPlugin } from "./fill-blank";
+import { memoryPairsPlugin } from "./memory-pairs";
 import { multipleChoicePlugin } from "./multiple-choice";
 import { multiSelectPlugin } from "./multi-select";
 import { numberLinePlugin } from "./number-line";
@@ -38,6 +39,7 @@ export const PLUGINS_REGISTRADOS: readonly SealedPlugin[] = [
   selar(fillBlankPlugin),
   selar(wordBuildPlugin),
   selar(numberLinePlugin),
+  selar(memoryPairsPlugin),
 ];
 
 export { multipleChoicePlugin } from "./multiple-choice";
@@ -48,3 +50,4 @@ export { trueFalsePlugin } from "./true-false";
 export { fillBlankPlugin } from "./fill-blank";
 export { wordBuildPlugin } from "./word-build";
 export { numberLinePlugin } from "./number-line";
+export { memoryPairsPlugin } from "./memory-pairs";

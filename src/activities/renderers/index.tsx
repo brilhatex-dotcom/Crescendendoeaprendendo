@@ -86,6 +86,11 @@ const RENDERERS: Readonly<Record<string, ComponentType<ActivityRendererProps>>> 
     () => import("./number-line-renderer").then((m) => selarRenderer(m.NumberLineRenderer)),
     { loading: () => <EsqueletoDeAtividade /> },
   ),
+
+  "memory-pairs": dynamic<ActivityRendererProps>(
+    () => import("./memory-pairs-renderer").then((m) => selarRenderer(m.MemoryPairsRenderer)),
+    { loading: () => <EsqueletoDeAtividade /> },
+  ),
 };
 
 export function obterRenderer(
