@@ -2,6 +2,7 @@ import type { AgeBand as AgeBandRow, PrismaClient } from "@prisma/client";
 
 import { AVATAR_PADRAO, type AgeBand } from "../domain";
 import type {
+  ConfiguracoesDoAprendiz,
   LearnerRepository,
   NovoLearner,
   PerfilDeCrianca,
@@ -92,6 +93,39 @@ export class PrismaLearnerRepository implements LearnerRepository {
   async countByGuardian(accountId: string): Promise<number> {
     return this.#db.learner.count({
       where: { deletedAt: null, guardians: { some: { accountId } } },
+    });
+  }
+
+  async obterConfiguracoes(learnerId: string): Promise<ConfiguracoesDoAprendiz | null> {
+    const linha = await this.#db.learnerSettings.findUnique({ where: { learnerId } });
+    if (!linha) return null;
+
+    return {
+      soundEnabled: linha.soundEnabled,
+      musicEnabled: linha.musicEnabled,
+      reducedMotion: linha.reducedMotion,
+      dyslexiaFont: linha.dyslexiaFont,
+      highContrast: linha.highContrast,
+      textToSpeech: linha.textToSpeech,
+      aiTutorEnabled: linha.aiTutorEnabled,
+      captionsEnabled: linha.captionsEnabled,
+      stepByStepInstructions: linha.stepByStepInstructions,
+      oneTaskAtATime: linha.oneTaskAtATime,
+      pictogramsEnabled: linha.pictogramsEnabled,
+      simplifiedInterface: linha.simplifiedInterface,
+      extraTimeEnabled: linha.extraTimeEnabled,
+      soundVolume: linha.soundVolume,
+      fontScale: linha.fontScale ? Number(linha.fontScale) : null,
+    };
+  }
+
+  async atualizarConfiguracoes(
+    learnerId: string,
+    alteracoes: Partial<ConfiguracoesDoAprendiz>,
+  ): Promise<void> {
+    await this.#db.learnerSettings.update({
+      where: { learnerId },
+      data: alteracoes,
     });
   }
 }

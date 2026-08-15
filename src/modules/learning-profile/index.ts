@@ -9,11 +9,16 @@
  *
  * Reage a `assessment.attempt_evaluated` pelo outbox; não é chamado por
  * nenhum outro módulo do fluxo de resposta (mesmo espírito de `achievement`).
- * A seleção de variante por perfil (Fase 3) consome `buscarPerfilDeAprendizagem`
+ * A seleção de variante por perfil (Fase 3a) consome `buscarPerfilDeAprendizagem`
  * e `escolherApresentacao` a partir de `src/activities/content-bridge.ts` — o
  * único ponto por onde toda atividade (autorada ou de slot) passa antes da
  * tela, e o único arquivo de `src/activities` liberado a importar `src/modules`
  * (`.dependency-cruiser.cjs`, regra `motor-e-puro`).
+ *
+ * A mesma reação também gera `Recommendation` de acessibilidade quando uma
+ * dimensão tem evidência o bastante (Fase 3b) — nunca aplicada sozinha; o
+ * responsável aceita ou recusa em `responderRecomendacao`, e este módulo
+ * nunca escreve `LearnerSettings` (aggregate de `identity`) diretamente.
  */
 
 export {
@@ -28,11 +33,25 @@ export {
   escolherApresentacao,
   type ApresentacaoCandidata,
 } from "./application/select-presentation";
+export {
+  criarListarRecomendacoesPendentes,
+  type ListarRecomendacoesPendentes,
+} from "./application/list-recommendations";
+export {
+  criarResponderRecomendacao,
+  type ConfiguracaoASugerir,
+  type ResponderRecomendacao,
+  type ResponderRecomendacaoDeps,
+  type ResponderRecomendacaoEntrada,
+  type ResponderRecomendacaoSaida,
+} from "./application/respond-to-recommendation";
 export type {
   CaracteristicasDaAtividade,
   DimensaoPersistida,
   LearningProfileDeps,
+  RecomendacaoPersistida,
   RepositorioDePerfilDeAprendizagem,
+  SugestaoDeAcessibilidade,
 } from "./application/ports";
 
 export {
@@ -43,8 +62,10 @@ export {
   calcularConfianca,
   calcularValor,
   contaComoEvidencia,
+  evidenciaSuficiente,
   mudouOSuficiente,
   recomputarDimensao,
   type DimensaoAnterior,
   type DimensaoRecomputada,
 } from "./domain/dimension";
+export { sugestaoQualificada } from "./domain/accessibility-recommendation";

@@ -627,7 +627,7 @@ Com este plugin, todos os cinco tipos de atividade da lista original de `docs/12
 seis, na verdade) estão implementados, exceto `WORD_BUILD` e o resto da "Fases seguintes" de
 `docs/01 §3`.
 
-### Motor de Aprendizagem Adaptativa — Fases 0, 1, 2 e 3a concluídas
+### Motor de Aprendizagem Adaptativa — Fases 0, 1, 2, 3a e 3b concluídas
 Pedido explícito do dono, no meio da sessão: a plataforma deve descobrir progressivamente **como**
 cada criança aprende melhor (suporte visual, instrução em etapas, independência de leitura...) e
 adaptar a apresentação — **nunca diagnosticar** condição médica ou psicológica nenhuma. Uma
@@ -758,10 +758,81 @@ toda missão e não só a de demonstração, não quebrou o jogo comum). A miss�
 regra normal de desbloqueio, não algo desta fase — por isso a prova visual da troca de
 apresentação está nos testes de integração, não numa captura de tela.
 
-**Pendente**: Fase 3b (`Recommendation` de acessibilidade quando a confiança cruzar o limiar +
-tela "Personalização da Aprendizagem" para o responsável, com aceitar/ajustar/desativar) e a
-atualização de documentação (ADR 0005, docs/04, docs/08, docs/13). Ver seção 5 para o plano
-completo de 5 fases.
+**Bug de produção encontrado e corrigido no início da Fase 3b**: `content-bridge.ts` (Fase 3a)
+buscava o perfil por academia resolvida do conteúdo (`buscarPerfilRelevante`), mas
+`update-from-attempt.ts` (Fase 1) sempre grava com `academyId: null` — decisão documentada da
+própria Fase 1 ("só o perfil global por enquanto; por academia fica para quando houver dado que
+justifique"). Resultado: em produção a seleção de variante nunca teria evidência nenhuma para
+decidir, porque lia um perfil por academia que ninguém jamais escrevia — sempre a apresentação
+padrão, silenciosamente. Os testes de integração da Fase 3a passavam porque semeavam o perfil
+diretamente com o id por academia (errado), contornando o caminho de escrita real. Corrigido lendo
+sempre `academyId: null` em `content-bridge.ts` (removidas `buscarPerfilRelevante`/`idDaAcademia`);
+os 3 testes de integração afetados agora semeiam `academyId: null`, igual ao caminho real de
+escrita. Nenhum teste falhou sozinho — o bug só apareceu relendo o caminho de escrita da Fase 1
+com atenção ao começar a Fase 3b.
+
+**Fase 3b — recomendação de acessibilidade + tela do responsável**:
+
+- `domain/dimension.ts` ganhou a política de evidência compartilhada:
+  `CONFIANCA_MINIMA_PARA_AGIR = 0.5`, `VALOR_MINIMO_PARA_AGIR = 0.6`,
+  `evidenciaSuficiente(confidence, value)`. `escolherApresentacao` (Fase 3a) foi refatorada para
+  usar a mesma função — "escolher uma variante agora" e "sugerir uma configuração persistente"
+  nunca podem divergir sobre o que conta como evidência suficiente.
+- `domain/accessibility-recommendation.ts` (novo) — `RECOMENDACAO_POR_DIMENSAO`, o mapeamento
+  dimensão → `{settingField, reason}` (`suporteVisual`→`pictogramsEnabled`,
+  `instrucaoPassoAPasso`→`stepByStepInstructions`, `independenciaDeLeitura`→`textToSpeech`).
+  `sugestaoQualificada(dimensionKey, confidence, value)` decide se vira sugestão. Cada `reason` foi
+  escrito para descrever padrão observado, nunca causa — testado por scan de termos proibidos
+  (mesma disciplina de `dimension-rules.test.ts`).
+- `application/update-from-attempt.ts` — depois de recomputar cada dimensão, `considerarRecomendacao`
+  roda **na mesma transação**: se há evidência suficiente, a configuração correspondente já não
+  está ligada, e não existe recomendação pendente para essa dimensão, cria uma `Recommendation`.
+  Roda em todo evento com evidência suficiente (não só quando o valor muda o bastante para
+  regravar a dimensão) — um perfil que já cruzava o limiar antes desta feature existir também
+  qualifica na próxima tentativa.
+- `application/respond-to-recommendation.ts` (novo) — `criarResponderRecomendacao` marca a
+  recomendação como consumida (`updateMany` condicionado a `consumedAt: null`, atômico — clique
+  duplo ou reload não processam duas vezes) e devolve o que aplicar; **não grava `LearnerSettings`
+  diretamente** — não é o agregado de `learning-profile`, mesmo raciocínio de `assessment` nunca
+  creditar XP sozinho.
+- `application/list-recommendations.ts` (novo) — leitura das recomendações pendentes de um
+  aprendiz, para a tela.
+- `src/modules/identity` ganhou sua primeira capacidade de leitura/escrita de `LearnerSettings`:
+  `ConfiguracoesDoAprendiz` (DTO com os 13 campos), `LearnerRepository.obterConfiguracoes` /
+  `.atualizarConfiguracoes`, e os casos de uso `obterConfiguracoesDoAprendiz` /
+  `atualizarConfiguracoesDoAprendiz` (`use-cases/manage-settings.ts`) — cada um confirma posse da
+  família pelo mesmo padrão de `findForGuardian` (checagem de posse embutida na query, nunca uma
+  checagem separada depois). `atualizarConfiguracoesDoAprendiz` grava `AuditLog`
+  (`identity.learner_settings_updated`, docs/08 §10: "toda alteração é registrada").
+- `src/composition/learning-profile.ts` (novo) — `learningProfileGuardianDeps()`, raiz de
+  composição separada de `content-bridge.ts` (que é fiação estreita do caminho quente, isenta da
+  regra `motor-e-puro` só para isso). Este é o primeiro composition file do lado
+  responsável-facing de `learning-profile`.
+- **Tela nova**: `/familia/[learnerId]/personalizacao` — primeira rota por-criança do
+  responsável (antes só existia `/familia`, lista plana). Mostra as recomendações pendentes com
+  o `reason` e dois botões (Ativar / Agora não), e uma lista de 13 configurações manuais
+  ligar/desligar — inclusive para desfazer o que uma sugestão ligou. `createAction({escopo:
+  "adulto-verificado"})`, a mesma barra de `criarPerfilAction`/`definirPinAction`. Nenhum rótulo ou
+  descrição menciona diagnóstico — inclusive a coluna pré-existente `dyslexiaFont` (Fase 0, fora do
+  escopo desta migration) ganhou o rótulo "Fonte de leitura facilitada", nunca "dislexia".
+- `tests/policy/personalizacao-da-aprendizagem.test.ts` (novo) — mesmo scan de termos proibidos
+  aplicado ao texto de verdade que chega na tela, e garante que toda dimensão do perfil tem uma
+  configuração manual correspondente (uma sugestão sempre precisa de um jeito manual de desfazer).
+
+**Verificado (Fase 3b)**: `npm run verify` (567 testes, 11 novos: 9 de
+`accessibility-recommendation.test.ts` + 2 de política da tela) · `npm run test:integration` (83
+testes, 3 novos em `learning-profile.integration.test.ts` provando contra Postgres de verdade:
+recomendação é criada exatamente ao cruzar confiança 0.5 com 8 observações e não duplica em evento
+seguinte; nenhuma sugestão é criada se a configuração já está ligada; aceitar marca como consumida
+e uma segunda resposta é rejeitada) · build de produção · verificação manual em navegador (conta
+nova, criança nova, PIN, tela de personalização vazia com as 13 configurações no estado padrão
+correto, toggle manual de "Apoio visual" liga de verdade; recomendação inserida diretamente no
+banco aparece na tela com o texto certo, "Ativar" liga `stepByStepInstructions` — a configuração
+correspondente aparece "Ligado" depois do `router.refresh()`, e a recomendação some da lista de
+pendentes).
+
+**Pendente**: só a atualização de documentação (ADR 0005, docs/04, docs/08, docs/13) — última fase
+do plano de 5. Ver seção 5.
 
 ### Segunda disciplina: Português — concluída
 Pedido do dono, depois de perceber que só havia Matemática. Português entra como **disciplina
@@ -1074,9 +1145,9 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 8. **Motor de Aprendizagem Adaptativa** (pedido explícito do dono, no meio desta sessão) —
-   **Fases 0, 1, 2 e 3a concluídas nesta sessão**, Fase 3b e a Fase 4 (documentação) pendentes.
-   Ver seção 3, "Motor de Aprendizagem Adaptativa — Fases 0, 1, 2 e 3a concluídas", para o que já
-   existe, e o plano de 5 fases apresentado ao dono antes de começar (fundação de dados → módulo
+   **Fases 0, 1, 2, 3a e 3b concluídas nesta sessão**, só a Fase de documentação pendente.
+   Ver seção 3, "Motor de Aprendizagem Adaptativa — Fases 0, 1, 2, 3a e 3b concluídas", para o que
+   já existe, e o plano de 5 fases apresentado ao dono antes de começar (fundação de dados → módulo
    de perfil → variantes de conteúdo → seleção por perfil + tela do responsável → documentação).
 
 ### Decisões em aberto — precisam do dono

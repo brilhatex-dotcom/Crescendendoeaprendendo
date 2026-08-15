@@ -76,6 +76,12 @@ export default async function FamiliaPage() {
                     <p className="text-sm text-slate-400">
                       {NOME_DA_FAIXA[crianca.ageBand] ?? crianca.ageBand}
                     </p>
+                    <Link
+                      href={`/familia/${crianca.id}/personalizacao`}
+                      className="mt-1 inline-block text-sm underline underline-offset-4"
+                    >
+                      Personalização da aprendizagem
+                    </Link>
                   </div>
 
                   {temPin ? (

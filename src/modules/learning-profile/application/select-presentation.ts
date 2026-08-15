@@ -1,3 +1,4 @@
+import { evidenciaSuficiente } from "../domain/dimension";
 import { dimensoesRelevantes, type CaracteristicasDaAtividade } from "../domain/dimension-rules";
 import type { DimensaoDoPerfil } from "./read-profile";
 
@@ -14,21 +15,6 @@ export interface ApresentacaoCandidata<T> {
   readonly caracteristicas: CaracteristicasDaAtividade;
   readonly payload: T;
 }
-
-/**
- * Confiança mínima para confiar numa dimensão na hora de ESCOLHER, não só de
- * registrar. `n / (n + 8)` cruza 0.5 em n = 8 observações (`domain/dimension.ts`)
- * — poucas demais para mudar o que a criança vê seria a mesma classe de erro
- * que o pedido do dono veio evitar: agir sem evidência de verdade.
- */
-const CONFIANCA_MINIMA_PARA_ESCOLHER = 0.5;
-
-/**
- * Valor mínimo (média de `scoreRatio` nas tentativas com esta característica)
- * para considerar que ela "ajuda". `scoreRatio` já é 1.0 = acerto pleno,
- * 0.5 = parcial, 0 = errou — 0.6 é "melhor que só parcial", não perfeição.
- */
-const VALOR_MINIMO_PARA_ESCOLHER = 0.6;
 
 /**
  * Escolhe qual apresentação servir, a partir do que o Learning Profile já
@@ -67,12 +53,7 @@ export function escolherApresentacao<T>(
     for (const chave of dimensoesRelevantes(candidata.caracteristicas)) {
       const dimensao = porChave.get(chave);
       if (!dimensao) continue;
-      if (
-        dimensao.confidence < CONFIANCA_MINIMA_PARA_ESCOLHER ||
-        dimensao.value < VALOR_MINIMO_PARA_ESCOLHER
-      ) {
-        continue;
-      }
+      if (!evidenciaSuficiente(dimensao.confidence, dimensao.value)) continue;
 
       const pontuacao = dimensao.value * dimensao.confidence;
       if (!melhor || pontuacao > melhor.pontuacao) {

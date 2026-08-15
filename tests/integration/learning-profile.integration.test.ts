@@ -7,7 +7,10 @@ import { criarSubmeterTentativa } from "@/modules/assessment";
 import { criarRepositorioPrismaDeAvaliacao } from "@/modules/assessment/infrastructure/prisma-assessment-repository";
 import { criarImportarConteudo, refDeAtividade } from "@/modules/content";
 import { criarEscritorPrismaDeConteudo } from "@/modules/content/infrastructure/prisma-content-writer";
-import { criarAtualizarPerfilAPartirDeTentativa } from "@/modules/learning-profile";
+import {
+  criarAtualizarPerfilAPartirDeTentativa,
+  criarResponderRecomendacao,
+} from "@/modules/learning-profile";
 import { criarRepositorioPrismaDePerfilDeAprendizagem } from "@/modules/learning-profile/infrastructure/prisma-learning-profile-repository";
 import { criarBarramento } from "@/server/event-bus";
 import { criarDespachanteDoOutbox } from "@/server/outbox";
@@ -102,6 +105,7 @@ async function limparConteudo(): Promise<void> {
 }
 
 async function limparJogadas(): Promise<void> {
+  await db.recommendation.deleteMany();
   await db.learningProfileEvent.deleteMany();
   await db.learningProfileDimension.deleteMany();
   await db.learningProfile.deleteMany();
@@ -152,13 +156,19 @@ beforeAll(async () => {
       birthYear: 2019,
       ageBand: "SPROUT",
       avatarConfig: { schemaVersion: 1 },
+      settings: { create: {} },
       guardians: { create: { accountId: conta.id, relation: "mãe", isPrimary: true } },
     },
   });
   learnerId = crianca.id;
 });
 
-beforeEach(limparJogadas);
+beforeEach(async () => {
+  await limparJogadas();
+  // `pictogramsEnabled` é o campo que os testes de recomendação observam —
+  // sempre volta ao padrão (desligado) entre um teste e outro.
+  await db.learnerSettings.update({ where: { learnerId }, data: { pictogramsEnabled: false } });
+});
 
 afterAll(async () => {
   await limparJogadas();
@@ -284,5 +294,95 @@ describe("recompute é idempotente por construção", () => {
     const { dimensions: segunda } = await perfil.lerPerfil(learnerId, null);
 
     expect(segunda.get("suporteVisual")).toEqual(primeira.get("suporteVisual"));
+  });
+});
+
+describe("Fase 3b — recomendação de acessibilidade", () => {
+  it("cruzar o limiar de evidência gera uma sugestão, e reprocessar não duplica", async () => {
+    // n=8 dá confiança 8/(8+8) = 0.5 — exatamente o limiar de ação.
+    for (let i = 0; i < 8; i += 1) {
+      await responder("recomendacao-cria", i, 1);
+    }
+
+    const primeiroDespacho = await despachante.despachar();
+    expect(primeiroDespacho.falhadas).toBe(0);
+
+    const pendentes = await db.recommendation.findMany({
+      where: { learnerId, kind: "ACCESSIBILITY_SUGGESTION", consumedAt: null },
+    });
+    expect(pendentes).toHaveLength(1);
+    expect(pendentes[0]?.reason.length).toBeGreaterThan(0);
+    expect(pendentes[0]?.payload).toMatchObject({
+      dimensionKey: "suporteVisual",
+      settingField: "pictogramsEnabled",
+      suggestedValue: true,
+    });
+
+    // Mais uma tentativa qualificada: outro evento no outbox, mesma
+    // dimensão já com sugestão pendente — não deveria criar uma segunda.
+    await responder("recomendacao-cria", 8, 1);
+    await despachante.despachar();
+
+    const aindaPendentes = await db.recommendation.findMany({
+      where: { learnerId, kind: "ACCESSIBILITY_SUGGESTION", consumedAt: null },
+    });
+    expect(aindaPendentes).toHaveLength(1);
+    expect(aindaPendentes[0]?.id).toBe(pendentes[0]?.id);
+  });
+
+  it("não sugere o que já está ligado", async () => {
+    await db.learnerSettings.update({
+      where: { learnerId },
+      data: { pictogramsEnabled: true },
+    });
+
+    for (let i = 0; i < 8; i += 1) {
+      await responder("recomendacao-ja-ligado", i, 1);
+    }
+    await despachante.despachar();
+
+    const pendentes = await db.recommendation.findMany({
+      where: { learnerId, kind: "ACCESSIBILITY_SUGGESTION", consumedAt: null },
+    });
+    expect(pendentes).toHaveLength(0);
+  });
+
+  it("responder aceitando devolve a configuração a aplicar e marca consumida; responder de novo falha", async () => {
+    for (let i = 0; i < 8; i += 1) {
+      await responder("recomendacao-responder", i, 1);
+    }
+    await despachante.despachar();
+
+    const [recomendacao] = await db.recommendation.findMany({
+      where: { learnerId, kind: "ACCESSIBILITY_SUGGESTION", consumedAt: null },
+    });
+    expect(recomendacao).toBeDefined();
+
+    const responderRecomendacao = criarResponderRecomendacao({ repositorio: perfil, unidadeDeTrabalho });
+
+    const aceite = await responderRecomendacao({
+      learnerId,
+      recommendationId: recomendacao!.id,
+      aceitar: true,
+    });
+    expect(aceite.ok).toBe(true);
+    if (aceite.ok) {
+      expect(aceite.value.aceita).toBe(true);
+      expect(aceite.value.configuracao).toEqual({
+        settingField: "pictogramsEnabled",
+        suggestedValue: true,
+      });
+    }
+
+    const linha = await db.recommendation.findUniqueOrThrow({ where: { id: recomendacao!.id } });
+    expect(linha.consumedAt).not.toBeNull();
+
+    // Responder de novo — já consumida — falha, não processa duas vezes.
+    const segunda = await responderRecomendacao({
+      learnerId,
+      recommendationId: recomendacao!.id,
+      aceitar: true,
+    });
+    expect(segunda.ok).toBe(false);
   });
 });

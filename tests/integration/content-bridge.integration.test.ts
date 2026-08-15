@@ -367,28 +367,6 @@ describe("carregarMissaoParaSessao — com learnerId", () => {
   });
 });
 
-/**
- * Garante que a academia real de `contar-peixinhos-6` existe no banco, sem
- * depender de `npm run content:import` já ter rodado (CI só migra o schema).
- * `upsert` por `slug`: se a importação já rodou, não sobrescreve nada — se
- * não, cria o suficiente para `idDaAcademia("conhecimento")` resolver.
- */
-async function garantirAcademiaConhecimento(): Promise<string> {
-  const academia = await db.academy.upsert({
-    where: { slug: "conhecimento" },
-    update: {},
-    create: {
-      slug: "conhecimento",
-      name: "Academia do Conhecimento",
-      islandName: "Ilha das Mil Perguntas",
-      guardian: "ORLA",
-      theme: {},
-      order: 0,
-    },
-  });
-  return academia.id;
-}
-
 function encontrarAtividade(
   missao: Awaited<ReturnType<typeof carregarMissaoParaSessao>>,
   slug: string,
@@ -411,9 +389,9 @@ describe("carregarMissaoParaSessao — seleção de apresentação pelo Learning
   });
 
   it("perfil com evidência forte de suporte visual: a criança recebe a variante visual", async () => {
-    const academyId = await garantirAcademiaConhecimento();
-
-    const perfil = await db.learningProfile.create({ data: { learnerId, academyId } });
+    // `academyId: null` — o único escopo que `update-from-attempt.ts` grava
+    // hoje (Fase 1), e por isso o único que `content-bridge.ts` lê (Fase 3a).
+    const perfil = await db.learningProfile.create({ data: { learnerId, academyId: null } });
     await db.learningProfileDimension.create({
       data: {
         profileId: perfil.id,
@@ -435,9 +413,9 @@ describe("carregarMissaoParaSessao — seleção de apresentação pelo Learning
   });
 
   it("perfil com poucas observações não muda nada — confiança insuficiente não é motivo pra trocar", async () => {
-    const academyId = await garantirAcademiaConhecimento();
-
-    const perfil = await db.learningProfile.create({ data: { learnerId, academyId } });
+    // `academyId: null` — o único escopo que `update-from-attempt.ts` grava
+    // hoje (Fase 1), e por isso o único que `content-bridge.ts` lê (Fase 3a).
+    const perfil = await db.learningProfile.create({ data: { learnerId, academyId: null } });
     await db.learningProfileDimension.create({
       data: {
         profileId: perfil.id,
@@ -457,9 +435,9 @@ describe("carregarMissaoParaSessao — seleção de apresentação pelo Learning
   });
 
   it("a tentativa grava a tag da apresentação que foi de fato servida", async () => {
-    const academyId = await garantirAcademiaConhecimento();
-
-    const perfil = await db.learningProfile.create({ data: { learnerId, academyId } });
+    // `academyId: null` — o único escopo que `update-from-attempt.ts` grava
+    // hoje (Fase 1), e por isso o único que `content-bridge.ts` lê (Fase 3a).
+    const perfil = await db.learningProfile.create({ data: { learnerId, academyId: null } });
     await db.learningProfileDimension.create({
       data: {
         profileId: perfil.id,

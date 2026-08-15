@@ -65,7 +65,13 @@ export async function carregarMissaoParaSessao(
     return encontrada ? construirDoConteudo(encontrada, []) : null;
   }
 
-  const perfil = await buscarPerfilRelevante(learnerId, encontrada?.academia);
+  /*
+   * Sempre o perfil global (`academyId: null`) — é o único escopo que
+   * `update-from-attempt.ts` grava hoje (Fase 1: "por academia fica para
+   * quando houver dado que justifique"). Ler por academia aqui sem ninguém
+   * escrever por academia devolveria sempre um perfil vazio.
+   */
+  const perfil = await buscarPerfilDeAprendizagem(learnerId, null);
   const doConteudo = encontrada ? construirDoConteudo(encontrada, perfil) : null;
 
   const arvore = await buscarArvoreDaMissao(
@@ -91,24 +97,6 @@ export async function carregarMissaoParaSessao(
   if (atividadesResolvidas.length === 0) return base;
 
   return mesclarNasFases(base, atividadesResolvidas);
-}
-
-/**
- * Perfil relevante para esta missão: por academia quando o conteúdo declara
- * uma (a maioria), global quando não há — missão só de banco (Fila de
- * Revisão), ou a academia ainda não foi encontrada por algum motivo.
- */
-async function buscarPerfilRelevante(
-  learnerId: string,
-  academiaSlug: string | undefined,
-): Promise<readonly DimensaoDoPerfil[]> {
-  const academyId = academiaSlug ? await idDaAcademia(academiaSlug) : null;
-  return buscarPerfilDeAprendizagem(learnerId, academyId);
-}
-
-async function idDaAcademia(slug: string): Promise<string | null> {
-  const academia = await db.academy.findFirst({ where: { slug }, select: { id: true } });
-  return academia?.id ?? null;
 }
 
 /** Todas as missões publicadas, para o mapa. */
