@@ -80,7 +80,7 @@ export function TrueFalseRenderer({
               <span aria-hidden="true" className="text-3xl">
                 {opcao.valor ? "✅" : "❌"}
               </span>
-              <span>{opcao.rotulo}</span>
+              <span className="uppercase">{opcao.rotulo}</span>
 
               {revelada && eraCorreta ? <span className="sr-only">Resposta certa</span> : null}
               {revelada && escolhida && !eraCorreta ? (

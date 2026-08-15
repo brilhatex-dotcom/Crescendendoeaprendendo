@@ -101,7 +101,7 @@ export function FillBlankRenderer({
                 </span>
               ) : null}
 
-              <span>{opcao.texto}</span>
+              <span className="uppercase">{opcao.texto}</span>
 
               {revelada && eraCorreta ? <span className="sr-only">Resposta certa</span> : null}
               {revelada && escolhida && !eraCorreta ? (

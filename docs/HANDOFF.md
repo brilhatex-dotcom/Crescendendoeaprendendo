@@ -1228,23 +1228,35 @@ Vercel roda as funções e onde o Postgres (Neon) mora (região diferente), ou o
 suspensão por inatividade (plano gratuito). Isso não é verificável nem corrigível sem acesso aos
 painéis da Vercel/Neon — pedido ao dono para conferir se as duas regiões coincidem.
 
-### Personalização visual: perguntas em caixa alta — concluído
-Pedido do dono nesta sessão: todas as perguntas devem aparecer em letras maiúsculas.
+### Personalização visual: perguntas e respostas em caixa alta — concluído
+Pedido do dono nesta sessão, em duas partes: primeiro só a pergunta, depois esclarecido que
+respostas também — motivo dado: "algumas crianças não sabem ler caixa baixa" (maiúscula é a forma
+que se aprende a reconhecer letra primeiro, na alfabetização inicial).
 
-- Aplicado via CSS (`uppercase` do Tailwind) no título de cada atividade (`<h2>` com
-  `config.enunciado`), nos 9 renderers (`MULTIPLE_CHOICE`, `MULTI_SELECT`, `TRUE_FALSE`,
-  `FILL_BLANK`, `DRAG_MATCH`, `ORDER_SEQUENCE`, `WORD_BUILD`, `NUMBER_LINE`, `MEMORY_PAIRS`) — não
-  em `content/`, que continua com o texto em caixa normal.
+- Aplicado via CSS (`uppercase` do Tailwind), nos 9 renderers (`MULTIPLE_CHOICE`, `MULTI_SELECT`,
+  `TRUE_FALSE`, `FILL_BLANK`, `DRAG_MATCH`, `ORDER_SEQUENCE`, `WORD_BUILD`, `NUMBER_LINE`,
+  `MEMORY_PAIRS`) — não em `content/`, que continua com o texto em caixa normal:
+  - o título de cada atividade (`<h2>` com `config.enunciado`);
+  - toda opção de resposta que a criança lê para escolher: opções de `MULTIPLE_CHOICE`/
+    `MULTI_SELECT`/`FILL_BLANK`, rótulos de `TRUE_FALSE`, os dois lados de `DRAG_MATCH`, os itens
+    de `ORDER_SEQUENCE`, as cartas de `MEMORY_PAIRS` (as letras de `WORD_BUILD` já eram
+    maiúsculas desde a Fase de autoria). `NUMBER_LINE` não muda — são dígitos, caixa não se
+    aplica.
+- **O que continua em caixa normal, de propósito**: legendas descritivas de cena (ex.: "conchas"/
+  "pedrinhas" acima dos grupos de emoji em `ApoioVisualDaAtividade`), botões de ação
+  ("Responder"/"Conferir"/"Continuar"), dicas, ensino e mensagens de devolutiva — o pedido foi
+  especificamente sobre pergunta e resposta, o conteúdo que a criança precisa **ler para jogar**,
+  não sobre toda a interface.
 - **Por que CSS e não editar o texto autorado**: `text-transform` muda só a apresentação visual —
   o DOM continua com o texto original, então `enunciadoFalado` (texto-para-fala) e os `aria-label`
   de grupos/opções (usados por leitor de tela) permanecem soando normalmente, frase com maiúsculas
   e minúsculas, em vez de cada letra sendo lida como sigla. Editar os arquivos de conteúdo direto
   teria o mesmo efeito visual, mas duplicaria a fonte da verdade (o texto "real" vs. o texto
   "gritado") e quebraria com qualquer novo conteúdo autorado sem que ninguém lembrasse da regra.
-  As respostas, dicas e devolutivas continuam em caixa normal — só a pergunta em si muda.
 - **Verificado**: `npm run verify` (613 testes, sem alteração de comportamento) · build de
-  produção · verificação manual em navegador (pergunta renderizada em caixa alta, opções e botões
-  inalterados).
+  produção · verificação manual em navegador (pergunta e as três opções de resposta em texto —
+  "CONCHAS", "PEDRINHAS", "AS DUAS TÊM A MESMA QUANTIDADE" — em caixa alta; legenda descritiva da
+  cena e botão "Responder" inalterados).
 
 ---
 

@@ -109,7 +109,7 @@ export function MultiSelectRenderer({
                 </span>
               ) : null}
 
-              <span className={curtas ? "" : "flex-1"}>{opcao.texto}</span>
+              <span className={cn("uppercase", curtas ? "" : "flex-1")}>{opcao.texto}</span>
 
               {revelada && eraCorreta ? <span className="sr-only">Resposta certa</span> : null}
               {revelada && escolhida && !eraCorreta ? (
