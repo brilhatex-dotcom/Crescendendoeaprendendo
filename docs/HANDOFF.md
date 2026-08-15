@@ -693,6 +693,38 @@ fases da missão jogadas em sequência — as duas primeiras (`MULTIPLE_CHOICE`)
 selecionado corretamente, "Conferir" habilitado só após tocar numa posição, mensagem de acerto
 "Isso! O 6 fica bem entre o 5 e o 7." exibida com XP e Fagulhas creditados.
 
+### Plugin MEMORY_PAIRS (jogo da memória) — concluído
+Nono plugin. Associação e memória de curto prazo: a criança vira cartas duas a duas até encontrar
+todos os pares — o primeiro plugin cujo "jogo" propriamente dito roda inteiro no lado do cliente,
+sem nenhum estado intermediário viajando ao servidor.
+
+- `src/activities/plugins/memory-pairs/` — `schema.ts` (`pares` vira DUAS cartas idênticas no
+  tabuleiro, até 6 pares/12 cartas; diferente de `DRAG_MATCH`, onde os dois lados de um par são
+  coisas diferentes que se correspondem), `evaluate.ts` (contrato *single-shot*, igual a todo
+  plugin existente: a criança só responde depois de já ter encontrado todos os pares — `evaluate`
+  não arbitra o jogo, só mede a eficiência de quem já terminou: `numPares / tentativas`, 1 quando
+  cada comparação já foi um par, menor quanto mais tentativas além do mínimo possível;
+  probabilidade de chute é a chance de acertar uma comparação ao acaso sem memória nenhuma,
+  `1/(2n−1)`).
+- `src/activities/renderers/memory-pairs-renderer.tsx` — **sem cronômetro de virar-de-volta**: um
+  par errado fica na tela até a própria criança tocar "Continuar" — nada nesta plataforma é
+  acionado por pressão de tempo, mesmo raciocínio de `segurarSegundos` (a devolutiva só avança
+  quando a criança está pronta). O tabuleiro embaralha uma vez (`useState` com inicializador),
+  guarda tentativas e pares combinados em estado local, e só chama `aoResponder` quando o último
+  par é encontrado (`useEffect` guardado por `ref` contra envio duplicado).
+- Registrado nos dois manifestos e coberto pela política PP5.
+- **Conteúdo real**: nova quarta fase ("Ache os pares") em
+  `missao-02-a-cesta-de-palavras-da-virgula.json` (Português) — memorizar 3 pares de letras (C, F,
+  L), sobre o objetivo já existente `reconhecer-letras-do-alfabeto`.
+
+**Verificado em navegador de verdade** (Playwright): conta nova, criança nova, PIN, missão 1
+completa (incluindo a `WORD_BUILD` da Fase anterior) para desbloquear a missão 2, as quatro fases
+da missão 2 jogadas em sequência — `MULTIPLE_CHOICE`, `MULTI_SELECT`, `DRAG_MATCH` e
+`MEMORY_PAIRS` por último. Estratégia clássica de eliminação (revelar carta desconhecida, comparar
+com o que já se sabe) resolveu os 3 pares em 4 tentativas — acima do mínimo de 3, caindo em
+`PARTIAL` (eficiência 75%) — com o ensino parcial e a dica exibidos, XP e Fagulhas creditados
+mesmo sem memória perfeita.
+
 ### Motor de Aprendizagem Adaptativa — Fases 0, 1, 2, 3a e 3b concluídas
 Pedido explícito do dono, no meio da sessão: a plataforma deve descobrir progressivamente **como**
 cada criança aprende melhor (suporte visual, instrução em etapas, independência de leitura...) e
@@ -1208,12 +1240,12 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
    Ver decisão nº 5 abaixo: ao contrário de Conquistas e Mapa, este item não tem como ser
    escopado sem inventar regra de produto que não está documentada em lugar nenhum.
 6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, `MULTI_SELECT`, `TRUE_FALSE`,
-   `FILL_BLANK`, `WORD_BUILD`, `NUMBER_LINE`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin
-   DRAG_MATCH (parear)", "Plugin MULTI_SELECT (seleção múltipla)", "Plugin TRUE_FALSE (verdadeiro
-   ou falso)", "Plugin FILL_BLANK (completar a lacuna)", "Plugin WORD_BUILD (montar a palavra)" e
-   "Plugin NUMBER_LINE (reta numérica)". Faltam `GRID_PUZZLE`, `MEMORY_PAIRS`, `SPEED_TAP`,
-   `STORY_BRANCH` (resto da Fase 1) e as "Fases seguintes" de `docs/01 §3` — mesmo caminho, plugin
-   novo sem tocar no núcleo.
+   `FILL_BLANK`, `WORD_BUILD`, `NUMBER_LINE`, `MEMORY_PAIRS`)~~ — **concluído nesta sessão**. Ver
+   seção 3, "Plugin DRAG_MATCH (parear)", "Plugin MULTI_SELECT (seleção múltipla)", "Plugin
+   TRUE_FALSE (verdadeiro ou falso)", "Plugin FILL_BLANK (completar a lacuna)", "Plugin WORD_BUILD
+   (montar a palavra)", "Plugin NUMBER_LINE (reta numérica)" e "Plugin MEMORY_PAIRS (jogo da
+   memória)". Faltam `GRID_PUZZLE`, `SPEED_TAP`, `STORY_BRANCH` (resto da Fase 1) e as "Fases
+   seguintes" de `docs/01 §3` — mesmo caminho, plugin novo sem tocar no núcleo.
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 8. **Motor de Aprendizagem Adaptativa** (pedido explícito do dono, no meio desta sessão) —
@@ -1229,10 +1261,10 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e cinco atividades, oito tipos
+**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e seis atividades, nove tipos
 de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`,
-`TRUE_FALSE`, `FILL_BLANK`, `WORD_BUILD`, `NUMBER_LINE`) — duas disciplinas (Matemática com quatro
-missões, Português com três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
+`TRUE_FALSE`, `FILL_BLANK`, `WORD_BUILD`, `NUMBER_LINE`, `MEMORY_PAIRS`) — duas disciplinas
+(Matemática com quatro missões, Português com três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 
