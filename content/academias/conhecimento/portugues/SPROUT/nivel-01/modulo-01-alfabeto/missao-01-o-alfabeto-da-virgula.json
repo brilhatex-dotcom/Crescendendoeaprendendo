@@ -231,6 +231,66 @@
           }
         }
       ]
+    },
+    {
+      "slug": "fase-04-montar",
+      "nome": "Monte a palavra",
+      "atividades": [
+        {
+          "slug": "montar-palavra-gato",
+          "tipo": "WORD_BUILD",
+          "objetivo": "reconhecer-letras-do-alfabeto",
+          "dificuldade": "MEDIO",
+          "duracaoEstimadaSeg": 70,
+          "faixaMinima": "SPROUT",
+          "faixaMaxima": "SPROUT",
+          "config": {
+            "schemaVersion": 1,
+            "enunciado": "🐱 Toque nas letras para montar a palavra GATO.",
+            "enunciadoFalado": "Toque nas letras para montar a palavra gato.",
+            "palavra": "GATO",
+            "pedacos": [
+              { "id": "p_a", "texto": "A" },
+              { "id": "p_g", "texto": "G" },
+              { "id": "p_d", "texto": "D" },
+              { "id": "p_t", "texto": "T" },
+              { "id": "p_q", "texto": "Q" },
+              { "id": "p_o", "texto": "O" }
+            ],
+            "sequenciaCorreta": ["p_g", "p_a", "p_t", "p_o"],
+            "mensagemDeAcerto": "Isso! G-A-T-O.",
+            "ensino": "Fale a palavra bem devagar e escute cada som, na ordem: 'guh... a... tuh... o'.",
+            "ensinoParcial": "Você já montou boa parte da palavra! Veja qual letra está fora do lugar ou não deveria estar aí.",
+            "equivoco": "letra-fora-de-ordem",
+            "dicas": [
+              "Qual letra faz o primeiro som de 'gato'?",
+              "G-A-T-O tem 4 letras, nenhuma repetida."
+            ],
+            "limiarParcial": 0.5
+          },
+          "recompensa": {
+            "porDesfecho": {
+              "CORRECT": {
+                "xp": 20,
+                "moedas": 8
+              },
+              "PARTIAL": {
+                "xp": 12,
+                "moedas": 5
+              },
+              "INCORRECT": {
+                "xp": 5,
+                "moedas": 1
+              }
+            },
+            "multiplicadorPorDica": [
+              1,
+              0.6,
+              0.4
+            ]
+          }
+        }
+      ]
     }
   ]
 }

@@ -76,6 +76,11 @@ const RENDERERS: Readonly<Record<string, ComponentType<ActivityRendererProps>>> 
     () => import("./fill-blank-renderer").then((m) => selarRenderer(m.FillBlankRenderer)),
     { loading: () => <EsqueletoDeAtividade /> },
   ),
+
+  "word-build": dynamic<ActivityRendererProps>(
+    () => import("./word-build-renderer").then((m) => selarRenderer(m.WordBuildRenderer)),
+    { loading: () => <EsqueletoDeAtividade /> },
+  ),
 };
 
 export function obterRenderer(

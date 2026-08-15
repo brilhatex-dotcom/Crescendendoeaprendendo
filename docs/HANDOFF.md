@@ -627,6 +627,43 @@ Com este plugin, todos os cinco tipos de atividade da lista original de `docs/12
 seis, na verdade) estão implementados, exceto `WORD_BUILD` e o resto da "Fases seguintes" de
 `docs/01 §3`.
 
+### Plugin WORD_BUILD (montar a palavra) — concluído
+Sétimo plugin, ainda zero-mudança-no-núcleo. Alfabetização: a criança toca letras/sílabas num
+banco embaralhado, em ordem, até montar a palavra-alvo.
+
+- `src/activities/plugins/word-build/` — `schema.ts` (`pedacos` = banco embaralhado, `palavra` +
+  `sequenciaCorreta` = gabarito; `superRefine` recusa gabarito cuja concatenação não bate com
+  `palavra`), `evaluate.ts` (crédito parcial pela mesma maior-subsequência-crescente de
+  `ORDER_SEQUENCE`, mas filtrando iscas do cálculo de posição — tocar numa isca não corrompe a
+  leitura da resposta, só custa progresso; probabilidade de chute é escolha sem reposição de `n`
+  entre `p` pedaços, `1/(p·(p−1)·…·(p−n+1))`, menor ainda que `1/n!` quando há iscas).
+- **O que diferencia isto de `ORDER_SEQUENCE`, e por que não é o mesmo plugin com nome novo**: em
+  `ORDER_SEQUENCE` todo item apresentado faz parte do gabarito — só a ordem é avaliada. Aqui o
+  banco pode conter pedaços que **não são usados** (letras parecidas — ex.: D/Q perto de G):
+  reconhecer qual pedaço usar é parte do que se avalia, não só a ordem.
+- `src/activities/renderers/word-build-renderer.tsx` — duas áreas: a palavra montada até agora
+  (toca para desfazer) e o banco de pedaços ainda disponíveis (toca para adicionar). Mesma
+  acessibilidade de `OrderSequenceRenderer` — nada de arrastar.
+- Registrado nos dois manifestos e coberto pela política PP5 (inclusive o caso de isca no meio da
+  resposta, que também precisa vir com ensino).
+- **Conteúdo real**: nova quarta fase ("Monte a palavra") em
+  `missao-01-o-alfabeto-da-virgula.json` — montar GATO com 4 letras certas e 2 iscas (D, Q), no
+  objetivo já existente `reconhecer-letras-do-alfabeto`.
+
+**Verificado em navegador de verdade** (Playwright): conta nova, criança nova, PIN, as quatro
+fases da missão 1 jogadas em sequência — as duas primeiras (`MULTIPLE_CHOICE`), a terceira
+(`DRAG_MATCH`) e a nova `WORD_BUILD` por último. G-A-T-O montado tocando as letras certas do banco
+(as iscas D e Q permaneceram disponíveis, não usadas), "Conferir" habilitado só com pelo menos uma
+letra tocada, mensagem de acerto "Isso! G-A-T-O." exibida com XP e Fagulhas creditados.
+
+Com este plugin, 7 dos 12 tipos previstos para a "Fase 1" de `docs/01 §3`
+(`MULTIPLE_CHOICE`, `MULTI_SELECT`, `TRUE_FALSE`, `FILL_BLANK`, `WORD_BUILD`, `DRAG_MATCH`,
+`ORDER_SEQUENCE`) estão implementados. Restam `NUMBER_LINE`, `GRID_PUZZLE`, `MEMORY_PAIRS`,
+`SPEED_TAP`, `STORY_BRANCH` da própria Fase 1, e os 8 de "Fases seguintes" (`CHESS_PUZZLE`,
+`CODE_BLOCKS`, `DRAWING_CANVAS`, `AUDIO_RECORD`, `FREE_TEXT`, `PHOTO_PROOF`, `SIMULATION`,
+`BUILD_3D`), cada um destes últimos exigindo capacidade nova (IA avaliadora, câmera, canvas...) e
+não só um plugin a mais.
+
 ### Motor de Aprendizagem Adaptativa — Fases 0, 1, 2, 3a e 3b concluídas
 Pedido explícito do dono, no meio da sessão: a plataforma deve descobrir progressivamente **como**
 cada criança aprende melhor (suporte visual, instrução em etapas, independência de leitura...) e
@@ -1142,10 +1179,11 @@ feitos — banco, aplicação **e navegador**, verificado de verdade. Ver seçã
    Ver decisão nº 5 abaixo: ao contrário de Conquistas e Mapa, este item não tem como ser
    escopado sem inventar regra de produto que não está documentada em lugar nenhum.
 6. ~~Novo tipo de atividade mais lúdico (`DRAG_MATCH`, `MULTI_SELECT`, `TRUE_FALSE`,
-   `FILL_BLANK`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH (parear)",
-   "Plugin MULTI_SELECT (seleção múltipla)", "Plugin TRUE_FALSE (verdadeiro ou falso)" e "Plugin
-   FILL_BLANK (completar a lacuna)". Falta ainda `WORD_BUILD` e o resto da "Fases seguintes" de
-   `docs/01 §3` — mesmo caminho, plugin novo sem tocar no núcleo.
+   `FILL_BLANK`, `WORD_BUILD`)~~ — **concluído nesta sessão**. Ver seção 3, "Plugin DRAG_MATCH
+   (parear)", "Plugin MULTI_SELECT (seleção múltipla)", "Plugin TRUE_FALSE (verdadeiro ou falso)",
+   "Plugin FILL_BLANK (completar a lacuna)" e "Plugin WORD_BUILD (montar a palavra)". Faltam
+   `NUMBER_LINE`, `GRID_PUZZLE`, `MEMORY_PAIRS`, `SPEED_TAP`, `STORY_BRANCH` (resto da Fase 1) e as
+   "Fases seguintes" de `docs/01 §3` — mesmo caminho, plugin novo sem tocar no núcleo.
 7. ~~Fluxo de verdade de "esqueci minha senha"~~ — **concluído nesta sessão**. Ver seção 3,
    "Fluxo de verdade de 'esqueci minha senha'".
 8. **Motor de Aprendizagem Adaptativa** (pedido explícito do dono, no meio desta sessão) —
@@ -1161,10 +1199,10 @@ gravada**. Luz, Fagulhas e Fôlego continuam funcionando, porque são `inline`.
 **2. Fuso do responsável.** A Trilha de Luz conta dias em `America/Sao_Paulo`, fixo em
 `prisma-progress-repository.ts`. Não há campo de fuso em `Account`.
 
-**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e três atividades, seis tipos
+**3. O gargalo agora é conteúdo, não código.** Sete missões, vinte e quatro atividades, sete tipos
 de atividade implementados (`MULTIPLE_CHOICE`, `ORDER_SEQUENCE`, `DRAG_MATCH`, `MULTI_SELECT`,
-`TRUE_FALSE`, `FILL_BLANK`) — duas disciplinas (Matemática com quatro missões, Português com
-três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
+`TRUE_FALSE`, `FILL_BLANK`, `WORD_BUILD`) — duas disciplinas (Matemática com quatro missões,
+Português com três), ainda um único módulo em cada. Todo o resto do sistema está pronto para receber muito mais — e
 conteúdo vive em `content/`, que cresce sem deploy de código. **Esta é a decisão mais
 importante da lista**: quanto conteúdo escrever antes de abrir mais motor.
 

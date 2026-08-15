@@ -82,6 +82,17 @@ const RESPOSTAS_ERRADAS: Readonly<Record<string, (config: unknown) => unknown[]>
     const c = config as { opcoes: { id: string; correta: boolean }[] };
     return c.opcoes.filter((o) => !o.correta).map((o) => ({ opcaoId: o.id }));
   },
+  WORD_BUILD: (config) => {
+    const c = config as { sequenciaCorreta: string[]; pedacos: { id: string }[] };
+    const isca = c.pedacos.map((p) => p.id).find((id) => !c.sequenciaCorreta.includes(id));
+    return [
+      { sequencia: [...c.sequenciaCorreta].reverse() },
+      { sequencia: c.sequenciaCorreta.slice(1) },
+      // Isca no meio, quando o conteúdo declarou uma — prova que tocar num
+      // pedaço que não pertence à palavra também nunca sai sem ensino.
+      ...(isca ? [{ sequencia: [c.sequenciaCorreta[0]!, isca, ...c.sequenciaCorreta.slice(1)] }] : []),
+    ];
+  },
 };
 
 describe("PP5 · Erro sempre ensina (docs/08 §12.3)", () => {
