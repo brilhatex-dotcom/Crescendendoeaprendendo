@@ -1183,6 +1183,31 @@ critério — as seis abaixo são autoria desta sessão, não uma tradução de 
 - `.github/workflows/ci.yml` — 3 jobs: verify (+ validação de conteúdo) · integração com Postgres · build
 - `vitest.config.ts` (rápido) e `vitest.integration.config.ts` (com banco)
 
+### Correção de performance: cache do acervo de conteúdo em produção — concluído
+Relato do dono nesta sessão: "o site está lento pra trocar de página e pra responder pergunta".
+Investigado e corrigido: `content/loader.ts` (`carregarAcervo`) percorria e revalidava **todo**
+`content/` do zero a cada requisição — dezenas de arquivos JSON, uma passada de Zod cada, sem
+nenhum cache. Toda navegação para o mapa ou para uma missão pagava esse custo inteiro, e ele só
+cresce conforme mais conteúdo é autorado (26 atividades hoje, crescendo). Este era o motivo mais
+provável da lentidão — anterior a esta sessão, mas mais perceptível porque o acervo cresceu bastante
+nela.
+
+- **Correção**: cache em memória do resultado padrão de `carregarAcervo()`, ativo só quando
+  `NODE_ENV === "production"` e só para a raiz padrão (`content/`) — em desenvolvimento, quem
+  autora conteúdo continua vendo a edição de um JSON refletir na próxima requisição, sem
+  reiniciar o servidor; testes (que sempre passam sua própria `raiz`, ou rodam com
+  `NODE_ENV=test`) nunca batem no cache. Se a carga falhar, a próxima requisição tenta de novo do
+  zero, em vez do site inteiro ficar preso a uma rejeição em cache até o próximo deploy.
+- **Verificado**: medição direta (`NODE_ENV=production`) mostrou a primeira chamada em ~29ms e as
+  seguintes em ~0ms no mesmo processo; com `NODE_ENV=development` o comportamento de recarga a
+  cada chamada foi confirmado inalterado (~15-22ms toda vez, de propósito).
+- **Limite honesto**: o cache é por processo/instância — numa função serverless fria (primeiro
+  request depois de um tempo sem tráfego), o custo ainda aparece uma vez; o ganho é para
+  navegações seguidas na mesma instância "quente", que é exatamente o padrão de uma criança
+  navegando de missão em missão. Se a lentidão persistir depois deste deploy, o próximo suspeito é
+  cold start de função serverless ou do banco Postgres (Neon) suspendendo por inatividade — nenhum
+  dos dois é corrigível só no código da aplicação.
+
 ---
 
 ## 4. O que NÃO existe ainda

@@ -110,9 +110,43 @@ export interface ResultadoDoCarregamento {
 
 const RAIZ_PADRAO = join(process.cwd(), "content");
 
+/**
+ * Cache em memória do acervo padrão, só em produção.
+ *
+ * `content/` é estático dentro de um deploy — muda só via `content:import` +
+ * novo deploy, nunca em runtime. Sem este cache, toda navegação (mapa,
+ * missão) percorria e revalidava TODO `content/` do zero: dezenas de
+ * arquivos, uma passada de Zod cada, a cada requisição — o acervo cresce, a
+ * navegação fica mais lenta, sem nenhum ganho (o resultado nunca muda entre
+ * duas chamadas no mesmo processo).
+ *
+ * Gated por `NODE_ENV === "production"` e só para a raiz padrão: em
+ * desenvolvimento, quem autora conteúdo espera ver a edição de um JSON
+ * refletir na próxima requisição, sem reiniciar o servidor — e testes, que
+ * sempre passam sua própria `raiz` ou rodam com `NODE_ENV=test`, nunca
+ * batem no cache.
+ */
+let acervoPadraoEmCache: Promise<ResultadoDoCarregamento> | null = null;
+
 export async function carregarAcervo(
   raiz: string = RAIZ_PADRAO,
 ): Promise<ResultadoDoCarregamento> {
+  if (raiz === RAIZ_PADRAO && process.env.NODE_ENV === "production") {
+    if (!acervoPadraoEmCache) {
+      // Se a carga falhar, a próxima requisição tenta de novo do zero — em
+      // vez de todo o site ficar preso a uma rejeição em cache até o
+      // próximo deploy.
+      acervoPadraoEmCache = carregarAcervoSemCache(raiz).catch((erro: unknown) => {
+        acervoPadraoEmCache = null;
+        throw erro;
+      });
+    }
+    return acervoPadraoEmCache;
+  }
+  return carregarAcervoSemCache(raiz);
+}
+
+async function carregarAcervoSemCache(raiz: string): Promise<ResultadoDoCarregamento> {
   const problemas: ProblemaDeConteudo[] = [];
 
   const curriculos: DisciplinaCurricular[] = [];
