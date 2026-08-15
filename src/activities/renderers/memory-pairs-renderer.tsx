@@ -97,7 +97,7 @@ export function MemoryPairsRenderer({
               aria-label={virada ? `Carta: ${carta.valor}` : "Carta virada para baixo"}
               className={cn(
                 "flex aspect-square min-h-[var(--touch-target-play)] items-center justify-center",
-                "rounded-[var(--radius-lg)] border-2 text-3xl font-bold",
+                "rounded-[var(--radius-lg)] border-2 text-3xl font-bold uppercase",
                 "transition-colors duration-[var(--duration-quick)] disabled:cursor-not-allowed",
                 combinada
                   ? "border-[var(--color-folha)] bg-[var(--color-folha)]/15"

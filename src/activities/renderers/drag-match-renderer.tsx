@@ -88,7 +88,7 @@ export function DragMatchRenderer({
                   onClick={() => tocarEsquerda(par.id)}
                   aria-pressed={par.id === selecionada}
                   className={cn(
-                    "flex min-h-[var(--touch-target-play)] w-full items-center justify-center rounded-[var(--radius-lg)] border-2 px-3 py-3 text-center text-lg",
+                    "flex min-h-[var(--touch-target-play)] w-full items-center justify-center rounded-[var(--radius-lg)] border-2 px-3 py-3 text-center text-lg uppercase",
                     revelado
                       ? correto
                         ? "border-[var(--color-folha)] bg-[var(--color-play-raised)]"
@@ -122,7 +122,7 @@ export function DragMatchRenderer({
                   disabled={bloqueado}
                   onClick={() => tocarDireita(id)}
                   className={cn(
-                    "flex min-h-[var(--touch-target-play)] w-full items-center justify-center rounded-[var(--radius-lg)] border-2 px-3 py-3 text-center text-lg",
+                    "flex min-h-[var(--touch-target-play)] w-full items-center justify-center rounded-[var(--radius-lg)] border-2 px-3 py-3 text-center text-lg uppercase",
                     revelado
                       ? correto
                         ? "border-[var(--color-folha)] bg-[var(--color-play-raised)]"

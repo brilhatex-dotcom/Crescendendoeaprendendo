@@ -75,7 +75,7 @@ export function OrderSequenceRenderer({
                 {indice + 1}º
               </span>
 
-              <span className="flex-1 text-lg">{item.texto}</span>
+              <span className="flex-1 text-lg uppercase">{item.texto}</span>
 
               <div className="flex gap-1">
                 <BotaoDeMover
