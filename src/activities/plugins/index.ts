@@ -6,6 +6,7 @@ import { multipleChoicePlugin } from "./multiple-choice";
 import { multiSelectPlugin } from "./multi-select";
 import { orderSequencePlugin } from "./order-sequence";
 import { trueFalsePlugin } from "./true-false";
+import { wordBuildPlugin } from "./word-build";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -34,6 +35,7 @@ export const PLUGINS_REGISTRADOS: readonly SealedPlugin[] = [
   selar(multiSelectPlugin),
   selar(trueFalsePlugin),
   selar(fillBlankPlugin),
+  selar(wordBuildPlugin),
 ];
 
 export { multipleChoicePlugin } from "./multiple-choice";
@@ -42,3 +44,4 @@ export { dragMatchPlugin } from "./drag-match";
 export { multiSelectPlugin } from "./multi-select";
 export { trueFalsePlugin } from "./true-false";
 export { fillBlankPlugin } from "./fill-blank";
+export { wordBuildPlugin } from "./word-build";
