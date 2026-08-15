@@ -32,6 +32,13 @@ export interface AtividadeNaSessao {
   readonly config: unknown;
   readonly dificuldade: DifficultyLabel;
   readonly recompensa?: RegraDeRecompensa | undefined;
+  /**
+   * Tag da apresentação servida (`Activity.presentationVariants`), ou `null`
+   * para a apresentação padrão. Escolhida por `escolherApresentacao`
+   * (Motor de Aprendizagem Adaptativa, Fase 3) antes da sessão existir — o
+   * motor só recebe o `config` já decidido, nunca sabe que houve escolha.
+   */
+  readonly presentationTag: string | null;
 }
 
 export interface FaseNaSessao {

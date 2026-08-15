@@ -40,6 +40,8 @@ export interface SubmeterTentativaEntrada {
   readonly resposta: unknown;
   readonly dicasUsadas: number;
   readonly duracaoMs: number;
+  /** Tag da apresentação servida (Motor de Aprendizagem Adaptativa, Fase 3). */
+  readonly presentationTag: string | null;
   readonly questRunId: string | null;
   readonly idempotencyKey: string;
   readonly avaliadaNoCliente: boolean;
@@ -123,6 +125,7 @@ export function criarSubmeterTentativa(deps: AssessmentDeps): SubmeterTentativa 
         resposta: entrada.resposta,
         dicasUsadas: entrada.dicasUsadas,
         duracaoMs: entrada.duracaoMs,
+        presentationTag: entrada.presentationTag,
         questRunId: entrada.questRunId,
         idempotencyKey: entrada.idempotencyKey,
         avaliadaNoCliente: entrada.avaliadaNoCliente,

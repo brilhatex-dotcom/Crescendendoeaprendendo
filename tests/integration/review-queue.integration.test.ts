@@ -339,6 +339,7 @@ async function responder(questRunId: string, activityId: string, chave: string) 
     resposta: { escolha: 1 },
     dicasUsadas: 0,
     duracaoMs: 3000,
+    presentationTag: null,
     questRunId,
     idempotencyKey: chave,
     avaliadaNoCliente: true,

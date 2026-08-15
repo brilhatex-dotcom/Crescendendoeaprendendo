@@ -202,6 +202,7 @@ async function criarTentativa(
         scoreRatio: new Prisma.Decimal(plano.tentativa.scoreRatio.toFixed(3)),
         hintsUsed: plano.tentativa.dicasUsadas,
         durationMs: plano.tentativa.duracaoMs,
+        presentationTag: plano.tentativa.presentationTag,
         misconception: plano.tentativa.equivoco,
         idempotencyKey: plano.tentativa.idempotencyKey,
         clientEvaluated: plano.tentativa.avaliadaNoCliente,

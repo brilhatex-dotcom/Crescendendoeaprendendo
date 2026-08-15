@@ -1,9 +1,34 @@
+import { z } from "zod";
+
+import { varianteDeApresentacaoSchema, type AtividadeAutorada } from "@/content/schema";
+import {
+  criarBuscarPerfilDeAprendizagem,
+  escolherApresentacao,
+  type ApresentacaoCandidata,
+  type CaracteristicasDaAtividade,
+  type DimensaoDoPerfil,
+} from "@/modules/learning-profile";
+import { criarRepositorioPrismaDePerfilDeAprendizagem } from "@/modules/learning-profile/infrastructure/prisma-learning-profile-repository";
 import { refDeAtividade, refDeMissao } from "@/modules/content";
 import { carregarAcervo, type MissaoCarregada } from "@/content/loader";
+import { systemClock } from "@/shared/kernel";
 import { db } from "@/server/db";
 
 import { DIFICULDADE_INICIAL } from "./difficulty";
 import type { AtividadeNaSessao, FaseNaSessao, MissaoNaSessao } from "./session";
+
+/**
+ * Motor de Aprendizagem Adaptativa (Fase 3) — montado uma vez, aqui e não em
+ * `src/modules/learning-profile`: este é o único arquivo de `src/activities`
+ * liberado a importar `src/modules`/Prisma (`.dependency-cruiser.cjs`, regra
+ * `motor-e-puro`), e o único ponto por onde toda atividade — autorada ou de
+ * slot — passa antes da tela. Ver `escolherApresentacaoDoConteudo` e
+ * `escolherApresentacaoDoBanco` abaixo.
+ */
+const buscarPerfilDeAprendizagem = criarBuscarPerfilDeAprendizagem({
+  repositorio: criarRepositorioPrismaDePerfilDeAprendizagem(db),
+  clock: systemClock,
+});
 
 /**
  * Ponte entre o acervo (arquivo e banco) e a sessão de missão.
@@ -33,9 +58,15 @@ export async function carregarMissaoParaSessao(
 ): Promise<MissaoNaSessao | null> {
   const { acervo } = await carregarAcervo();
   const encontrada = acervo.missoes.find((m) => m.missao.slug === slug);
-  const doConteudo = encontrada ? construirDoConteudo(encontrada) : null;
 
-  if (!learnerId) return doConteudo;
+  // Sem criança, não há perfil a consultar — e nenhuma escolha a fazer além
+  // da apresentação padrão. Preserva o caminho que não toca o banco.
+  if (!learnerId) {
+    return encontrada ? construirDoConteudo(encontrada, []) : null;
+  }
+
+  const perfil = await buscarPerfilRelevante(learnerId, encontrada?.academia);
+  const doConteudo = encontrada ? construirDoConteudo(encontrada, perfil) : null;
 
   const arvore = await buscarArvoreDaMissao(
     doConteudo ? { ref: doConteudo.ref } : { slug },
@@ -56,10 +87,28 @@ export async function carregarMissaoParaSessao(
   if (!base || slotsPendentes.length === 0) return base;
 
   const resolvidos = await buscarSlotsResolvidos(arvore.id, learnerId);
-  const atividadesResolvidas = await atividadesDosSlots(slotsPendentes, resolvidos);
+  const atividadesResolvidas = await atividadesDosSlots(slotsPendentes, resolvidos, perfil);
   if (atividadesResolvidas.length === 0) return base;
 
   return mesclarNasFases(base, atividadesResolvidas);
+}
+
+/**
+ * Perfil relevante para esta missão: por academia quando o conteúdo declara
+ * uma (a maioria), global quando não há — missão só de banco (Fila de
+ * Revisão), ou a academia ainda não foi encontrada por algum motivo.
+ */
+async function buscarPerfilRelevante(
+  learnerId: string,
+  academiaSlug: string | undefined,
+): Promise<readonly DimensaoDoPerfil[]> {
+  const academyId = academiaSlug ? await idDaAcademia(academiaSlug) : null;
+  return buscarPerfilDeAprendizagem(learnerId, academyId);
+}
+
+async function idDaAcademia(slug: string): Promise<string | null> {
+  const academia = await db.academy.findFirst({ where: { slug }, select: { id: true } });
+  return academia?.id ?? null;
 }
 
 /** Todas as missões publicadas, para o mapa. */
@@ -77,7 +126,10 @@ export async function listarMissoes(): Promise<
 
 // ── Conteúdo em disco → sessão ────────────────────────────────────────────
 
-function construirDoConteudo(encontrada: MissaoCarregada): MissaoNaSessao {
+function construirDoConteudo(
+  encontrada: MissaoCarregada,
+  perfil: readonly DimensaoDoPerfil[],
+): MissaoNaSessao {
   const { missao } = encontrada;
 
   return {
@@ -90,20 +142,64 @@ function construirDoConteudo(encontrada: MissaoCarregada): MissaoNaSessao {
     fases: missao.fases.map((fase) => ({
       slug: fase.slug,
       nome: fase.nome,
-      atividades: fase.atividades.map((atividade) => ({
-        slug: atividade.slug,
-        // A mesma função que o importador usa para gravar `Activity.sourceRef`.
-        // Duas implementações da regra de nomeação seria o jeito garantido de
-        // um dia a busca não encontrar a linha que ela própria criou.
-        ref: refDeAtividade(encontrada, fase.slug, atividade.slug),
-        tipo: atividade.tipo,
-        objetivo: atividade.objetivo,
-        config: atividade.config,
-        dificuldade: atividade.dificuldade,
-        recompensa: atividade.recompensa,
-      })),
+      atividades: fase.atividades.map((atividade) => {
+        const { config, presentationTag } = escolherApresentacaoDoConteudo(atividade, perfil);
+        return {
+          slug: atividade.slug,
+          // A mesma função que o importador usa para gravar `Activity.sourceRef`.
+          // Duas implementações da regra de nomeação seria o jeito garantido de
+          // um dia a busca não encontrar a linha que ela própria criou.
+          ref: refDeAtividade(encontrada, fase.slug, atividade.slug),
+          tipo: atividade.tipo,
+          objetivo: atividade.objetivo,
+          config,
+          dificuldade: atividade.dificuldade,
+          recompensa: atividade.recompensa,
+          presentationTag,
+        };
+      }),
     })),
   };
+}
+
+/**
+ * Normaliza as características declaradas em `content/` (português, ver
+ * `content/schema/index.ts`) para o formato que o Learning Profile entende
+ * (`CaracteristicasDaAtividade`, mesmos nomes das colunas de `Activity`).
+ * Só a FORMA muda de nome aqui — nenhum significado é reinterpretado.
+ */
+function normalizarCaracteristicas(
+  caracteristicas:
+    | { readonly requerLeitura?: boolean; readonly suporteVisual?: string; readonly quantidadeDeEtapas?: number }
+    | undefined,
+): CaracteristicasDaAtividade {
+  return {
+    requiresReading: caracteristicas?.requerLeitura ?? null,
+    visualSupportLevel: caracteristicas?.suporteVisual ?? null,
+    stepCount: caracteristicas?.quantidadeDeEtapas ?? null,
+  };
+}
+
+/** Escolhe a apresentação de uma atividade autorada (conteúdo em disco). */
+function escolherApresentacaoDoConteudo(
+  atividade: AtividadeAutorada,
+  perfil: readonly DimensaoDoPerfil[],
+): { readonly config: unknown; readonly presentationTag: string | null } {
+  const padrao: ApresentacaoCandidata<unknown> = {
+    tag: null,
+    caracteristicas: normalizarCaracteristicas(atividade.caracteristicas),
+    payload: atividade.config,
+  };
+  const variantes: ApresentacaoCandidata<unknown>[] = (atividade.variantesDeApresentacao ?? []).map(
+    (variante) => ({
+      tag: variante.tag,
+      caracteristicas: normalizarCaracteristicas(variante.caracteristicas),
+      payload: variante.config,
+    }),
+  );
+
+  const escolhida = escolherApresentacao(perfil, padrao, variantes);
+  return { config: escolhida.payload, presentationTag: escolhida.tag };
 }
 
 // ── Banco → sessão (slot e missão de sistema) ─────────────────────────────
@@ -199,6 +295,7 @@ interface SlotNaArvore {
 async function atividadesDosSlots(
   slotsPendentes: readonly SlotNaArvore[],
   resolvidos: ReadonlyMap<string, string>,
+  perfil: readonly DimensaoDoPerfil[],
 ): Promise<readonly { readonly fase: number; readonly atividade: AtividadeNaSessao }[]> {
   const ids = slotsPendentes
     .map((slot) => resolvidos.get(`${slot.stageId}:${slot.order}`))
@@ -207,7 +304,18 @@ async function atividadesDosSlots(
 
   const atividades = await db.activity.findMany({
     where: { id: { in: ids } },
-    select: { id: true, objectiveId: true, type: true, config: true, difficulty: true, sourceRef: true },
+    select: {
+      id: true,
+      objectiveId: true,
+      type: true,
+      config: true,
+      difficulty: true,
+      sourceRef: true,
+      requiresReading: true,
+      visualSupportLevel: true,
+      stepCount: true,
+      presentationVariants: true,
+    },
   });
   const porId = new Map(atividades.map((atividade) => [atividade.id, atividade]));
 
@@ -225,6 +333,8 @@ async function atividadesDosSlots(
      */
     if (!linha || !linha.sourceRef) continue;
 
+    const { config, presentationTag } = escolherApresentacaoDoBanco(linha, perfil);
+
     resultado.push({
       fase: slot.fase,
       atividade: {
@@ -237,16 +347,59 @@ async function atividadesDosSlots(
         // `AtividadeNaSessao.objetivo` não é lido em lugar nenhum hoje (é
         // metadado) — o id real é mais honesto que inventar um slug.
         objetivo: linha.objectiveId,
-        config: linha.config,
+        config,
         dificuldade: rotuloDeDificuldade(Number(linha.difficulty)),
         // Sem regra de recompensa: nenhuma atividade do banco carrega uma
         // (é conceito só de autoria). A criança ainda ganha domínio e o
         // prêmio de missão ao concluir — só não ganha XP por esta resposta.
         recompensa: undefined,
+        presentationTag,
       },
     });
   }
   return resultado;
+}
+
+const variantesDeApresentacaoDoBancoSchema = z.array(varianteDeApresentacaoSchema).max(5);
+
+/**
+ * Escolhe a apresentação de uma atividade que só existe no banco (Fila de
+ * Revisão) — as características do padrão já vêm nas colunas de `Activity`,
+ * sem tradução; as variantes são JSON cru e precisam da mesma validação que
+ * `content/loader.ts` já aplica na importação (aqui, defensiva: um valor que
+ * não bate mais com o schema vira "sem variantes", nunca um erro na tela).
+ */
+function escolherApresentacaoDoBanco(
+  linha: {
+    readonly config: unknown;
+    readonly requiresReading: boolean | null;
+    readonly visualSupportLevel: string | null;
+    readonly stepCount: number | null;
+    readonly presentationVariants: unknown;
+  },
+  perfil: readonly DimensaoDoPerfil[],
+): { readonly config: unknown; readonly presentationTag: string | null } {
+  const padrao: ApresentacaoCandidata<unknown> = {
+    tag: null,
+    caracteristicas: {
+      requiresReading: linha.requiresReading,
+      visualSupportLevel: linha.visualSupportLevel,
+      stepCount: linha.stepCount,
+    },
+    payload: linha.config,
+  };
+
+  const brutas = variantesDeApresentacaoDoBancoSchema.safeParse(linha.presentationVariants);
+  const variantes: ApresentacaoCandidata<unknown>[] = brutas.success
+    ? brutas.data.map((variante) => ({
+        tag: variante.tag,
+        caracteristicas: normalizarCaracteristicas(variante.caracteristicas),
+        payload: variante.config,
+      }))
+    : [];
+
+  const escolhida = escolherApresentacao(perfil, padrao, variantes);
+  return { config: escolhida.payload, presentationTag: escolhida.tag };
 }
 
 /**
