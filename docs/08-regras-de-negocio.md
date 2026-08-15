@@ -165,3 +165,55 @@ geração de IA, relatórios. Nível de isolamento `READ COMMITTED` com atualiza
 5. Nenhuma consulta de ranking global por XP absoluto entre crianças de famílias diferentes.
 6. Nenhum campo de texto livre da criança visível para outra criança.
 7. Nenhum evento de telemetria contendo `learnerId` real (só `pseudonymId`).
+
+## 13. Motor de Aprendizagem Adaptativa (ADR 0005)
+
+A plataforma observa **como** cada criança aprende melhor e adapta a apresentação — nunca o
+conteúdo pedagógico, nunca a dificuldade por este mecanismo (isso já é `SkillMastery`/Elo, §2).
+**Regra absoluta, sem exceção: em código, copy, saída de IA ou nome de campo, o sistema nunca
+diagnostica, rotula ou implica condição médica ou psicológica alguma.** Toda chave de dimensão
+descreve um eixo de apresentação (`suporteVisual`, `instrucaoPassoAPasso`,
+`independenciaDeLeitura`...), nunca uma condição — verificado por scan automatizado de termos
+proibidos em `tests/policy/`, aplicado tanto ao domínio (`dimension-rules.test.ts`,
+`accessibility-recommendation.test.ts`) quanto ao texto que chega de verdade na tela do
+responsável (`personalizacao-da-aprendizagem.test.ts`).
+
+**13.1 — Como uma dimensão se forma.** Cada `Attempt` avaliado (`assessment.attempt_evaluated`,
+outbox) atualiza a dimensão relevante da atividade respondida — se a atividade não declarou
+nenhuma característica de apresentação (`Activity.requiresReading`/`visualSupportLevel`/
+`stepCount`), o evento não ensina nada ao perfil. `confiança = n / (n + 8)`: com 37 observações,
+~82%. Idempotente **por recomputação**, não por acumulação — o outbox é *at-least-once*, então a
+dimensão é sempre recalculada a partir de todas as tentativas já persistidas, nunca "+1 por
+evento" (mesmo raciocínio de conquistas, §12 nesta doc não se aplica mas o padrão é o mesmo de
+`achievement`).
+
+**13.2 — Limiar único de evidência para agir.** `confiança ≥ 0.5` (n ≥ 8, o mesmo K da suavização)
+**e** `valor ≥ 0.6` (desempenho médio "melhor que só parcial"). Esta é a MESMA política para as
+duas decisões que o sistema toma sozinho — nunca podem divergir sobre o que conta como evidência
+suficiente:
+- **Escolher uma apresentação para esta tentativa** (§13.3) — reversível, silencioso, específico à
+  atividade.
+- **Sugerir uma configuração persistente** (§13.4) — visível, pedida, e só o responsável decide.
+
+**13.3 — Seleção de apresentação (automática, sem confirmação).** Quando uma atividade declara
+`variantesDeApresentacao` (até 5, mesma pergunta pedagógica, formas diferentes — texto puro,
+texto+imagem, passo a passo...), o motor escolhe a de maior `valor × confiança` entre as
+qualificadas pelo limiar de §13.2; sem evidência suficiente, ou sem variante que qualifique, a
+apresentação padrão sempre vence. Isto é **efeito visual e de instrução, não desbloqueio nem
+avaliação** — a mesma pergunta, a mesma resposta certa, o mesmo XP; só a forma muda. Não pede
+confirmação do responsável porque é reversível a cada tentativa e não persiste nada — a próxima
+atividade pode escolher diferente se o perfil mudar.
+
+**13.4 — Sugestão de configuração (nunca aplicada sem o responsável).** Quando uma dimensão cruza
+o limiar de §13.2 e a configuração manual correspondente ainda não está ligada, o sistema cria uma
+`Recommendation` (`kind = "ACCESSIBILITY_SUGGESTION"`) com um motivo em linguagem neutra —
+"padrão observado", nunca causa ou diagnóstico. O responsável vê a sugestão na tela
+"Personalização da aprendizagem" e decide: **ativar**, **recusar**, ou ignorar (a sugestão
+continua disponível). Nada é escrito em `LearnerSettings` sem essa decisão explícita — o sistema
+nunca liga uma configuração sozinho, e uma recomendação pendente nunca se duplica para a mesma
+dimensão.
+
+**13.5 — Controle manual sempre disponível.** Toda dimensão com regra de sugestão tem uma
+configuração manual correspondente na mesma tela, ligável/desligável a qualquer momento —
+inclusive para desfazer o que uma sugestão ativou. Igual a §10 (controles parentais): a mudança é
+do responsável, registrada em `AuditLog`, nunca silenciosa.
