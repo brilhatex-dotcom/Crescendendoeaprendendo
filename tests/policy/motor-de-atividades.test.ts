@@ -82,6 +82,12 @@ const RESPOSTAS_ERRADAS: Readonly<Record<string, (config: unknown) => unknown[]>
     const c = config as { opcoes: { id: string; correta: boolean }[] };
     return c.opcoes.filter((o) => !o.correta).map((o) => ({ opcaoId: o.id }));
   },
+  NUMBER_LINE: (config) => {
+    const c = config as { minimo: number; maximo: number; valorCorreto: number };
+    const extremo = c.valorCorreto === c.minimo ? c.maximo : c.minimo;
+    const vizinho = c.valorCorreto + (c.valorCorreto < c.maximo ? 1 : -1);
+    return [{ valor: extremo }, { valor: vizinho }];
+  },
   WORD_BUILD: (config) => {
     const c = config as { sequenciaCorreta: string[]; pedacos: { id: string }[] };
     const isca = c.pedacos.map((p) => p.id).find((id) => !c.sequenciaCorreta.includes(id));

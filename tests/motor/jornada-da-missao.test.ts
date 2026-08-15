@@ -49,6 +49,10 @@ function respostaCorreta(tipo: string, config: unknown): unknown {
     const c = config as { ordemCorreta: string[] };
     return { ordem: [...c.ordemCorreta] };
   }
+  if (tipo === "NUMBER_LINE") {
+    const c = config as { valorCorreto: number };
+    return { valor: c.valorCorreto };
+  }
   throw new Error(`Teste não sabe responder ao tipo ${tipo}. Adicione o gabarito aqui.`);
 }
 
@@ -62,7 +66,7 @@ describe("o acervo alimenta o motor", () => {
     const missao = await carregarMissaoParaSessao(SLUG);
     expect(missao).not.toBeNull();
     expect(missao?.fases.length).toBeGreaterThanOrEqual(2);
-    expect(totalDeAtividades(missao!)).toBe(3);
+    expect(totalDeAtividades(missao!)).toBe(4);
   });
 
   it("devolve null para missão inexistente, sem explodir", async () => {
@@ -108,11 +112,12 @@ describe("jogada completa, do começo ao fim", () => {
       posicao = proximaPosicao(missao, posicao);
     }
 
-    // As três atividades, atravessando a fronteira entre as duas fases.
+    // As quatro atividades, atravessando a fronteira entre as três fases.
     expect(visitadas).toEqual([
       "contar-conchas-4",
       "comparar-conchas-e-pedras",
       "ordenar-4-numeros",
+      "reta-numerica-ate-10",
     ]);
     expect(xpTotal).toBeGreaterThan(0);
   });
@@ -129,7 +134,7 @@ describe("jogada completa, do começo ao fim", () => {
       posicao = proximaPosicao(missao, posicao);
     }
 
-    expect(indices).toEqual([1, 2, 3]);
+    expect(indices).toEqual([1, 2, 3, 4]);
   });
 });
 
